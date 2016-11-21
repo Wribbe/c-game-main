@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <stdio.h>
 #include "portaudio.h"
 
 #define unused(x) (void)x
@@ -44,5 +46,23 @@ static int patestCallback(const void * inputBuffer,
 }
 
 int main(void) {
+
+    // Initialize PortAudio.
+    int err = Pa_Initialize();
+    if (err != paNoError) {
+        fprintf(stderr, "[!] PortAudio error: %s\n", Pa_GetErrorText(err));
+        return 1;
+    }
+
+    printf("PortAudio initialized without errors.\n");
+
+    err = Pa_Terminate();
+    if (err != paNoError) {
+        fprintf(stderr, "[!] PortAudio error: %s\n", Pa_GetErrorText(err));
+        return 1;
+    }
+
+    printf("PortAudio terminated without errors.\n");
+
     return 0;
 }

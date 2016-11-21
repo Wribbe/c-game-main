@@ -5,10 +5,11 @@
 
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
-
 #include "linmath.h"
 
-int * keymap;
+#include "events/events.h"
+
+
 
 void init(void)
 {
@@ -19,17 +20,6 @@ void init(void)
 void display(void)
 {
     glClear(GL_COLOR_BUFFER_BIT);
-}
-
-void callback_key(
-                  GLFWwindow * window,
-                  int key,
-                  int scancode,
-                  int action,
-                  int mods
-                 )
-{
-    keymap[key] += 1;
 }
 
 

@@ -52,6 +52,9 @@ $(dir_obj)/glad.o: glad.c
 # Boing and the remade example needs glad.o object linked.
 $(dir_exec)/boing $(dir_exec)/redone_boing : $(dir_obj)/glad.o
 
+# Link events library for redo_boing.
+$(dir_exec)/redone_boing : $(dir_obj)/events.o
+
 $(dir_obj)/%.o : %.c | mkdirs
 	$(CC) -c $(FLAGS) $^ -o $@
 

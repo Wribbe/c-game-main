@@ -31,13 +31,13 @@
  */
 
 /*
- * The text above constitutes the entire PortAudio license; however, 
+ * The text above constitutes the entire PortAudio license; however,
  * the PortAudio community also makes the following non-binding requests:
  *
  * Any person wishing to distribute modifications to the Software is
  * requested to send the modifications to the original developer so that
- * they can be incorporated into the canonical version. It is also 
- * requested that these non-binding requests be included along with the 
+ * they can be incorporated into the canonical version. It is also
+ * requested that these non-binding requests be included along with the
  * license above.
  */
 
@@ -69,6 +69,8 @@ static int patestCallback( const void *inputBuffer, void *outputBuffer,
     float *out = (float*)outputBuffer;
     unsigned int i;
     (void) inputBuffer; /* Prevent unused variable warning. */
+    (void) timeInfo;
+    (void) statusFlags;
 
     for( i=0; i<framesPerBuffer; i++ )
     {
@@ -92,14 +94,14 @@ int main(void)
 {
     PaStream *stream;
     PaError err;
-    
+
     printf("PortAudio Test: output sawtooth wave.\n");
     /* Initialize our data for use by callback. */
     data.left_phase = data.right_phase = 0.0;
     /* Initialize library before making any other calls. */
     err = Pa_Initialize();
     if( err != paNoError ) goto error;
-    
+
     /* Open an audio I/O stream. */
     err = Pa_OpenDefaultStream( &stream,
                                 0,          /* no input channels */

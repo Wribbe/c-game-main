@@ -1,7 +1,8 @@
 # Gather data.
-c_files := $(subst ./,, $(shell find . -name "*.c"))
+c_files := $(subst ./,,$(shell find -name "*.c" -not -path "./dependencies/*"))
 c_folders := $(dir $(c_files))
-includes := $(wildcard include/*)
+includes := include dependencies
+
 
 # Construct all filenames.
 c_names := $(notdir $(c_files))
@@ -24,7 +25,7 @@ conditional_mkdir = \
 vpath %.o $(dir_obj)
 
 # Look for *.c files in $(c_folders).
-vpath %.c $(c_folders)
+vpath %.c $(c_folders) dependencies
 
 # Construct artifact paths.
 executables := $(foreach filename,$(exec_names),$(dir_exec)/$(filename))
@@ -34,7 +35,7 @@ error_flags := -Wall -Wextra -pedantic -Wwrite-strings
 compilation_options := -std=gnu11 -g
 general_libraries := -lm -lpthread
 audio_flags := -lportaudio -lasound -ljack
-graphics_flags := -lGLEW -lglfw3 -lGL -lX11 -lXrandr -lXxf86vm \
+graphics_flags := -lGLEW -lglfw3 -lGL -lX11 -lXrandr -lXi -lXxf86vm \
 				  -ldl -lXinerama -lXcursor -lrt
 FLAGS = $(include_flags) $(compilation_options) $(graphics_flags) \
 		$(audio_flags) $(error_flags) $(general_libraries) $(CFLAGS)
@@ -48,11 +49,14 @@ clean:
 	rm -rf $(dir_obj)
 	rm -rf $(dir_exec)
 
+$(dir_exec)/boing: glad.o boing.o
+	$(CC) $(addprefix $(dir_obj)/,$^) $(FLAGS) -o $@
+
 %.o : %.c | mkdirs
 	$(CC) -c $(FLAGS) $< -o $(dir_obj)/$@
 
 $(dir_exec)/% : %.o
-	$(CC) $(FLAGS) $(dir_obj)/$< -o $@
+	$(CC) $(dir_obj)/$< $(FLAGS) -o $@
 
 mkdirs:
 	$(call conditional_mkdir,$(dir_exec))

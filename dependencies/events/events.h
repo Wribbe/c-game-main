@@ -1,3 +1,4 @@
+#define NUM_KEYS 512
 int * keymap;
 
 void callback_key(

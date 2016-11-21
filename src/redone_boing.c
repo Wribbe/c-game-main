@@ -9,8 +9,6 @@
 
 #include "events/events.h"
 
-
-
 void init(void)
 {
     // Set background color.
@@ -38,10 +36,6 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    // Construct local keymap.
-    int local_keymap[512] = {0};
-    keymap = local_keymap;
-
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
 
@@ -50,6 +44,7 @@ int main(void)
 
     // Initialize values.
     init();
+
 
     while(!glfwWindowShouldClose(window)) {
 

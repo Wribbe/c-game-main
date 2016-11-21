@@ -1,10 +1,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "portaudio.h"
+#include <math.h>
 
 #define unused(x) (void)x
+#define SAMPLE_RATE 44100
+#define TABLE_SIZE 200
+
+#ifndef M_PI
+#define M_PI 3.14159265
+#endif
 
 typedef struct  {
+    float sine[TABLE_SIZE];
     float left_phase;
     float right_phase;
 } paTestData;
@@ -25,6 +33,8 @@ static int patestCallback(const void * inputBuffer,
     float * out = (float *)outputBuffer;
     unsigned int i = 0;
     unused(inputBuffer); // Prevent unused warning.
+    unused(statusFlags);
+    unused(timeInfo);
 
     for (i=0; i<framesPerBuffer; i++) {
         *out++ = data->left_phase;      // left.
@@ -48,7 +58,7 @@ static int patestCallback(const void * inputBuffer,
 int main(void) {
 
     // Initialize PortAudio.
-    int err = Pa_Initialize();
+    PaError err = Pa_Initialize();
     if (err != paNoError) {
         fprintf(stderr, "[!] PortAudio error: %s\n", Pa_GetErrorText(err));
         return 1;
@@ -56,6 +66,71 @@ int main(void) {
 
     printf("PortAudio initialized without errors.\n");
 
+    // Set up default data.
+    int output_channels = 2;
+    int frames_per_buffer = 256;
+    static paTestData data;
+
+    PaStream * stream;
+    PaStreamParameters outputParameters;
+
+    // Set default device. (don't forget this.)
+    outputParameters.device = Pa_GetDefaultOutputDevice();
+
+    outputParameters.channelCount = output_channels;
+    outputParameters.sampleFormat = paFloat32;
+    outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultHighOutputLatency;
+    outputParameters.hostApiSpecificStreamInfo = NULL;
+
+    /* Open an audio I/O stream. */
+    err = Pa_OpenStream(
+                        &stream,
+                        NULL,
+                        &outputParameters,
+                        SAMPLE_RATE,
+                        frames_per_buffer,
+                        paClipOff,
+                        patestCallback,
+                        &data
+                       );
+    if (err != paNoError) {
+        fprintf(stderr, "[!] PortAudio error: %s\n", Pa_GetErrorText(err));
+        return 1;
+    }
+
+    /* Construct sin wave. */
+    for(int i=0; i<TABLE_SIZE; i++) {
+        data.sine[i] = (float) sin(((double)i/(double)TABLE_SIZE) * M_PI * 2.0);
+    }
+    /* Initialize left and right phases. */
+    data.left_phase = 0;
+    data.right_phase = 0;
+
+    err = Pa_StartStream(stream);
+    if (err != paNoError) {
+        fprintf(stderr, "[!] PortAudio error: %s\n", Pa_GetErrorText(err));
+        return 1;
+    }
+
+    /* Sleep so that there is time to play the stream. */
+    printf("Play for %d seconds.\n", 10);
+    Pa_Sleep(10 * 1000);
+
+    /* Stop stream. */
+    err = Pa_StopStream(stream);
+    if (err != paNoError) {
+        fprintf(stderr, "[!] PortAudio error: %s\n", Pa_GetErrorText(err));
+        return 1;
+    }
+
+    /* Close stream. */
+    err = Pa_CloseStream(stream);
+    if (err != paNoError) {
+        fprintf(stderr, "[!] PortAudio error: %s\n", Pa_GetErrorText(err));
+        return 1;
+    }
+
+    /* Terminate stream. */
     err = Pa_Terminate();
     if (err != paNoError) {
         fprintf(stderr, "[!] PortAudio error: %s\n", Pa_GetErrorText(err));

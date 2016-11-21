@@ -31,7 +31,8 @@ executables := $(foreach filename,$(exec_names),$(dir_exec)/$(filename))
 
 # Set up final flags.
 my_flags = -Wall -Wextra -pedantic -std=gnu11 -Wwrite-strings -g
-FLAGS = $(include_flags) $(my_flags) $(CFLAGS)
+audio_flags = -lportaudio
+FLAGS = $(include_flags) $(audio_flags) $(my_flags) $(CFLAGS)
 
 # Phony declarations.
 .PHONY: all clean

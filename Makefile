@@ -30,9 +30,14 @@ vpath %.c $(c_folders)
 executables := $(foreach filename,$(exec_names),$(dir_exec)/$(filename))
 
 # Set up final flags.
-my_flags = -Wall -Wextra -pedantic -std=gnu11 -Wwrite-strings -g -lm
-audio_flags = -lportaudio -lasound -ljack
-FLAGS = $(include_flags) $(audio_flags) $(my_flags) $(CFLAGS)
+error_flags := -Wall -Wextra -pedantic -Wwrite-strings
+compilation_options := -std=gnu11 -g
+general_libraries := -lm -lpthread
+audio_flags := -lportaudio -lasound -ljack
+graphics_flags := -lGLEW -lglfw3 -lGL -lX11 -lXrandr -lXxf86vm \
+				  -ldl -lXinerama -lXcursor -lrt
+FLAGS = $(include_flags) $(compilation_options) $(graphics_flags) \
+		$(audio_flags) $(error_flags) $(general_libraries) $(CFLAGS)
 
 # Phony declarations.
 .PHONY: all clean

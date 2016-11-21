@@ -6,7 +6,6 @@ includes := include dependencies
 
 # Construct all filenames.
 c_names := $(notdir $(c_files))
-o_names := $(c_names:.c=.o)
 exec_names := $(c_names:.c=)
 
 # Set up flags.
@@ -21,10 +20,7 @@ conditional_mkdir = \
 		mkdir $(1); \
 	fi
 
-# Look for objects in $(dir_obj).
-vpath %.o $(dir_obj)
-
-# Look for *.c files in $(c_folders).
+# Look for *.c files in $(c_folders) and dependencies.
 vpath %.c $(c_folders) dependencies
 
 # Construct artifact paths.
@@ -50,17 +46,17 @@ clean:
 	rm -rf $(dir_exec)
 
 # Special case for glad.o compilation, can't be pedantic.
-glad.o: glad.c
+$(dir_obj)/glad.o: glad.c
 	$(CC) -c $^ $(include_flags) -o $(dir_obj)/glad.o
 
-$(dir_exec)/boing: glad.o boing.o
-	$(CC) $(addprefix $(dir_obj)/,$^) $(FLAGS) -o $@
+# Boing and the remade example needs glad.o object linked.
+$(dir_exec)/boing $(dir_exec)/redone_boing : $(dir_obj)/glad.o
 
-%.o : %.c | mkdirs
-	$(CC) -c $(FLAGS) $< -o $(dir_obj)/$@
+$(dir_obj)/%.o : %.c | mkdirs
+	$(CC) -c $(FLAGS) $^ -o $@
 
-$(dir_exec)/% : %.o
-	$(CC) $(dir_obj)/$< $(FLAGS) -o $@
+$(dir_exec)/% : $(dir_obj)/%.o
+	$(CC) $^ $(FLAGS) -o $@
 
 mkdirs:
 	$(call conditional_mkdir,$(dir_exec))

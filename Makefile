@@ -49,6 +49,10 @@ clean:
 	rm -rf $(dir_obj)
 	rm -rf $(dir_exec)
 
+# Special case for glad.o compilation, can't be pedantic.
+glad.o: glad.c
+	$(CC) -c $^ $(include_flags) -o $(dir_obj)/glad.o
+
 $(dir_exec)/boing: glad.o boing.o
 	$(CC) $(addprefix $(dir_obj)/,$^) $(FLAGS) -o $@
 

@@ -9,6 +9,7 @@
 
 #include "events/events.h"
 #include "graphics/graphics.h"
+#include "utils/utils.h"
 
 void init(void)
 {
@@ -75,6 +76,17 @@ int main(void)
 
     link_program(&shader_program, shaders, SIZE(shaders));
 
+    // Gather data.
+    Point_Data info = {0};
+    const char * filename = data_src("test_triangle.txt");
+    load_data(&info, NULL, filename);
+    float buffer[info.elements];
+    load_data(&info, buffer, filename);
+
+    for (int i = 0; i<info.elements; i++) {
+        printf("data[%d]: %f\n", i, buffer[i]);
+    }
+
     while(!glfwWindowShouldClose(window)) {
 
         display();
@@ -82,6 +94,4 @@ int main(void)
         glfwPollEvents();
 
     }
-
-    return EXIT_SUCCESS;
 }

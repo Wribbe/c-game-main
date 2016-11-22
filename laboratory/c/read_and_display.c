@@ -15,7 +15,7 @@ int main(int argc, char ** argv) {
 
     const char * filename = argv[1];
 
-    long filesize = 0;
+    size_t filesize = 0;
 
     // Open file.
     FILE * file_handle = open_file(filename, &filesize);

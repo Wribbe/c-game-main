@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <utils/utils.h>
 
-FILE * open_file(const char * filename, long * filesize)
+FILE * open_file(const char * filename, size_t * filesize)
 {
     /* Try to open file:
      *  - If file exists, return file handle and write size of file to filesize
@@ -25,12 +25,13 @@ FILE * open_file(const char * filename, long * filesize)
     return file_handle;
 }
 
-void read_file(char * data_buffer, long filesize, FILE * file_handle)
+size_t read_file(char * data_buffer, size_t filesize, FILE * file_handle)
 {
     /* Read the file to data_buffer and append newline. */
 
     // Read data.
-    fread(data_buffer, filesize, 1, file_handle);
+    size_t read = fread(data_buffer, filesize, 1, file_handle);
     // Add newline to end.
     data_buffer[filesize] = '\0';
+    return read;
 }

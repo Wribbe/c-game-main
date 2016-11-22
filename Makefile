@@ -63,7 +63,10 @@ $(dir_exec)/redone_boing : $(boing_dep)
 $(dir_obj)/%.o : %.c | mkdirs
 	$(CC) -c $(FLAGS) $^ -o $@
 
-$(dir_exec)/% : $(dir_obj)/%.o
+#$(dir_exec)/% : $(dir_obj)/%.o
+#	$(CC) $^ $(FLAGS) -o $@
+
+$(dir_exec)/% : $(dir_obj)/%.o $(boing_dep)
 	$(CC) $^ $(FLAGS) -o $@
 
 mkdirs:

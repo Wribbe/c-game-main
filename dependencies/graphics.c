@@ -1,17 +1,21 @@
 #include <glad/glad.h>
 #include <graphics/graphics.h>
 
+#include <stdlib.h>
 #include <stdio.h>
+#include "utils/utils.h"
 
 float temp_points[] = {
     0.0f,  0.5f,  0.0f,
     0.5f, -0.5f,  0.0f,
    -0.5f, -0.5f,  0.0f,
 };
-float * ponits = temp_points;
+float * points = temp_points;
 
 GLuint vbo = 0;
 GLuint vao = 0;
+
+#define shader_src(x) "src/glsl/"x
 
 const char * vertex_shader_source =
 "#version 330\n"
@@ -43,8 +47,40 @@ void init_memory() {
 
 }
 
-GLuint vertex_shader;
-GLuint fragment_shader;
+GLuint vertex_shader = 0;
+GLuint fragment_shader = 0;
+
+
+void create_shader(GLuint * shader, GLuint type,  const char * source_filename)
+{
+    /* Create and return shader based on contents of file. */
+
+    *shader = glCreateShader(type);
+
+    // Open and read size of file.
+    long filesize = 0;
+    FILE * filehandle = open_file(source_filename, &filesize);
+    if (!filehandle) {
+        fprintf(stderr, "[!] create_shader: Could not find shader source file: %s\n",
+                source_filename);
+        exit(1);
+    }
+
+    char temp_buffer[filesize];
+    char * string_p = temp_buffer;
+
+    // Read data to temp_buffer.
+    size_t read = read_file(temp_buffer, filesize, filehandle);
+    if (!read) {
+        fprintf(stderr, "[!] create_shader: No objects read from %s\n",
+                source_filename);
+        exit(1);
+    }
+
+    glShaderSource(*shader, 1, &string_p, NULL);
+    glCompileShader(*shader);
+    checkShaderStatus(*shader);
+}
 
 
 void checkShaderStatus(GLuint shader) {
@@ -68,15 +104,11 @@ void checkShaderStatus(GLuint shader) {
 void create_shaders() {
 
     // Set up vertex shader.
-    vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertex_shader, 1, &vertex_shader_source, NULL);
-    glCompileShader(vertex_shader);
+    create_shader(&vertex_shader, GL_VERTEX_SHADER, shader_src("boing.vert"));
     checkShaderStatus(vertex_shader);
 
     // Set up fragment shader.
-    fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragment_shader, 1, &fragment_shader_source, NULL);
-    glCompileShader(fragment_shader);
+    create_shader(&fragment_shader, GL_FRAGMENT_SHADER, shader_src("boing.frag"));
     checkShaderStatus(fragment_shader);
 
 }

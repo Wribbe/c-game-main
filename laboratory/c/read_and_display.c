@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "utils/utils.h"
+
 int main(int argc, char ** argv) {
 
     const char * usage_error = "[!] Usage: ./read_and_display <filename>.\n";
@@ -13,28 +15,21 @@ int main(int argc, char ** argv) {
 
     const char * filename = argv[1];
 
+    long filesize = 0;
+
     // Open file.
-    FILE * file_handle = fopen(filename, "rb");
+    FILE * file_handle = open_file(filename, &filesize);
 
     if (!file_handle) {
         fprintf(stderr, fmt_file_error, filename);
         return EXIT_FAILURE;
     }
 
-    // Check size of data.
-    fseek(file_handle, 0, SEEK_END);
-    long filesize = ftell(file_handle);
-    // Rewind file pointer.
-    rewind(file_handle);
-
     // Allocate memory for data.
     char data_buffer[filesize+1];
 
     // Read data.
-    fread(data_buffer, filesize, 1, file_handle);
-
-    // End with a newline.
-    data_buffer[filesize] = '\0';
+    read_file(data_buffer, filesize, file_handle);
 
     // Print read data.
     printf("Read data from %s:\n", filename);

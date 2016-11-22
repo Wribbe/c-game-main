@@ -36,7 +36,6 @@ void init_memory() {
 GLuint vertex_shader = 0;
 GLuint fragment_shader = 0;
 
-
 void create_shader(GLuint * shader, GLuint type,  const char * source_filename)
 {
     /* Create and return shader based on contents of file. */
@@ -87,7 +86,23 @@ void checkShaderStatus(GLuint shader) {
     printf("Error in shader compilation: %s\n", message_buffer);
 }
 
-void create_shaders() {
+GLuint shader_program;
+
+void link_program(GLuint * program, GLuint * shaders, size_t size) {
+
+    // Create program.
+    *program = glCreateProgram();
+
+    // Attach all shaders in the list.
+    for (size_t i=0; i<size; i++) {
+        glAttachShader(*program, shaders[i]);
+    }
+
+    // Link program.
+    glLinkProgram(*program);
+}
+
+void setup_shaders() {
 
     // Set up vertex shader.
     create_shader(&vertex_shader, GL_VERTEX_SHADER, shader_src("boing.vert"));
@@ -97,21 +112,12 @@ void create_shaders() {
     create_shader(&fragment_shader, GL_FRAGMENT_SHADER, shader_src("boing.frag"));
     checkShaderStatus(fragment_shader);
 
+    // Make list of all shaders.
+    GLuint shaders[] = {
+        vertex_shader,
+        fragment_shader,
+    };
+
+    // Link shaders to a program.
+    link_program(&shader_program, shaders, sizeof(shaders)/sizeof(GLuint));
 }
-
-GLuint shader_program;
-
-void link_program() {
-
-   shader_program = glCreateProgram();
-   glAttachShader(shader_program, vertex_shader);
-   glAttachShader(shader_program, fragment_shader);
-   glLinkProgram(shader_program);
-
-}
-
-void setup_shaders() {
-    create_shaders();
-    link_program();
-}
-

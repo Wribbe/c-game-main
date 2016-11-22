@@ -44,14 +44,16 @@ FLAGS = $(include_flags) $(compilation_options) $(graphics_flags) \
 		$(audio_flags) $(error_flags) $(general_libraries) $(CFLAGS)
 
 # Phony declarations.
-.PHONY: all clean
+.PHONY: all clean vgclean
 
 all: $(executables)
 
-clean:
+vgclean:
+	rm -rf vgcore*
+
+clean: vgclean
 	rm -rf $(dir_obj)
 	rm -rf $(dir_exec)
-	rm vgcore*
 
 # Special case for glad.o compilation, can't be pedantic.
 $(dir_obj)/glad.o: glad.c

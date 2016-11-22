@@ -6,6 +6,10 @@ includes := include dependencies
 
 # Construct all filenames.
 c_names := $(notdir $(c_files))
+dep_source := $(foreach dep_source,\
+				$(wildcard dependencies/*.c), \
+				$(notdir $(dep_source)))
+dep_obj := $(dep_source:.c=.o)
 exec_names := $(c_names:.c=)
 
 # Set up flags.
@@ -52,8 +56,8 @@ $(dir_obj)/glad.o: glad.c
 # Boing and the remade example needs glad.o object linked.
 $(dir_exec)/boing $(dir_exec)/redone_boing : $(dir_obj)/glad.o
 
-# Link events library for redo_boing.
-boing_dep = $(addprefix $(dir_obj)/,events.o graphics.o)
+# Link all objects with boing_dep.
+boing_dep = $(addprefix $(dir_obj)/,$(dep_obj))
 $(dir_exec)/redone_boing : $(boing_dep)
 
 $(dir_obj)/%.o : %.c | mkdirs

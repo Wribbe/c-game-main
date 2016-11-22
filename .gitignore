@@ -4,3 +4,6 @@ objects/
 
 # Ignore vim swap files.
 *.sw*
+
+# Ignore vgcore files.
+vgcore.*

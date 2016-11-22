@@ -1,3 +1,6 @@
+#ifndef INCLUDE_GRAPHICS
+#define INCLUDE_GRAPHICS
+
 float * points;
 
 GLuint vbo;
@@ -12,3 +15,5 @@ const char * fragment_shader_source;
 
 void init_memory();
 void setup_shaders();
+
+#endif

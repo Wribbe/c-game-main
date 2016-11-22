@@ -15,8 +15,6 @@ float * points = temp_points;
 GLuint vbo = 0;
 GLuint vao = 0;
 
-#define shader_src(x) "src/glsl/"x
-
 void init_memory() {
 
     // Generate and populate Vertex Buffer Object.
@@ -32,9 +30,6 @@ void init_memory() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
 }
-
-GLuint vertex_shader = 0;
-GLuint fragment_shader = 0;
 
 void create_shader(GLuint * shader, GLuint type,  const char * source_filename)
 {
@@ -100,24 +95,4 @@ void link_program(GLuint * program, GLuint * shaders, size_t size) {
 
     // Link program.
     glLinkProgram(*program);
-}
-
-void setup_shaders() {
-
-    // Set up vertex shader.
-    create_shader(&vertex_shader, GL_VERTEX_SHADER, shader_src("boing.vert"));
-    checkShaderStatus(vertex_shader);
-
-    // Set up fragment shader.
-    create_shader(&fragment_shader, GL_FRAGMENT_SHADER, shader_src("boing.frag"));
-    checkShaderStatus(fragment_shader);
-
-    // Make list of all shaders.
-    GLuint shaders[] = {
-        vertex_shader,
-        fragment_shader,
-    };
-
-    // Link shaders to a program.
-    link_program(&shader_program, shaders, sizeof(shaders)/sizeof(GLuint));
 }

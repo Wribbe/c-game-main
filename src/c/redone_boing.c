@@ -16,6 +16,8 @@ void init(void)
     glClearColor( 0.55f, 0.55f, 0.55f, 0.0f);
 }
 
+GLuint shader_program = 0;
+
 void display(void)
 {
     glClear(GL_COLOR_BUFFER_BIT);
@@ -23,6 +25,7 @@ void display(void)
     glBindVertexArray(vao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }
+
 
 int main(void)
 {
@@ -58,7 +61,19 @@ int main(void)
     init_memory();
 
     // Set up shaders.
-    setup_shaders();
+    GLuint vertex_shader = 0;
+    GLuint fragment_shader = 0;
+
+    create_shader(&vertex_shader, GL_VERTEX_SHADER, shader_src("boing.vert"));
+    create_shader(&fragment_shader, GL_FRAGMENT_SHADER, shader_src("boing.frag"));
+
+    // Create and link program.
+    GLuint shaders[] = {
+        vertex_shader,
+        fragment_shader,
+    };
+
+    link_program(&shader_program, shaders, SIZE(shaders));
 
     while(!glfwWindowShouldClose(window)) {
 

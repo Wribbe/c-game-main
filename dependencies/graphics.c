@@ -17,20 +17,6 @@ GLuint vao = 0;
 
 #define shader_src(x) "src/glsl/"x
 
-const char * vertex_shader_source =
-"#version 330\n"
-"in vec3 vp;\n"
-"void main() {\n"
-"   gl_Position = vec4(vp, 1.0);\n"
-"}\n";
-
-const char * fragment_shader_source =
-"#version 330\n"
-"out vec4 frag_color;\n"
-"void main() {\n"
-"   frag_color = vec4(0.5f, 0.0f, 0.5f, 1.0f);\n"
-"}\n";
-
 void init_memory() {
 
     // Generate and populate Vertex Buffer Object.

@@ -31,9 +31,24 @@ void init_memory() {
 
 }
 
-void create_shader(GLuint * shader, GLuint type,  const char * source_filename)
+void create_shader(GLuint * shader, const char * source_filename)
 {
     /* Create and return shader based on contents of file. */
+
+    const char * error_base = "[!] create_shader: ";
+
+    /* Determine the type based on the file extension. */
+    GLuint type = 0;
+    if (strstr(source_filename, VERTEX_ENDING) != NULL) {
+        type = GL_VERTEX_SHADER;
+    } else if (strstr(source_filename, FRAGMENT_ENDING) != NULL) {
+        type = GL_FRAGMENT_SHADER;
+    } else {
+        fprintf(stderr, "%s Can't determine shader type of file: %s.\n",
+                error_base,
+                source_filename);
+        exit(1);
+    }
 
     *shader = glCreateShader(type);
 
@@ -41,7 +56,8 @@ void create_shader(GLuint * shader, GLuint type,  const char * source_filename)
     long filesize = 0;
     FILE * filehandle = open_file(source_filename, &filesize);
     if (!filehandle) {
-        fprintf(stderr, "[!] create_shader: Could not find shader source file: %s\n",
+        fprintf(stderr, "%s Could not find shader source file: %s.\n",
+                error_base,
                 source_filename);
         exit(1);
     }
@@ -52,7 +68,8 @@ void create_shader(GLuint * shader, GLuint type,  const char * source_filename)
     // Read data to temp_buffer.
     size_t read = read_file(temp_buffer, filesize, filehandle);
     if (!read) {
-        fprintf(stderr, "[!] create_shader: No objects read from %s\n",
+        fprintf(stderr, "%s No objects read from %s.\n",
+                error_base,
                 source_filename);
         exit(1);
     }

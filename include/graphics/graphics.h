@@ -4,6 +4,9 @@
 #define shader_src(x) "src/glsl/"x
 #define SIZE(x) sizeof(x)/sizeof(x[0])
 
+#define VERTEX_ENDING ".vert"
+#define FRAGMENT_ENDING ".frag"
+
 float * points;
 
 GLuint vbo;
@@ -13,7 +16,7 @@ const char * vertex_shader_source;
 const char * fragment_shader_source;
 
 void init_memory();
-void create_shader(GLuint * shader, GLuint type, const char * source_filename);
+void create_shader(GLuint * shader, const char * source_filename);
 void link_program(GLuint * program, GLuint * shaders, size_t size);
 
 #endif

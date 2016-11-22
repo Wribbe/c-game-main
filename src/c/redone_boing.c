@@ -65,8 +65,8 @@ int main(void)
     GLuint vertex_shader = 0;
     GLuint fragment_shader = 0;
 
-    create_shader(&vertex_shader, GL_VERTEX_SHADER, shader_src("boing.vert"));
-    create_shader(&fragment_shader, GL_FRAGMENT_SHADER, shader_src("boing.frag"));
+    create_shader(&vertex_shader, shader_src("boing.vert"));
+    create_shader(&fragment_shader, shader_src("boing.frag"));
 
     // Create and link program.
     GLuint shaders[] = {

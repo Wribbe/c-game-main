@@ -12,6 +12,9 @@ dep_source := $(foreach dep_source,\
 dep_obj := $(dep_source:.c=.o)
 exec_names := $(c_names:.c=)
 
+# Add prefix function.
+depp = $(addprefix $(dir_obj)/,$(1))
+
 # Set up flags.
 include_flags := $(foreach i_flag,$(includes),-I$(i_flag))
 
@@ -57,8 +60,7 @@ $(dir_obj)/glad.o: glad.c
 $(dir_exec)/boing $(dir_exec)/redone_boing : $(dir_obj)/glad.o
 
 # Link all objects with boing_dep.
-boing_dep = $(addprefix $(dir_obj)/,$(dep_obj))
-$(dir_exec)/redone_boing : $(boing_dep)
+$(dir_exec)/redone_boing : $(call depp,$(dep_obj))
 
 $(dir_obj)/%.o : %.c | mkdirs
 	$(CC) -c $(FLAGS) $^ -o $@
@@ -66,7 +68,7 @@ $(dir_obj)/%.o : %.c | mkdirs
 #$(dir_exec)/% : $(dir_obj)/%.o
 #	$(CC) $^ $(FLAGS) -o $@
 
-$(dir_exec)/% : $(dir_obj)/%.o $(boing_dep)
+$(dir_exec)/% : $(dir_obj)/%.o $(call depp,$(dep_obj))
 	$(CC) $^ $(FLAGS) -o $@
 
 mkdirs:

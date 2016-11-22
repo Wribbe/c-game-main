@@ -3,6 +3,8 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+
 #include "utils/utils.h"
 
 float temp_points[] = {
@@ -15,20 +17,97 @@ float * points = temp_points;
 GLuint vbo = 0;
 GLuint vao = 0;
 
+void gen_buffers(
+                 GLuint num_buffers,
+                 GLuint * buffer,
+                 Point_Data * data,
+                 GLuint draw_type
+                )
+{
+    /* Generate num_buffers to GLuint * buffer pointer. */
+
+    // Generate number of buffers.
+    glGenBuffers(num_buffers, buffer);
+    // Bind buffer.
+    glBindBuffer(GL_ARRAY_BUFFER, *buffer);
+    // Load data to buffer.
+    size_t data_size = sizeof(float) * data->elements;
+    glBufferData(GL_ARRAY_BUFFER, data_size, data->data, draw_type);
+    // Unbind buffer.
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+void gen_vertex_arrays(
+                       GLuint num_buffers,
+                       GLuint * buffer,
+                       GLuint * vbo_binds,
+                       size_t num_vbos,
+                       Attrib_Pointer_Info * enable_arrayp,
+                       size_t num_arrayp
+                      )
+{
+    /* Generate num_buffer vertex array buffers. Bind all the vbos in the
+     * vbo_bind list. Enable all Vertex Attrib Array pointers in
+     * enabled_arrayp.
+     */
+
+    // Generate vertex array buffers.
+    glGenVertexArrays(num_buffers, buffer);
+
+    // Bind the vertex array buffer.
+    glBindVertexArray(*buffer);
+
+    // Bind all vbos in vbo_binds.
+    for (size_t i=0; i<num_vbos; i++) {
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_binds[i]);
+    }
+
+    // Enable all vertex attribute array pointers in enabled_arrayp.
+    for (size_t i=0; i<num_arrayp; i++) {
+        Attrib_Pointer_Info * arrayp = &enable_arrayp[i];
+        glEnableVertexAttribArray(arrayp->index);
+        glVertexAttribPointer(arrayp->index,
+                              arrayp->size,
+                              GL_FLOAT,
+                              GL_FALSE,
+                              arrayp->stride,
+                              (void *)arrayp->offset);
+    }
+
+    // Unbind the vertex array buffer.
+    glBindVertexArray(0);
+}
+
 void init_memory() {
 
     // Generate and populate Vertex Buffer Object.
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, 9 * sizeof(float), points, GL_STATIC_DRAW);
+    Point_Data point_data = {
+        .rows = 3,
+        .elements = 9,
+        .data = (void *)points,
+    };
+    gen_buffers(1, &vbo, &point_data, GL_STATIC_DRAW);
 
     // Generate Vertex Array Object.
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+    Attrib_Pointer_Info attribs[] = {
+        (Attrib_Pointer_Info){
+            .index = 0,
+            .size = 3,
+            .stride = 0,
+            .offset = NULL,
+        },
+    };
 
+    GLuint vbo_binds[] = {
+        vbo,
+    };
+
+    gen_vertex_arrays(1,
+                      &vao,
+                      vbo_binds,
+                      SIZE(vbo_binds),
+                      attribs,
+                      SIZE(attribs));
 }
 
 void create_shader(GLuint * shader, const char * source_filename)

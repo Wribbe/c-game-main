@@ -7,6 +7,13 @@
 #define VERTEX_ENDING ".vert"
 #define FRAGMENT_ENDING ".frag"
 
+typedef struct {
+    GLuint index;
+    GLint size;
+    GLsizei stride;
+    float * offset;
+} Attrib_Pointer_Info;
+
 float * points;
 
 GLuint vbo;

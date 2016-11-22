@@ -1,10 +1,14 @@
 #include <glad/glad.h>
+#include <graphics/graphics.h>
 
-float points[] = {
+#include <stdio.h>
+
+float temp_points[] = {
     0.0f,  0.5f,  0.0f,
     0.5f, -0.5f,  0.0f,
    -0.5f, -0.5f,  0.0f,
 };
+float * ponits = temp_points;
 
 GLuint vbo = 0;
 GLuint vao = 0;

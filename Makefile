@@ -51,6 +51,7 @@ all: $(executables)
 clean:
 	rm -rf $(dir_obj)
 	rm -rf $(dir_exec)
+	rm vgcore*
 
 # Special case for glad.o compilation, can't be pedantic.
 $(dir_obj)/glad.o: glad.c

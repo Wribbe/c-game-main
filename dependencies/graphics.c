@@ -55,6 +55,13 @@ void gen_vertex_arrays(
         glBindBuffer(GL_ARRAY_BUFFER, vbo_binds[i]->vbo);
     }
 
+    // Assume we only have one vbo for the time being.
+    Point_Data * vbo_data = vbo_binds[0]->point_data;
+    int items_per_row = vbo_data->elements / vbo_data->rows;
+
+    // The stride is always the same?
+    size_t stride = items_per_row*sizeof(GL_FLOAT);
+
     // Enable all vertex attribute array pointers in enabled_arrayp.
     for (size_t i=0; i<num_arrayp; i++) {
         Attrib_Pointer_Info * arrayp = &enable_arrayp[i];
@@ -63,7 +70,7 @@ void gen_vertex_arrays(
                               arrayp->size,
                               GL_FLOAT,
                               GL_FALSE,
-                              arrayp->stride,
+                              stride,
                               (void *)arrayp->offset);
     }
 

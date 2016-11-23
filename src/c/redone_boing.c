@@ -95,8 +95,12 @@ int main(void)
         (Attrib_Pointer_Info){
             .index = 0,
             .size = 3,
-            .stride = 0,
             .offset = NULL,
+        },
+        (Attrib_Pointer_Info){
+            .index = 1,
+            .size = 3,
+            .offset = 3*sizeof(GL_FLOAT),
         },
     };
 

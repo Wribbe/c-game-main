@@ -12,7 +12,6 @@ typedef struct {
 typedef struct {
     GLuint index;
     GLint size;
-    GLsizei stride;
     float * offset;
 } Attrib_Pointer_Info;
 

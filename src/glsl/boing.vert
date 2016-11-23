@@ -1,6 +1,10 @@
-#version 330
-in vec3 vp;
+#version 330 core
+layout (location = 0) in vec3 position;
+layout (location = 1) in vec3 inbound_color;
+
+out vec3 color;
 
 void main() {
-    gl_Position = vec4(vp, 1.0);
+    gl_Position = vec4(position, 1.0);
+    color = inbound_color;
 }

@@ -8,25 +8,19 @@
 #define FRAGMENT_ENDING ".frag"
 
 #include "utils/utils.h"
-
-typedef struct {
-    GLuint index;
-    GLint size;
-    GLsizei stride;
-    float * offset;
-} Attrib_Pointer_Info;
+#include "structs.h"
 
 void create_shader(GLuint * shader, const char * source_filename);
 void link_program(GLuint * program, GLuint * shaders, size_t size);
 
 void gen_buffers(GLuint num_buffers,
-                 GLuint * buffer,
+                 VBO * vbo,
                  Point_Data * data,
                  GLuint draw_type);
 
 void gen_vertex_arrays(GLuint num_buffers,
-                       GLuint * buffer,
-                       GLuint * vbo_binds,
+                       VAO * vao,
+                       VBO * vbo_binds[],
                        size_t num_vbos,
                        Attrib_Pointer_Info * enable_arrayp,
                        size_t num_arrayp);

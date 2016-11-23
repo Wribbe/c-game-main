@@ -1,7 +1,8 @@
 # Gather data.
 c_files := $(subst ./,,$(shell find -name "*.c" -not -path "./dependencies/*"))
 c_folders := $(dir $(c_files))
-includes := include dependencies
+include_folders := $(foreach path,$(wildcard include/*),$(patsubst %.h,,$(path)))
+includes := include dependencies $(include_folders)
 
 
 # Construct all filenames.
@@ -11,7 +12,7 @@ dep_source := $(foreach dep_source,\
 				$(notdir $(dep_source)))
 dep_obj := $(dep_source:.c=.o)
 exec_names := $(c_names:.c=)
-local_libs := $(wildcard libs/*)
+local_libs := $(wildcard libs/*.a)
 
 # Add prefix function.
 depp = $(addprefix $(dir_obj)/,$(1))
@@ -37,7 +38,7 @@ executables := $(foreach filename,$(exec_names),$(dir_exec)/$(filename))
 # Set up final flags.
 error_flags := -Wall -Wextra -pedantic -Wwrite-strings
 compilation_options := -std=gnu11 -g
-general_libraries := -lm -lpthread $(local_libs)
+general_libraries := -lm -lpthread
 audio_flags := -lportaudio -lasound -ljack
 graphics_flags := -lGLEW -lglfw3 -lGL -lX11 -lXrandr -lXi -lXxf86vm \
 				  -ldl -lXinerama -lXcursor -lrt
@@ -73,7 +74,7 @@ $(dir_obj)/%.o : %.c | mkdirs
 #	$(CC) $^ $(FLAGS) -o $@
 
 $(dir_exec)/% : $(dir_obj)/%.o $(call depp,$(dep_obj))
-	$(CC) $^ $(FLAGS) -o $@
+	$(CC) $^ $(FLAGS) $(local_libs) -o $@
 
 mkdirs:
 	$(call conditional_mkdir,$(dir_exec))

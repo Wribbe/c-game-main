@@ -5,6 +5,7 @@
 #include "structs.h"
 
 #define data_src(x) "data/"x
+#define texture_src(x) "data/textures/"x
 
 
 FILE * open_file(const char * filename, size_t * filesize);

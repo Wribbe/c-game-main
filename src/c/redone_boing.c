@@ -112,6 +112,17 @@ int main(void)
                       SIZE(attribs)
                      );
 
+    filename = data_src("test_rectangle.txt");
+    load_data(&point_data, NULL, filename);
+    float second_buffer[point_data.elements];
+    load_data(&point_data, second_buffer, filename);
+
+    printf("elements: %d, rows: %d\n", point_data.elements, point_data.rows);
+
+    for (int i=0; i<point_data.elements; i++) {
+        printf("%f\n", second_buffer[i]);
+    }
+
     while(!glfwWindowShouldClose(window)) {
 
         display(vao, shader_program);

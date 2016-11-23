@@ -9,7 +9,7 @@
 
 void gen_buffers(
                  GLuint num_buffers,
-                 GLuint * buffer,
+                 VBO * vbo,
                  Point_Data * data,
                  GLuint draw_type
                 )
@@ -17,20 +17,23 @@ void gen_buffers(
     /* Generate num_buffers to GLuint * buffer pointer. */
 
     // Generate number of buffers.
-    glGenBuffers(num_buffers, buffer);
+    glGenBuffers(num_buffers, &vbo->vbo);
     // Bind buffer.
-    glBindBuffer(GL_ARRAY_BUFFER, *buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo->vbo);
     // Load data to buffer.
     size_t data_size = sizeof(float) * data->elements;
     glBufferData(GL_ARRAY_BUFFER, data_size, data->data, draw_type);
     // Unbind buffer.
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // Store point data to vbo.
+    vbo->point_data = data;
+    vbo->draw_type = draw_type;
 }
 
 void gen_vertex_arrays(
                        GLuint num_buffers,
-                       GLuint * buffer,
-                       GLuint * vbo_binds,
+                       VAO * vao,
+                       VBO * vbo_binds[],
                        size_t num_vbos,
                        Attrib_Pointer_Info * enable_arrayp,
                        size_t num_arrayp
@@ -42,14 +45,14 @@ void gen_vertex_arrays(
      */
 
     // Generate vertex array buffers.
-    glGenVertexArrays(num_buffers, buffer);
+    glGenVertexArrays(num_buffers, &vao->vao);
 
     // Bind the vertex array buffer.
-    glBindVertexArray(*buffer);
+    glBindVertexArray(vao->vao);
 
     // Bind all vbos in vbo_binds.
     for (size_t i=0; i<num_vbos; i++) {
-        glBindBuffer(GL_ARRAY_BUFFER, vbo_binds[i]);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_binds[i]->vbo);
     }
 
     // Enable all vertex attribute array pointers in enabled_arrayp.
@@ -63,6 +66,10 @@ void gen_vertex_arrays(
                               arrayp->stride,
                               (void *)arrayp->offset);
     }
+
+    // Store array inside of VAO.
+    vao->attrib_list = enable_arrayp;
+    vao->list_size = num_arrayp;
 
     // Unbind the vertex array buffer.
     glBindVertexArray(0);

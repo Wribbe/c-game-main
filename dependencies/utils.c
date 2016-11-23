@@ -77,11 +77,24 @@ void load_data(Point_Data * info, float * buffer, const char * filename)
         int elements = 1; // Doesn't count last comma, will be short otherwise.
 
         int element_flag = 0;
+        int comment_flag = 0;
 
-        char current = 'a';
-        for(size_t i=0; i<data_size; i++) {
+        char current = ' ';
+        char prev = ' ';
+        for(size_t i=1; i<data_size; i++) {
             current = temp_buffer[i];
+            prev = temp_buffer[i-1];
+            if (current == '/' && prev == '/') {
+                comment_flag = 1;
+                continue;
+            }
             if (current == '\n') {
+                if (comment_flag) {
+                    comment_flag = 0;
+                }
+                continue;
+            }
+            if (comment_flag) {
                 continue;
             }
             // Next element after flag was not a newline or end of buffer.

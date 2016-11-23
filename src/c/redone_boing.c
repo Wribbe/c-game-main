@@ -75,7 +75,7 @@ int main(void)
 
     // Gather data.
     Point_Data point_data = {0};
-    const char * filename = data_src("test_rectangle.txt");
+    const char * filename = data_src("test_rectangle_rainbow.txt");
     load_data(&point_data, NULL, filename);
     float * second_buffer = malloc(sizeof(float) * point_data.elements);
     load_data(&point_data, second_buffer, filename);

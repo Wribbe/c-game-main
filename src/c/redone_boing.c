@@ -17,16 +17,14 @@ void init(void)
     glClearColor( 0.55f, 0.55f, 0.55f, 0.0f);
 }
 
-GLuint shader_program = 0;
-
-void display(void)
+void display(GLuint vao, GLuint shader_program)
 {
     glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(shader_program);
     glBindVertexArray(vao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindVertexArray(0);
 }
-
 
 int main(void)
 {
@@ -58,9 +56,6 @@ int main(void)
     // Initialize values.
     init();
 
-    // Initialize memory structures.
-    init_memory();
-
     // Set up shaders.
     GLuint vertex_shader = 0;
     GLuint fragment_shader = 0;
@@ -74,22 +69,52 @@ int main(void)
         fragment_shader,
     };
 
+    // Set up and link shader program.
+    GLuint shader_program = 0;
     link_program(&shader_program, shaders, SIZE(shaders));
 
     // Gather data.
-    Point_Data info = {0};
+    Point_Data point_data = {0};
     const char * filename = data_src("test_triangle.txt");
-    load_data(&info, NULL, filename);
-    float buffer[info.elements];
-    load_data(&info, buffer, filename);
+    load_data(&point_data, NULL, filename);
+    float buffer[point_data.elements];
+    load_data(&point_data, buffer, filename);
 
-    for (int i = 0; i<info.elements; i++) {
-        printf("data[%d]: %f\n", i, buffer[i]);
-    }
+    // Define GLuints for vbo and vba.
+    GLuint vbo;
+    GLuint vao;
+
+    // Generate buffers.
+    gen_buffers(1, &vbo, &point_data, GL_STATIC_DRAW);
+
+    // Set up attribute pointer information.
+    Attrib_Pointer_Info attribs[] = {
+        (Attrib_Pointer_Info){
+            .index = 0,
+            .size = 3,
+            .stride = 0,
+            .offset = NULL,
+        },
+    };
+
+    // Set up the vbos that should be bound to the vao.
+    GLuint vbo_binds[] = {
+        vbo,
+    };
+
+    // Generate vertex array buffer.
+    gen_vertex_arrays(
+                      1,
+                      &vao,
+                      vbo_binds,
+                      SIZE(vbo_binds),
+                      attribs,
+                      SIZE(attribs)
+                     );
 
     while(!glfwWindowShouldClose(window)) {
 
-        display();
+        display(vao, shader_program);
         glfwSwapBuffers(window);
         glfwPollEvents();
 

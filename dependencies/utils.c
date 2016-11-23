@@ -76,6 +76,9 @@ void load_data(Point_Data * info, float * buffer, const char * filename)
             current_token = strtok(NULL, delimiter);
         }
 
+        // Bind buffer to info->data.
+        info->data = buffer;
+
         return; // Done second pass through.
     }
 

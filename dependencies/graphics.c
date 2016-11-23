@@ -7,16 +7,6 @@
 
 #include "utils/utils.h"
 
-float temp_points[] = {
-    0.0f,  0.5f,  0.0f,
-    0.5f, -0.5f,  0.0f,
-   -0.5f, -0.5f,  0.0f,
-};
-float * points = temp_points;
-
-GLuint vbo = 0;
-GLuint vao = 0;
-
 void gen_buffers(
                  GLuint num_buffers,
                  GLuint * buffer,
@@ -76,38 +66,6 @@ void gen_vertex_arrays(
 
     // Unbind the vertex array buffer.
     glBindVertexArray(0);
-}
-
-void init_memory() {
-
-    // Generate and populate Vertex Buffer Object.
-    Point_Data point_data = {
-        .rows = 3,
-        .elements = 9,
-        .data = (void *)points,
-    };
-    gen_buffers(1, &vbo, &point_data, GL_STATIC_DRAW);
-
-    // Generate Vertex Array Object.
-    Attrib_Pointer_Info attribs[] = {
-        (Attrib_Pointer_Info){
-            .index = 0,
-            .size = 3,
-            .stride = 0,
-            .offset = NULL,
-        },
-    };
-
-    GLuint vbo_binds[] = {
-        vbo,
-    };
-
-    gen_vertex_arrays(1,
-                      &vao,
-                      vbo_binds,
-                      SIZE(vbo_binds),
-                      attribs,
-                      SIZE(attribs));
 }
 
 void create_shader(GLuint * shader, const char * source_filename)

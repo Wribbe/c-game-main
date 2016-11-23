@@ -17,12 +17,12 @@ void init(void)
     glClearColor( 0.55f, 0.55f, 0.55f, 0.0f);
 }
 
-void display(GLuint vao, GLuint shader_program)
+void display(VAO * vao, GLuint shader_program)
 {
     glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(shader_program);
-    glBindVertexArray(vao);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindVertexArray(vao->vao);
+    glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
     glBindVertexArray(0);
 }
 
@@ -75,17 +75,20 @@ int main(void)
 
     // Gather data.
     Point_Data point_data = {0};
-    const char * filename = data_src("test_triangle.txt");
+    const char * filename = data_src("test_rectangle.txt");
     load_data(&point_data, NULL, filename);
-    float buffer[point_data.elements];
-    load_data(&point_data, buffer, filename);
+    float * second_buffer = malloc(sizeof(float) * point_data.elements);
+    load_data(&point_data, second_buffer, filename);
 
-    // Define GLuints for vbo and vba.
-    GLuint vbo;
-    GLuint vao;
+    // Define VAO and VBO for vao and vbo.
+    VAO vao = {0};
+    VBO vbo = {0};
 
     // Generate buffers.
     gen_buffers(1, &vbo, &point_data, GL_STATIC_DRAW);
+
+    // Set render type for vbo.
+    vbo.render_geometry = GL_TRIANGLES;
 
     // Set up attribute pointer information.
     Attrib_Pointer_Info attribs[] = {
@@ -98,8 +101,8 @@ int main(void)
     };
 
     // Set up the vbos that should be bound to the vao.
-    GLuint vbo_binds[] = {
-        vbo,
+    VBO * vbo_binds[] = {
+        &vbo,
     };
 
     // Generate vertex array buffer.
@@ -112,22 +115,24 @@ int main(void)
                       SIZE(attribs)
                      );
 
-    filename = data_src("test_rectangle.txt");
-    load_data(&point_data, NULL, filename);
-    float second_buffer[point_data.elements];
-    load_data(&point_data, second_buffer, filename);
+    // Set vbo as vao.vbo.
+    vao.vbo = vbo;
+    // Set start.
+    vao.start = 0;
+    // Set count.
+    vao.count = vao.vbo.point_data->rows;
 
     printf("elements: %d, rows: %d\n", point_data.elements, point_data.rows);
-
-    for (int i=0; i<point_data.elements; i++) {
-        printf("%f\n", second_buffer[i]);
-    }
+    printf("count: %d\n", vao.count);
 
     while(!glfwWindowShouldClose(window)) {
 
-        display(vao, shader_program);
+        display(&vao, shader_program);
         glfwSwapBuffers(window);
         glfwPollEvents();
 
     }
+
+    glfwTerminate();
+    free(second_buffer);
 }

@@ -11,6 +11,7 @@ dep_source := $(foreach dep_source,\
 				$(notdir $(dep_source)))
 dep_obj := $(dep_source:.c=.o)
 exec_names := $(c_names:.c=)
+local_libs := $(wildcard libs/*)
 
 # Add prefix function.
 depp = $(addprefix $(dir_obj)/,$(1))
@@ -36,7 +37,7 @@ executables := $(foreach filename,$(exec_names),$(dir_exec)/$(filename))
 # Set up final flags.
 error_flags := -Wall -Wextra -pedantic -Wwrite-strings
 compilation_options := -std=gnu11 -g
-general_libraries := -lm -lpthread
+general_libraries := -lm -lpthread $(local_libs)
 audio_flags := -lportaudio -lasound -ljack
 graphics_flags := -lGLEW -lglfw3 -lGL -lX11 -lXrandr -lXi -lXxf86vm \
 				  -ldl -lXinerama -lXcursor -lrt

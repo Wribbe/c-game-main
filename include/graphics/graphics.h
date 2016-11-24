@@ -24,4 +24,7 @@ void gen_vertex_arrays(GLuint num_buffers,
                        size_t num_vbos,
                        Attrib_Pointer_Info * enable_arrayp,
                        size_t num_arrayp);
+
+void load_to_texture(GLuint * texture, const char * filename);
+
 #endif

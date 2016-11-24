@@ -135,50 +135,12 @@ int main(void)
     // Set count.
     vao.count = vao.vbo.point_data->rows;
 
-    printf("elements: %d, rows: %d\n", point_data.elements, point_data.rows);
-    printf("count: %d\n", vao.count);
+    // Get texture file source.
+    filename = texture_src("Dietrich.jpg");
 
-//    // Load image test.
-    size_t width = 0;
-    size_t height = 0;
-//
-    unsigned char * jpeg_data;
-//
-//    unsigned char * jpeg_data = load_test(&height, &width);
-    load_test(&jpeg_data, &height, &width);
-    printf("width: %zu, height: %zu\n", width, height);
-//
-//    glGenTextures(1, &texture);
-//
-//    glBindTexture(GL_TEXTURE_2D, texture);
-//
-//    size_t size = width * height * 3;
-//    printf("jpeg data: ");
-//    for (size_t i = 0; i<size; i++) {
-//        printf("%c", jpeg_data[i]);
-//    }
-//
+    // Generte texture and load image data.
     glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-
-//    int width, height;
-//    filename = texture_src("green.jpg");
-//    filename = "/home/steff/c/c-game-main/data/textures/Dietrich.jpg";
-//    unsigned char * image = SOIL_load_image(filename, &width, &height, 0, SOIL_LOAD_RGB);
-//    printf("SOIL: width: %d heigth: %d\n", width, height);
-//    if (!image) {
-//        printf("File could not be loaded: %s\n", filename);
-//    }
-
-//    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, jpeg_data);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, fake_data);
-//    glGenerateMipmap(GL_TEXTURE_2D);
-
-//    free(jpeg_data);
-    // Unbind the texture.
-    glGenerateMipmap(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    load_to_texture(&texture, filename);
 
     while(!glfwWindowShouldClose(window)) {
 

@@ -164,3 +164,21 @@ void link_program(GLuint * program, GLuint * shaders, size_t size) {
     // Link program.
     glLinkProgram(*program);
 }
+
+
+void load_to_texture(GLuint * texture, const char * filename) {
+
+    size_t width = 0;
+    size_t height = 0;
+    unsigned char * jpeg_data;
+
+    load_image_data(&jpeg_data, filename, &height, &width);
+
+    glBindTexture(GL_TEXTURE_2D, *texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, jpeg_data);
+
+    free(jpeg_data);
+
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}

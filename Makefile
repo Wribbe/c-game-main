@@ -1,12 +1,21 @@
 # Gather data.
-c_files := $(subst ./,, $(shell find . -name "*.c"))
+c_files := $(subst ./,,$(shell find -name "*.c" -not -path "./dependencies/*"))
 c_folders := $(dir $(c_files))
-includes := $(wildcard include/*)
+include_folders := $(foreach path,$(wildcard include/*),$(patsubst %.h,,$(path)))
+includes := include dependencies $(include_folders)
+
 
 # Construct all filenames.
 c_names := $(notdir $(c_files))
-o_names := $(c_names:.c=.o)
+dep_source := $(foreach dep_source,\
+				$(wildcard dependencies/*.c), \
+				$(notdir $(dep_source)))
+dep_obj := $(dep_source:.c=.o)
 exec_names := $(c_names:.c=)
+local_libs := $(wildcard libs/*.a)
+
+# Add prefix function.
+depp = $(addprefix $(dir_obj)/,$(1))
 
 # Set up flags.
 include_flags := $(foreach i_flag,$(includes),-I$(i_flag))
@@ -20,34 +29,52 @@ conditional_mkdir = \
 		mkdir $(1); \
 	fi
 
-# Look for objects in $(dir_obj).
-vpath %.o $(dir_obj)
-
-# Look for *.c files in $(c_folders).
-vpath %.c $(c_folders)
+# Look for *.c files in $(c_folders) and dependencies.
+vpath %.c $(c_folders) dependencies
 
 # Construct artifact paths.
 executables := $(foreach filename,$(exec_names),$(dir_exec)/$(filename))
 
 # Set up final flags.
-my_flags = -Wall -Wextra -pedantic -std=gnu11 -Wwrite-strings -g -lm
-audio_flags = -lportaudio -lasound -ljack
-FLAGS = $(include_flags) $(audio_flags) $(my_flags) $(CFLAGS)
+error_flags := -Wall -Wextra -pedantic -Wwrite-strings
+compilation_options := -std=gnu11 -g
+general_libraries := -lm -lpthread
+audio_flags := -lportaudio -lasound -ljack
+graphics_flags := -lGLEW -lglfw3 -lGL -lX11 -lXrandr -lXi -lXxf86vm \
+				  -ldl -lXinerama -lXcursor -lrt
+FLAGS = $(include_flags) $(compilation_options) $(graphics_flags) \
+		$(audio_flags) $(error_flags) $(general_libraries) $(CFLAGS)
 
 # Phony declarations.
-.PHONY: all clean
+.PHONY: all clean vgclean
 
 all: $(executables)
 
-clean:
+vgclean:
+	rm -rf vgcore*
+
+clean: vgclean
 	rm -rf $(dir_obj)
 	rm -rf $(dir_exec)
 
-%.o : %.c | mkdirs
-	$(CC) -c $(FLAGS) $< -o $(dir_obj)/$@
+# Special case for glad.o compilation, can't be pedantic.
+$(dir_obj)/glad.o: glad.c
+	$(CC) -c $^ $(include_flags) -o $(dir_obj)/glad.o
 
-$(dir_exec)/% : %.o
-	$(CC) $(FLAGS) $(dir_obj)/$< -o $@
+# Boing and the remade example needs glad.o object linked.
+$(dir_exec)/boing $(dir_exec)/redone_boing : $(dir_obj)/glad.o
+
+# Link all objects with boing_dep.
+$(dir_exec)/redone_boing : $(call depp,$(dep_obj))
+
+$(dir_obj)/%.o : %.c | mkdirs
+	$(CC) -c $(FLAGS) $^ -o $@
+
+#$(dir_exec)/% : $(dir_obj)/%.o
+#	$(CC) $^ $(FLAGS) -o $@
+
+$(dir_exec)/% : $(dir_obj)/%.o $(call depp,$(dep_obj))
+	$(CC) $^ $(FLAGS) $(local_libs) -o $@
 
 mkdirs:
 	$(call conditional_mkdir,$(dir_exec))

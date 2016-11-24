@@ -58,6 +58,7 @@ void process_keys(GLFWwindow * window)
     float y_modifier = 0;
 
     float speed = 0.05f;
+    float gravity = 0.03f;
 
     float * x_write_pos = &transformation[0][3];
     float * y_write_pos = &transformation[1][3];
@@ -72,11 +73,16 @@ void process_keys(GLFWwindow * window)
 
     // Modify positions along y-axis.
     if (check(GLFW_KEY_UP)) {
+        gravity = 0;
         y_modifier += speed;
     }
-    if (check(GLFW_KEY_DOWN)) {
-        y_modifier -= speed;
-    }
+    //if (check(GLFW_KEY_DOWN)) {
+    //    gravity = 0;
+    //    y_modifier -= speed;
+    //}
+
+    // Gravitation.
+    y_modifier -= gravity;
 
     collision_check(transformation,
                     &x_modifier,

@@ -33,6 +33,7 @@ void display(VAO * vao, GLuint shader_program)
 int main(void)
 {
     GLFWwindow * window;
+    const char * filename;
 
     // Init GLFW.
     if (!glfwInit()) {
@@ -79,10 +80,14 @@ int main(void)
 
     // Gather data.
     Point_Data point_data = {0};
-    const char * filename = data_src("test_rectangle_rainbow.txt");
+    // Set up filename.
+    filename = data_src("test_rectangle_rainbow.txt");
+    // Run load vertex data without buffer to get dimensions.
     load_data(&point_data, NULL, filename);
-    float * second_buffer = malloc(sizeof(float) * point_data.elements);
-    load_data(&point_data, second_buffer, filename);
+    // Allocate memory for vertex data.
+    float * vertex_buffer = malloc(sizeof(float) * point_data.elements);
+    // Run load vertex with buffer to process the vertices.
+    load_data(&point_data, vertex_buffer, filename);
 
     // Define VAO and VBO for vao and vbo.
     VAO vao = {0};
@@ -151,5 +156,5 @@ int main(void)
     }
 
     glfwTerminate();
-    free(second_buffer);
+    free(vertex_buffer);
 }

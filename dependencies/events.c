@@ -6,9 +6,15 @@
 int local_keymap[NUM_KEYS];
 int * keymap = local_keymap;
 
+// Control single object.
+m4 transformation = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
 
 void process_keys(GLFWwindow * window);
-
 
 void callback_key(
                   GLFWwindow * window,
@@ -23,12 +29,18 @@ void callback_key(
     } else if (action == GLFW_RELEASE && keymap[key]) {
         keymap[key] = 0;
     }
+}
+
+void poll_events(GLFWwindow * window) {
+    glfwPollEvents();
     process_keys(window);
 }
 
 int check(GLuint key) {
     return keymap[key];
 }
+
+float speed = 0.05f;
 
 void process_keys(GLFWwindow * window)
 {
@@ -37,15 +49,15 @@ void process_keys(GLFWwindow * window)
     }
 
     if (check(GLFW_KEY_LEFT)) {
-        printf("LEFT!\n");
+        transformation[0][3] -= speed;
     }
     if (check(GLFW_KEY_RIGHT)) {
-        printf("RIGHT!\n");
+        transformation[0][3] += speed;
     }
     if (check(GLFW_KEY_UP)) {
-        printf("UP!\n");
+        transformation[1][3] += speed;
     }
     if (check(GLFW_KEY_DOWN)) {
-        printf("DOWN!\n");
+        transformation[1][3] -= speed;
     }
 }

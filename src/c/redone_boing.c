@@ -18,14 +18,31 @@ void init(void)
     glClearColor( 0.55f, 0.55f, 0.55f, 0.0f);
 }
 
+// Set up uniform location.
+
 void display(VAO * vao, GLuint shader_program, GLuint texture)
 {
+    // Clear screen.
     glClear(GL_COLOR_BUFFER_BIT);
+    // Bind texture.
     glBindTexture(GL_TEXTURE_2D, texture);
+
+    // Currently get location for shader_program every, unnecessary.
+    GLuint transform_location = glGetUniformLocation(shader_program, "transform");
+
+    // Have to have the program active when writing.
     glUseProgram(shader_program);
+    // Write to uniform location.
+    glUniformMatrix4fv(transform_location, 1, GL_TRUE, &transformation[0][0]);
+
+    // Bind VAO.
     glBindVertexArray(vao->vao);
+    // Draw elements.
     glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
+    // Unbind VAO.
     glBindVertexArray(0);
+    // Unbind program.
+    glUseProgram(0);
 }
 
 int main(void)
@@ -145,9 +162,9 @@ int main(void)
 
     while(!glfwWindowShouldClose(window)) {
 
+        poll_events(window);
         display(&vao, shader_program, texture);
         glfwSwapBuffers(window);
-        glfwPollEvents();
 
     }
 

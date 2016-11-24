@@ -6,11 +6,11 @@
 int local_keymap[NUM_KEYS];
 int * keymap = local_keymap;
 
-// Control single object.
+//Control single object.
 m4 transformation = {
-    {1.0f, 0.0f, 0.0f, 0.0f},
-    {0.0f, 1.0f, 0.0f, 0.0f},
-    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.6f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 0.5f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 0.5f, 0.0f},
     {0.0f, 0.0f, 0.0f, 1.0f},
 };
 
@@ -79,20 +79,48 @@ void process_keys(GLFWwindow * window)
     float * bounds = global_vao.bounds;
 
     // Get height and widht of bounding box.
-    float width = bounds[3] - bounds[0];
-    float heigth = bounds[4] - bounds[1];
+    float width = bounds[1*3+0] - bounds[0*3+0];  // 1'st x - 0'th x.
+    float height = bounds[0*3+1] - bounds[2*3+1]; // 0'th y - 2'nd y.
+    float depth = bounds[4*3+3] - bounds[0*3+3];  // 4'th z - 0'th z.
 
-    // Calcutlate next position for x and y.
+    // Correctly handle scaling boxes.
+    float x_scale = transformation[0][0];
+    float y_scale = transformation[1][1];
+    float z_scale = transformation[2][2];
+
+    // Scale width and height;
+    width *= x_scale;
+    height *= y_scale;
+    depth *= z_scale;
+
+    // Calculate next position for x and y.
     float next_x = *x_write_pos + x_modifier;
     float next_y = *y_write_pos + y_modifier;
 
+    float pos_bound_x_val = next_x + width/2.0f;
+    float neg_bound_x_val = next_x - width/2.0f;
+
+    float pos_bound_y_val = next_y + height/2.0f;
+    float neg_bound_y_val = next_y - height/2.0f;
+
     // Check out of bounds x.
-    if (!(next_x + width/2 > x_pos_border) && !(next_x - width/2 < x_neg_border)) {
-        *x_write_pos += x_modifier;
+    if (pos_bound_x_val >= x_pos_border) {
+        x_modifier = 0;
+        *x_write_pos = x_pos_border - width/2.0f;
+    } else if (neg_bound_x_val <= x_neg_border) {
+        x_modifier = 0;
+        *x_write_pos = x_neg_border + width/2.0f;
     }
 
     // Check out of bounds y.
-    if (!(next_y + width/2 > y_pos_border) && !(next_y - width/2 < y_neg_border)) {
-        *y_write_pos += y_modifier;
+    if (pos_bound_y_val >= y_pos_border) {
+        y_modifier = 0;
+        *y_write_pos = y_pos_border - height/2.0f;
+    } else if (neg_bound_y_val <= y_neg_border) {
+        y_modifier = 0;
+        *y_write_pos = y_neg_border + height/2.0f;
     }
+
+    *x_write_pos += x_modifier;
+    *y_write_pos += y_modifier;
 }

@@ -18,9 +18,7 @@ void init(void)
     glClearColor( 0.55f, 0.55f, 0.55f, 0.0f);
 }
 
-GLuint texture;
-
-void display(VAO * vao, GLuint shader_program)
+void display(VAO * vao, GLuint shader_program, GLuint texture)
 {
     glClear(GL_COLOR_BUFFER_BIT);
     glBindTexture(GL_TEXTURE_2D, texture);
@@ -141,12 +139,13 @@ int main(void)
     filename = texture_src("Dietrich.jpg");
 
     // Generte texture and load image data.
+    GLuint texture;
     glGenTextures(1, &texture);
     load_to_texture(&texture, filename);
 
     while(!glfwWindowShouldClose(window)) {
 
-        display(&vao, shader_program);
+        display(&vao, shader_program, texture);
         glfwSwapBuffers(window);
         glfwPollEvents();
 

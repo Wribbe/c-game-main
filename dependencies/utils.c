@@ -58,7 +58,7 @@ void load_data(Point_Data * info, float * buffer, const char * filename)
     FILE * point_file = open_file(filename, &data_size);
 
     // Allocate temporary buffer on the heap.
-    char * temp_buffer = malloc(sizeof(char)*data_size);
+    char * temp_buffer = malloc(sizeof(char)*(data_size+1));
     if (!temp_buffer) {
         fprintf(stderr, "%s could not allocate enough memory (%zu) for %s.\n",
                 error_base,

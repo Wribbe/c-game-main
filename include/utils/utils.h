@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include "structs.h"
+#include "image_loaders/image_loaders.h"
 
 #define data_src(x) "data/"x
 #define texture_src(x) "data/textures/"x

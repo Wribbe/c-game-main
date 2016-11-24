@@ -10,6 +10,7 @@
 #include "events/events.h"
 #include "graphics/graphics.h"
 #include "utils/utils.h"
+#include "SOIL/SOIL.h"
 
 void init(void)
 {
@@ -17,9 +18,12 @@ void init(void)
     glClearColor( 0.55f, 0.55f, 0.55f, 0.0f);
 }
 
+GLuint texture;
+
 void display(VAO * vao, GLuint shader_program)
 {
     glClear(GL_COLOR_BUFFER_BIT);
+    glBindTexture(GL_TEXTURE_2D, texture);
     glUseProgram(shader_program);
     glBindVertexArray(vao->vao);
     glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
@@ -41,7 +45,7 @@ int main(void)
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    window = glfwCreateWindow(400, 400, "Recreated Boing", NULL, NULL);
+    window = glfwCreateWindow(1000, 1000, "Recreated Boing", NULL, NULL);
     if (!window) {
         fprintf(stderr, "[!] Could not create window, aborting.\n");
         return EXIT_FAILURE;
@@ -100,7 +104,12 @@ int main(void)
         (Attrib_Pointer_Info){
             .index = 1,
             .size = 3,
-            .offset = 3*sizeof(GL_FLOAT),
+            .offset = (GLvoid * )(3*sizeof(GL_FLOAT)),
+        },
+        (Attrib_Pointer_Info){
+            .index = 2,
+            .size = 2,
+            .offset = (GLvoid * )(6*sizeof(GL_FLOAT)),
         },
     };
 
@@ -128,6 +137,48 @@ int main(void)
 
     printf("elements: %d, rows: %d\n", point_data.elements, point_data.rows);
     printf("count: %d\n", vao.count);
+
+//    // Load image test.
+    size_t width = 0;
+    size_t height = 0;
+//
+    unsigned char * jpeg_data;
+//
+//    unsigned char * jpeg_data = load_test(&height, &width);
+    load_test(&jpeg_data, &height, &width);
+    printf("width: %zu, height: %zu\n", width, height);
+//
+//    glGenTextures(1, &texture);
+//
+//    glBindTexture(GL_TEXTURE_2D, texture);
+//
+//    size_t size = width * height * 3;
+//    printf("jpeg data: ");
+//    for (size_t i = 0; i<size; i++) {
+//        printf("%c", jpeg_data[i]);
+//    }
+//
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+//    int width, height;
+//    filename = texture_src("green.jpg");
+//    filename = "/home/steff/c/c-game-main/data/textures/Dietrich.jpg";
+//    unsigned char * image = SOIL_load_image(filename, &width, &height, 0, SOIL_LOAD_RGB);
+//    printf("SOIL: width: %d heigth: %d\n", width, height);
+//    if (!image) {
+//        printf("File could not be loaded: %s\n", filename);
+//    }
+
+//    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, jpeg_data);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, fake_data);
+//    glGenerateMipmap(GL_TEXTURE_2D);
+
+//    free(jpeg_data);
+    // Unbind the texture.
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     while(!glfwWindowShouldClose(window)) {
 

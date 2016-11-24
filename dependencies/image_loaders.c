@@ -28,15 +28,16 @@ void my_error_exit (j_common_ptr cinfo)
 }
 
 
-int main(void) {
+int load_test(unsigned char ** jpeg_data, size_t * height, size_t * width) {
+
     const char * filename = texture_src("Dietrich.jpg");
+    //const char * filename = texture_src("green.jpg");
 
     struct jpeg_decompress_struct cinfo = {0};
 
     struct my_error_mgr jerr;
 
     FILE * infile = NULL;
-    int row_stride = 0;
 
     if ((infile = fopen(filename, "rb")) == NULL) {
         fprintf(stderr, "[!]: Can't open %s\n", filename);
@@ -60,7 +61,39 @@ int main(void) {
 
     jpeg_start_decompress(&cinfo);
 
-    printf("height of picture: %d\n", cinfo.output_height);
+    *width = cinfo.output_width;
+    *height = cinfo.output_height;
+
+    size_t row_stride = *width * cinfo.output_components;
+    size_t size = *height * row_stride;
+
+    printf("height: %lu width: %lu stride: %zu, size: %zu.\n", *height, *width, row_stride, size);
+
+    *jpeg_data = malloc((size+1)*sizeof(unsigned char));
+    if (*jpeg_data == NULL) {
+        fprintf(stderr, "Could not allocate memory, aborting.\n");
+        return 0;
+    }
+
+    printf("components: %d\n", cinfo.output_components);
+
+    // Read all scanlines.
+    int lines_read = 0;
+    unsigned char ** data_pointer = jpeg_data;
+    while(cinfo.output_scanline < cinfo.output_height) {
+        lines_read = jpeg_read_scanlines(&cinfo, data_pointer, 1);
+        *data_pointer += lines_read * row_stride;
+    }
+
+    (*data_pointer)[size] = '\0';
+
+    jpeg_finish_decompress(&cinfo);
+
+    jpeg_destroy_decompress(&cinfo);
+
+    fclose(infile);
 
     printf("Got to end!\n");
+
+    return 1;
 }

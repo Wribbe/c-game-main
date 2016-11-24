@@ -4,8 +4,8 @@
 #include <GLFW/glfw3.h>
 
 typedef struct {
-    int rows;
-    int elements;
+    size_t rows;
+    size_t elements;
     void * data;
 } Point_Data;
 
@@ -27,6 +27,7 @@ typedef struct {
     GLuint vao;
     GLint start;
     GLsizei count;
+    GLfloat bounds[24];
     GLsizei list_size;
     Attrib_Pointer_Info * attrib_list;
 } VAO;

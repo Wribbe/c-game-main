@@ -1,9 +1,12 @@
 
 #include "maths/math_utils.h"
+#include "utils/utils.h"
 
 #define NUM_KEYS 512
 
 int * keymap;
+
+VAO global_vao;
 
 m4 transformation;
 

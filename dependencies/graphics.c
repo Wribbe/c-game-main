@@ -83,6 +83,78 @@ void gen_vertex_arrays(
     vao->attrib_list = enable_arrayp;
     vao->list_size = num_arrayp;
 
+    // Calculate bounding box.
+
+    GLfloat max_x = 0;
+    GLfloat max_y = 0;
+    GLfloat max_z = 0;
+    GLfloat min_x = 0;
+    GLfloat min_y = 0;
+    GLfloat min_z = 0;
+
+    GLfloat * point_data = vbo_binds[0]->point_data->data;
+    for(size_t i=0; i<vbo_binds[0]->point_data->elements; i += items_per_row) {
+
+        GLfloat x = point_data[i];
+        GLfloat y = point_data[i+1];
+        GLfloat z = point_data[i+2];
+
+        if (x > max_x) {
+            max_x = x;
+        }
+        if (x < min_x) {
+            min_x = x;
+        }
+        if (y > max_y) {
+            max_y = y;
+        }
+        if (y < min_y) {
+            min_y = y;
+        }
+        if (z > max_z) {
+            max_z = z;
+        }
+        if (z < min_z) {
+            min_z = z;
+        }
+    }
+
+    // Save bounding box to VAO struct as 8 * 3 = 24 floats. The first 4 * 3
+    // points is the "front", beginning with the top left corner and going
+    // around clockwise. The other 4 * 3 are for the "back" and are arrange in
+    // the same order.
+    //
+    // (min_x, max_y, max_z) ->  *------*
+    //                          /|     /|
+    //                         *------* | (Ignore perspective)
+    //                         | .____|.|
+    //                         |/     |/
+    //                         *------* <- (max_x, min_y, min_z)
+    //
+    // ( remember that the z-axis is inverted in OpenGL, negative z are closer
+    //   to the "front". )
+
+    float * bounds = vao->bounds;
+    float order[] = {
+        // Front plane.
+        min_x, max_y, min_z, // top front left.
+        max_x, max_y, min_z, // top front right.
+        max_x, min_y, min_z, // bottom front right.
+        min_x, min_y, min_z, // bottom front left.
+        // Back plane.
+        min_x, max_y, max_z, // top back left.
+        max_x, max_y, max_z, // top back right.
+        max_x, min_y, max_z, // bottom back right.
+        min_x, min_y, max_z, // bottom back left.
+    };
+
+    // Use pointer arithmetic to write to the bounds array.
+    for(size_t i=0; i<SIZE(order); i+=3) { // One row at the time.
+        *(bounds++) = order[i];
+        *(bounds++) = order[i+1];
+        *(bounds++) = order[i+2];
+    }
+
     // Unbind the vertex array buffer.
     glBindVertexArray(0);
 }

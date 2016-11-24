@@ -155,6 +155,8 @@ int main(void)
     // Get texture file source.
     filename = texture_src("Dietrich.jpg");
 
+    global_vao = vao;
+
     // Generte texture and load image data.
     GLuint texture;
     glGenTextures(1, &texture);

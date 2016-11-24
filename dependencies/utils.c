@@ -74,7 +74,7 @@ void load_data(Point_Data * info, float * buffer, const char * filename)
 
         /* Count and return number of elements in file. */
 
-        int elements = 1; // Doesn't count last comma, will be short otherwise.
+        size_t elements = 1; // Doesn't count last comma, will be short otherwise.
 
         int element_flag = 0;
         int comment_flag = 0;
@@ -114,7 +114,7 @@ void load_data(Point_Data * info, float * buffer, const char * filename)
         /* Remove comments and parse the elements into floats. */
 
         // Count rows when there are no comments.
-        int rows = 1;
+        size_t rows = 1;
 
         // Remove comments in place.
         char * last_valid = temp_buffer;

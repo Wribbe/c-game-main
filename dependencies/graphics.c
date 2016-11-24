@@ -62,6 +62,9 @@ void gen_vertex_arrays(
     // The stride is always the same?
     size_t stride = items_per_row*sizeof(GL_FLOAT);
 
+    // Keep count of current offset.
+    size_t offset = 0;
+
     // Enable all vertex attribute array pointers in enabled_arrayp.
     for (size_t i=0; i<num_arrayp; i++) {
         Attrib_Pointer_Info * arrayp = &enable_arrayp[i];
@@ -71,7 +74,9 @@ void gen_vertex_arrays(
                               GL_FLOAT,
                               GL_FALSE,
                               stride,
-                              (void *)arrayp->offset);
+                              (GLvoid *)(sizeof(GLfloat)*offset));
+        // Increment offset for next in list.
+        offset += arrayp->size;
     }
 
     // Store array inside of VAO.

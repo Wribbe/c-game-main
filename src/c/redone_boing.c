@@ -101,20 +101,17 @@ int main(void)
 
     // Set up attribute pointer information.
     Attrib_Pointer_Info attribs[] = {
-        (Attrib_Pointer_Info){
+        (Attrib_Pointer_Info){ // Vertex data.
             .index = 0,
             .size = 3,
-            .offset = NULL,
         },
-        (Attrib_Pointer_Info){
+        (Attrib_Pointer_Info){ // Color data.
             .index = 1,
             .size = 3,
-            .offset = (GLvoid * )(3*sizeof(GL_FLOAT)),
         },
-        (Attrib_Pointer_Info){
+        (Attrib_Pointer_Info){ // Texture coord data.
             .index = 2,
             .size = 2,
-            .offset = (GLvoid * )(6*sizeof(GL_FLOAT)),
         },
     };
 

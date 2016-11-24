@@ -26,10 +26,26 @@ void callback_key(
     process_keys(window);
 }
 
+int check(GLuint key) {
+    return keymap[key];
+}
 
 void process_keys(GLFWwindow * window)
 {
-    if (keymap[GLFW_KEY_ESCAPE]) {
+    if (check(GLFW_KEY_ESCAPE)) {
         glfwSetWindowShouldClose(window, GL_TRUE);
+    }
+
+    if (check(GLFW_KEY_LEFT)) {
+        printf("LEFT!\n");
+    }
+    if (check(GLFW_KEY_RIGHT)) {
+        printf("RIGHT!\n");
+    }
+    if (check(GLFW_KEY_UP)) {
+        printf("UP!\n");
+    }
+    if (check(GLFW_KEY_DOWN)) {
+        printf("DOWN!\n");
     }
 }

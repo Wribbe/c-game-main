@@ -3,26 +3,26 @@
 
 #include <GLFW/glfw3.h>
 
-typedef struct {
+typedef struct Point_Data {
     size_t rows;
     size_t elements;
     void * data;
 } Point_Data;
 
-typedef struct {
+typedef struct Attrib_Pointer_Info {
     GLuint index;
     GLint size;
     float * offset;
 } Attrib_Pointer_Info;
 
-typedef struct {
+typedef struct VBO {
     GLuint vbo;
     GLuint render_geometry;
     GLuint draw_type;
     Point_Data * point_data;
 } VBO;
 
-typedef struct {
+typedef struct VAO {
     VBO vbo;
     GLuint vao;
     GLint start;
@@ -31,5 +31,12 @@ typedef struct {
     GLsizei list_size;
     Attrib_Pointer_Info * attrib_list;
 } VAO;
+
+typedef struct Command_Packet {
+    int index;
+    float value;
+    unsigned int lifetime;
+    struct Command_Packet * next;
+} Command_Packet;
 
 #endif

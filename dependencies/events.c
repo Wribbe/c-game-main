@@ -300,5 +300,9 @@ void process_command_list(float * modifiers)
             free(temp);
             temp = NULL;
         }
+
+        // Advance pointer through the list.
+        old_pointer = current_pointer;
+        current_pointer = next_pointer;
     }
 }

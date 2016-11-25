@@ -1,7 +1,9 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "GLFW/glfw3.h"
 #include "events/events.h"
+
 
 int local_keymap[NUM_KEYS];
 int * keymap = local_keymap;
@@ -48,14 +50,47 @@ int check(GLuint key) {
 }
 
 
+Command_Packet * command_list = NULL;
+Command_Packet * last = NULL;
+
+void submit_command(int index, float value, unsigned int lifetime)
+{
+    /* Submit Command Packet based on input values. */
+
+    printf("Submitting command: %d, %f, %d\n", index, value, lifetime);
+
+    // Create new Command_Packet.
+    Command_Packet * new_command = malloc(sizeof(Command_Packet));
+
+    // Populate Command_Packet.
+    new_command->index = index;
+    new_command->value = value;
+    new_command->lifetime = lifetime;
+    new_command->next = NULL;
+
+    if (command_list == NULL) { // Begin new command_list.
+        command_list = new_command;
+        last = new_command;
+    } else { // Append to end of current list.
+        // Append to last element.
+        last->next = new_command;
+        // Move last pointer;
+        last = new_command;
+    }
+}
+
+
 void process_keys(GLFWwindow * window)
 {
     if (check(GLFW_KEY_ESCAPE)) {
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
 
-    float x_modifier = 0;
-    float y_modifier = 0;
+    // Initialize modifiers.
+    float modifiers[3] = {0};
+
+    float * x_modifier = &modifiers[X];
+    float * y_modifier = &modifiers[Y];
 
     float speed = 0.05f;
     float gravity = 0.03f;
@@ -65,33 +100,118 @@ void process_keys(GLFWwindow * window)
 
     // Modify positions along x-axis.
     if (check(GLFW_KEY_LEFT)) {
-        x_modifier -= speed;
+        submit_command(X, -speed, 1);
     }
     if (check(GLFW_KEY_RIGHT)) {
-        x_modifier += speed;
+        submit_command(X, +speed, 1);
     }
 
-    // Modify positions along y-axis.
-    if (check(GLFW_KEY_UP)) {
-        gravity = 0;
-        y_modifier += speed;
-    }
+  //  // Modify positions along y-axis.
+  //  if (check(GLFW_KEY_UP)) {
+  //      gravity = 0;
+  //      y_modifier += speed;
+  //  }
     //if (check(GLFW_KEY_DOWN)) {
     //    gravity = 0;
     //    y_modifier -= speed;
     //}
 
     // Gravitation.
-    y_modifier -= gravity;
+    *y_modifier -= gravity;
+
+    // Process the command list.
+    Command_Packet * old_pointer = NULL;
+    Command_Packet * current_pointer = command_list;
+    Command_Packet * next_pointer = NULL;
+
+    // Temporary pointer for removal tagging.
+    Command_Packet * temp = NULL;
+
+    // Iterate over the command list.
+    while(current_pointer != NULL) {
+
+        // Assign the next pointer.
+        next_pointer = current_pointer->next;
+        // Apply the modifications in the package.
+        modifiers[current_pointer->index] += current_pointer->value;
+        // Decrease lifetime by one.
+        current_pointer->lifetime -= 1;
+
+        // Three types of unlink scenarios:
+        //
+        //      1.) [..]->o->c->n->[..]
+        //      2.) c->n->[..]
+        //      3.) [..]->o->c->N
+        //
+        //  Legend:
+        //      o - old_pointer.
+        //      c - current_pointer.
+        //      n - current_pointer->next.
+        //      N - NULL.
+        //
+        //  Where c is the current node with lifetime == 0;
+        //      1, The c node is in the middle of the list.
+        //      2, The c node is at the beginning of the list.
+        //      3, The c node is at the end of the list.
+        //
+        //  Detection:
+        //      1.) current node has a next node and the old_pointer is not
+        //          NULL.
+        //      2.) current->next is not NULL, but the old_pointer is NULL.
+        //      3.) current->next is NULL and old_pointer is not NULL.
+        //
+        //  Actions for unlinking:
+        //      1.) Point old_pointer->next to next_pointer.
+        //          old_pointer is still the old pointer, next becomes the
+        //          current, and new next_pointer = new current->next;
+        //      2.) Assign command_list to current_pointer->next, keep
+        //          old_pointer as NULL.
+        //      3.) Assign old_pointer->next = NULL, move global last pointer.
+        //
+
+        if (current_pointer->lifetime == 0) {
+            // Unlink dead command.
+            // Save the current pointer in temp.
+            temp = current_pointer;
+            if (old_pointer != NULL && current_pointer->next != NULL) {
+                // In the middle of the list, see 1 above.
+                // Re-link old->next to next.
+                old_pointer->next = next_pointer;
+                // Advance the current pointer.
+                current_pointer = next_pointer;
+                // Advance the next pointer.
+                next_pointer = current_pointer->next;
+            } else if (old_pointer == NULL && current_pointer->next == NULL) {
+                // At the first element of the list, see 2 above.
+                command_list = current_pointer->next;
+                // Advance the current_pointer.
+                current_pointer = command_list;
+                // Check if there is something bound to current_pointer.
+                if (current_pointer != NULL) {
+                    next_pointer = current_pointer->next;
+                }
+            } else if (old_pointer != NULL && current_pointer->next == NULL) {
+                // At the last element of the list, see 3 above.
+                old_pointer->next = NULL;
+                // Re assign last node pointer.
+                last = old_pointer;
+                // Set the current_pointer to NULL.
+                current_pointer = NULL;
+            }
+            // De-allocate the temp pointer.
+            free(temp);
+            temp = NULL;
+        }
+    }
 
     collision_check(transformation,
-                    &x_modifier,
+                    x_modifier,
                     x_write_pos,
-                    &y_modifier,
+                    y_modifier,
                     y_write_pos);
 
-    *x_write_pos += x_modifier;
-    *y_write_pos += y_modifier;
+    *x_write_pos += *x_modifier;
+    *y_write_pos += *y_modifier;
 }
 
 void collision_check(

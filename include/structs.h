@@ -35,7 +35,7 @@ typedef struct VAO {
 typedef struct Command_Packet {
     int index;
     float value;
-    unsigned int lifetime;
+    int lifetime;
     struct Command_Packet * next;
 } Command_Packet;
 

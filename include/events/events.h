@@ -4,6 +4,10 @@
 
 #define NUM_KEYS 512
 
+#define X 0
+#define Y 1
+#define Z 2
+
 int * keymap;
 
 VAO global_vao;

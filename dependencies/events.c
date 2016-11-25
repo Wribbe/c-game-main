@@ -57,8 +57,6 @@ void submit_command(int index, float value, unsigned int lifetime)
 {
     /* Submit Command Packet based on input values. */
 
-    printf("Submitting command: %d, %f, %d\n", index, value, lifetime);
-
     // Create new Command_Packet.
     Command_Packet * new_command = malloc(sizeof(Command_Packet));
 
@@ -106,16 +104,6 @@ void process_keys(GLFWwindow * window)
         submit_command(X, +speed, 1);
     }
 
-  //  // Modify positions along y-axis.
-  //  if (check(GLFW_KEY_UP)) {
-  //      gravity = 0;
-  //      y_modifier += speed;
-  //  }
-    //if (check(GLFW_KEY_DOWN)) {
-    //    gravity = 0;
-    //    y_modifier -= speed;
-    //}
-
     // Gravitation.
     *y_modifier -= gravity;
 
@@ -153,12 +141,16 @@ void process_keys(GLFWwindow * window)
         //      1, The c node is in the middle of the list.
         //      2, The c node is at the beginning of the list.
         //      3, The c node is at the end of the list.
+        //          3.1.) End of list with predecessor.
+        //          3.2.) Only element in list.
         //
         //  Detection:
         //      1.) current node has a next node and the old_pointer is not
         //          NULL.
         //      2.) current->next is not NULL, but the old_pointer is NULL.
-        //      3.) current->next is NULL and old_pointer is not NULL.
+        //      3.) current->next is NULL.
+        //          3.1.) old_pointer is not NULL.
+        //          3.2.) old_pointer is NULL.
         //
         //  Actions for unlinking:
         //      1.) Point old_pointer->next to next_pointer.
@@ -166,14 +158,23 @@ void process_keys(GLFWwindow * window)
         //          current, and new next_pointer = new current->next;
         //      2.) Assign command_list to current_pointer->next, keep
         //          old_pointer as NULL.
-        //      3.) Assign old_pointer->next = NULL, move global last pointer.
+        //      3.)
+        //          3.1) Assign old_pointer->next = NULL, move global last
+        //               pointer.
+        //          3.2) Assign command_list = NULL, and set last = NULL.
         //
 
         if (current_pointer->lifetime == 0) {
             // Unlink dead command.
+
             // Save the current pointer in temp.
             temp = current_pointer;
-            if (old_pointer != NULL && current_pointer->next != NULL) {
+
+            // Store logical values.
+            int old_pointer_assigned = old_pointer != NULL;
+            int current_has_next = current_pointer->next != NULL;
+
+            if (old_pointer_assigned && current_has_next) {
                 // In the middle of the list, see 1 above.
                 // Re-link old->next to next.
                 old_pointer->next = next_pointer;
@@ -181,7 +182,7 @@ void process_keys(GLFWwindow * window)
                 current_pointer = next_pointer;
                 // Advance the next pointer.
                 next_pointer = current_pointer->next;
-            } else if (old_pointer == NULL && current_pointer->next == NULL) {
+            } else if (!old_pointer_assigned && current_has_next) {
                 // At the first element of the list, see 2 above.
                 command_list = current_pointer->next;
                 // Advance the current_pointer.
@@ -190,13 +191,21 @@ void process_keys(GLFWwindow * window)
                 if (current_pointer != NULL) {
                     next_pointer = current_pointer->next;
                 }
-            } else if (old_pointer != NULL && current_pointer->next == NULL) {
-                // At the last element of the list, see 3 above.
-                old_pointer->next = NULL;
-                // Re assign last node pointer.
-                last = old_pointer;
+            } else if (!current_has_next) { // End of list or only element.
+                if (old_pointer_assigned) { // Last with predecessor.
+                    // At the last element of the list, see 3.1 above.
+                    old_pointer->next = NULL;
+                    // Re assign last node pointer.
+                    last = old_pointer;
+                } else { // Only element in list.
+                    command_list = NULL;
+                    last = NULL;
+                }
                 // Set the current_pointer to NULL.
                 current_pointer = NULL;
+            } else {
+                fprintf(stderr, "Unknown command list state, should not be here, aborting.\n");
+                exit(1);
             }
             // De-allocate the temp pointer.
             free(temp);

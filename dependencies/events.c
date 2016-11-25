@@ -16,6 +16,8 @@ m4 transformation = {
     {0.0f, 0.0f, 0.0f, 1.0f},
 };
 
+// ### Prototypes for functions further down in the document.
+
 void process_keys(GLFWwindow * window);
 void collision_check(
                      float * transformation_matrix,
@@ -24,6 +26,10 @@ void collision_check(
                      float * y_modifier,
                      float * y_write_pos
                     );
+
+void process_command_list(float * modifiers);
+
+// ### End prototypes.
 
 void callback_key(
                   GLFWwindow * window,
@@ -107,6 +113,89 @@ void process_keys(GLFWwindow * window)
     // Gravitation.
     *y_modifier -= gravity;
 
+    // Process command list.
+    process_command_list(modifiers);
+
+    // Check collisions with the window.
+    collision_check(transformation,
+                    x_modifier,
+                    x_write_pos,
+                    y_modifier,
+                    y_write_pos);
+
+    // Write any modified data to the transformation matrix.
+    *x_write_pos += *x_modifier;
+    *y_write_pos += *y_modifier;
+}
+
+void collision_check(
+                     float * transformation_matrix,
+                     float * x_modifier,
+                     float * x_write_pos,
+                     float * y_modifier,
+                     float * y_write_pos
+                    )
+{
+    /* Check collisions against window border. If collision detected set the
+     * position of the object at the edge of the window bounding box.
+     */
+
+    float x_pos_border =  1.0f;
+    float x_neg_border = -1.0f;
+    float y_pos_border =  1.0f;
+    float y_neg_border = -1.0f;
+
+    float * bounds = global_vao.bounds;
+
+    // Get height and widht of bounding box.
+    float width = bounds[1*3+0] - bounds[0*3+0];  // 1'st x - 0'th x.
+    float height = bounds[0*3+1] - bounds[2*3+1]; // 0'th y - 2'nd y.
+    float depth = bounds[4*3+3] - bounds[0*3+3];  // 4'th z - 0'th z.
+
+    // Correctly handle scaling boxes.
+    float x_scale = transformation[0][0];
+    float y_scale = transformation[1][1];
+    float z_scale = transformation[2][2];
+
+    // Scale width and height;
+    width *= x_scale;
+    height *= y_scale;
+    depth *= z_scale;
+
+    // Calculate next position for x and y.
+    float next_x = *x_write_pos + *x_modifier;
+    float next_y = *y_write_pos + *y_modifier;
+
+    float half_width = width/2.0f;
+    float half_height = height/2.0f;
+
+    float pos_bound_x_val = next_x + half_width;
+    float neg_bound_x_val = next_x - half_width;
+
+    float pos_bound_y_val = next_y + half_height;
+    float neg_bound_y_val = next_y - half_height;
+
+    // Check out of bounds x.
+    if (pos_bound_x_val >= x_pos_border) {
+        *x_modifier = 0;
+        *x_write_pos = x_pos_border - half_width;
+    } else if (neg_bound_x_val <= x_neg_border) {
+        *x_modifier = 0;
+        *x_write_pos = x_neg_border + half_width;
+    }
+
+    // Check out of bounds y.
+    if (pos_bound_y_val >= y_pos_border) {
+        *y_modifier = 0;
+        *y_write_pos = y_pos_border - half_height;
+    } else if (neg_bound_y_val <= y_neg_border) {
+        *y_modifier = 0;
+        *y_write_pos = y_neg_border + half_height;
+    }
+}
+
+void process_command_list(float * modifiers)
+{
     // Process the command list.
     Command_Packet * old_pointer = NULL;
     Command_Packet * current_pointer = command_list;
@@ -211,80 +300,5 @@ void process_keys(GLFWwindow * window)
             free(temp);
             temp = NULL;
         }
-    }
-
-    collision_check(transformation,
-                    x_modifier,
-                    x_write_pos,
-                    y_modifier,
-                    y_write_pos);
-
-    *x_write_pos += *x_modifier;
-    *y_write_pos += *y_modifier;
-}
-
-void collision_check(
-                     float * transformation_matrix,
-                     float * x_modifier,
-                     float * x_write_pos,
-                     float * y_modifier,
-                     float * y_write_pos
-                    )
-{
-    /* Check collisions against window border. If collision detected set the
-     * position of the object at the edge of the window bounding box.
-     */
-
-    float x_pos_border =  1.0f;
-    float x_neg_border = -1.0f;
-    float y_pos_border =  1.0f;
-    float y_neg_border = -1.0f;
-
-    float * bounds = global_vao.bounds;
-
-    // Get height and widht of bounding box.
-    float width = bounds[1*3+0] - bounds[0*3+0];  // 1'st x - 0'th x.
-    float height = bounds[0*3+1] - bounds[2*3+1]; // 0'th y - 2'nd y.
-    float depth = bounds[4*3+3] - bounds[0*3+3];  // 4'th z - 0'th z.
-
-    // Correctly handle scaling boxes.
-    float x_scale = transformation[0][0];
-    float y_scale = transformation[1][1];
-    float z_scale = transformation[2][2];
-
-    // Scale width and height;
-    width *= x_scale;
-    height *= y_scale;
-    depth *= z_scale;
-
-    // Calculate next position for x and y.
-    float next_x = *x_write_pos + *x_modifier;
-    float next_y = *y_write_pos + *y_modifier;
-
-    float half_width = width/2.0f;
-    float half_height = height/2.0f;
-
-    float pos_bound_x_val = next_x + half_width;
-    float neg_bound_x_val = next_x - half_width;
-
-    float pos_bound_y_val = next_y + half_height;
-    float neg_bound_y_val = next_y - half_height;
-
-    // Check out of bounds x.
-    if (pos_bound_x_val >= x_pos_border) {
-        *x_modifier = 0;
-        *x_write_pos = x_pos_border - half_width;
-    } else if (neg_bound_x_val <= x_neg_border) {
-        *x_modifier = 0;
-        *x_write_pos = x_neg_border + half_width;
-    }
-
-    // Check out of bounds y.
-    if (pos_bound_y_val >= y_pos_border) {
-        *y_modifier = 0;
-        *y_write_pos = y_pos_border - half_height;
-    } else if (neg_bound_y_val <= y_neg_border) {
-        *y_modifier = 0;
-        *y_write_pos = y_neg_border + half_height;
     }
 }

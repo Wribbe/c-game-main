@@ -3,7 +3,7 @@
 
 #include "GLFW/glfw3.h"
 #include "events/events.h"
-
+#include "utils/utils.h"
 
 int local_keymap[NUM_KEYS];
 int * keymap = local_keymap;
@@ -27,9 +27,21 @@ void collision_check(
                      float * y_write_pos
                     );
 
-void process_command_list(float * modifiers);
+void process_command_list(
+                          float * modifiers,
+                          Command_Packet ** command_list,
+                          Command_Packet ** last,
+                          int current_level
+                         );
 
 // ### End prototypes.
+
+void setup_globals(void)
+{
+    global_constants[gravity] = 0.03f;
+    global_constants[speed] = 0.05f;
+    global_constants[is_jumping] = 0.0f;
+}
 
 void callback_key(
                   GLFWwindow * window,
@@ -56,36 +68,117 @@ int check(GLuint key) {
 }
 
 
-Command_Packet * command_list = NULL;
-Command_Packet * last = NULL;
+Command_Packet * global_command_list = NULL;
+Command_Packet * global_last = NULL;
 
-void submit_command(int index, float value, unsigned int lifetime)
+void create_command_packet(
+                           Command_Input * input,
+                           Command_Packet ** command_list,
+                           Command_Packet ** last
+                          )
 {
-    /* Submit Command Packet based on input values. */
+    /* Allocate memory for populate and append a Command_Packet to the supplied
+     * list.
+     */
 
-    // Create new Command_Packet.
+    // Allocate memory for new_command.
     Command_Packet * new_command = malloc(sizeof(Command_Packet));
 
     // Populate Command_Packet.
-    new_command->index = index;
-    new_command->value = value;
-    new_command->lifetime = lifetime;
+    new_command->variable = input->variable;
+    new_command->value = input->value;
+    new_command->mod_function = input->mod_function;
+    new_command->lifetime = input->lifetime;
     new_command->next = NULL;
+    new_command->sub_commands = NULL;
+    new_command->last_sub = NULL;
+    new_command->type = input->type;
 
-    if (command_list == NULL) { // Begin new command_list.
-        command_list = new_command;
-        last = new_command;
+    // Copy over data to permanent malloc if it's present.
+    if (input->data != NULL) {
+        // Allocate memory.
+        Action_Logic_Data * data_pointer = malloc(sizeof(Action_Logic_Data));
+        Action_Logic_Data * input_data = (Action_Logic_Data * )input->data;
+
+        // Populate data pointer.
+        data_pointer->logic_function = input_data->logic_function;
+        data_pointer->comparison_value = input_data->comparison_value;
+        data_pointer->comparison_type = input_data->comparison_type;
+        data_pointer->regular_function = input_data->regular_function;
+        data_pointer->replacement_function = input_data->replacement_function;
+        data_pointer->replacement_value = input_data->replacement_value;
+
+        // Set data to populated data pointer.
+        new_command->data = data_pointer;
+
+    } else {
+        new_command->data = NULL;
+    }
+
+    if (*command_list == NULL) { // Begin new command_list.
+        *command_list = new_command;
+        *last = new_command;
     } else { // Append to end of current list.
         // Append to last element.
-        last->next = new_command;
+        (*last)->next = new_command;
         // Move last pointer;
-        last = new_command;
+        *last = new_command;
+    }
+}
+
+void submit_command(Command_Input * inputs, size_t size)
+{
+    /* Submit Command Packet based on input values. */
+
+    // Create first Command_Packet.
+    create_command_packet(&inputs[0], &global_command_list, &global_last);
+
+    // Append any other packages to the sub_commands head next pointer.
+    for (size_t i=1; i<size; i++) {
+        create_command_packet(&inputs[i],
+                              &global_last->sub_commands,
+                              &global_last->last_sub);
     }
 }
 
 
+float action_add_value(float input, float value, void * data) {
+    UNUSED(data);
+    return input+value;
+}
+
+float action_set_value(float input, float value, void * data) {
+    UNUSED(data);
+    return input=value;
+}
+
+float action_logic_wrapper(float input, float value, void * input_data) {
+    // Unpack the data.
+    Action_Logic_Data * data = (Action_Logic_Data * )input_data;
+
+    // Compute the next return value from the regular_function.
+    float next_value = data->regular_function(input, value, NULL);
+
+    // Compare next value with comparison value through the provided logical
+    // function.
+    bool next_not_valid = data->logic_function(next_value,
+                                               data->comparison_type,
+                                               data->comparison_value);
+
+    // If next_value is invalid, replace next_value with the computation of the
+    // provided replacement_function.
+    if (next_not_valid) {
+        float new_value = data->replacement_value;
+        next_value = data->replacement_function(input, new_value, NULL);
+    }
+
+    // Return the next_value.
+    return next_value;
+}
+
 void process_keys(GLFWwindow * window)
 {
+
     if (check(GLFW_KEY_ESCAPE)) {
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
@@ -96,25 +189,65 @@ void process_keys(GLFWwindow * window)
     float * x_modifier = &modifiers[X];
     float * y_modifier = &modifiers[Y];
 
-    float speed = 0.05f;
-    float gravity = 0.03f;
-
     float * x_write_pos = &transformation[0][3];
     float * y_write_pos = &transformation[1][3];
 
+    float * current_speed = &global_constants[speed];
+    float * current_gravity = &global_constants[gravity];
+
+    float * jump_flag = &global_constants[is_jumping];
+
     // Modify positions along x-axis.
     if (check(GLFW_KEY_LEFT)) {
-        submit_command(X, -speed, 1);
+        Command_Input inputs[] = {
+           {x_modifier, -(*current_speed), action_add_value, NULL, 1, PASSTHROUGH},
+        };
+        submit_command(inputs, SIZE(inputs));
     }
     if (check(GLFW_KEY_RIGHT)) {
-        submit_command(X, +speed, 1);
+        Command_Input inputs[] = {
+           {x_modifier, +(*current_speed), action_add_value, NULL, 1, PASSTHROUGH},
+        };
+        submit_command(inputs, SIZE(inputs));
     }
 
-    // Gravitation.
-    *y_modifier -= gravity;
+    // Modify positions along y-axis.
+    if (check(GLFW_KEY_SPACE) && !(*jump_flag)) {
+        Command_Input inputs[] = {
+           {jump_flag, 1.0f, action_set_value, NULL, 1, PASSTHROUGH},
+           {current_gravity, 0.0f, action_set_value, NULL, 1, PASSTHROUGH},
+           {y_modifier, 0.03f, action_add_value, NULL, 20, BLOCKING},
+           {jump_flag, 0.0f, action_set_value, NULL, 1, PASSTHROUGH},
+           {current_gravity, global_constants[gravity], action_set_value, NULL, 1, PASSTHROUGH},
+        };
+        submit_command(inputs, SIZE(inputs));
+    }
+
+//    // Add gravity to command list.
+//    Action_Logic_Data check_data = {
+//        // Data for the logic part.
+//        .logic_function = &logic_main,
+//        .comparison_value = -0.3f,
+//        .comparison_type = LT,
+//        // Function that should be run and value checked.
+//        .regular_function = &action_add_value,
+//        // The function that will be run and replace the value from the
+//        // regular function if that value was invalid.
+//        .replacement_function = &action_set_value,
+//        .replacement_value = -0.3f,
+//    };
+//    Command_Input grav_inputs[] = {
+//       {y_modifier, -(*current_gravity), action_logic_wrapper, &check_data,
+//           1, PASSTHROUGH},
+//    };
+    Command_Input grav_inputs[] = {
+       {y_modifier, -(*current_gravity), action_add_value, NULL, 1,
+           PASSTHROUGH},
+    };
+    submit_command(grav_inputs, SIZE(grav_inputs));
 
     // Process command list.
-    process_command_list(modifiers);
+    process_command_list(modifiers, &global_command_list, &global_last, 0);
 
     // Check collisions with the window.
     collision_check(transformation,
@@ -194,115 +327,238 @@ void collision_check(
     }
 }
 
-void process_command_list(float * modifiers)
-{
-    // Process the command list.
-    Command_Packet * old_pointer = NULL;
-    Command_Packet * current_pointer = command_list;
-    Command_Packet * next_pointer = NULL;
+void free_command(Command_Packet * command) {
+    // Function used to free command package.
 
-    // Temporary pointer for removal tagging.
+    // Release command data if there is any.
+    if (command->data != NULL) {
+        free(command->data);
+    }
+    // Free the command itself.
+    free(command);
+}
+
+void process_command_list(
+                          float * modifiers,
+                          Command_Packet ** command_list,
+                          Command_Packet ** last,
+                          int current_level
+                         )
+{
+
+    // Dereference to the struct and take pointer to avoid overwriting the
+    // anchor when assigning new current.
+    Command_Packet * current_pointer = &**command_list;
+
+    // Set up utility pointers.
+    Command_Packet * prev = NULL;
     Command_Packet * temp = NULL;
+
+    // Pointers for saving values when de-linking node.
+    Command_Packet * temp_next = NULL;
+    Command_Packet * temp_last_sub = NULL;
 
     // Iterate over the command list.
     while(current_pointer != NULL) {
 
-        // Assign the next pointer.
-        next_pointer = current_pointer->next;
+        // Save the current pointer to temp.
+        temp = current_pointer;
+
+        // Extract some useful values.
+        float * value_to_modify = current_pointer->variable;
+        float current_value = *value_to_modify;
+        float input_value = current_pointer->value;
+        event_action_type action_type = current_pointer->type;
+        int has_sub_commands = current_pointer->sub_commands != NULL;
+        void * data = current_pointer->data;
+
         // Apply the modifications in the package.
-        modifiers[current_pointer->index] += current_pointer->value;
-        // Decrease lifetime by one.
+        *value_to_modify = current_pointer->mod_function(current_value,
+                                                         input_value,
+                                                         data);
+
+        // Process any sub-commands if type is non-blocking.
+        if (has_sub_commands && action_type != BLOCKING) {
+            process_command_list(modifiers,
+                                 &current_pointer->sub_commands,
+                                 &current_pointer->last_sub,
+                                 current_level+1);
+        }
+
+        // Decrease lifetime.
         current_pointer->lifetime -= 1;
 
         // Three types of unlink scenarios:
         //
-        //      1.) [..]->o->c->n->[..]
+        //      1.) [..]->p->c->n->[..]
         //      2.) c->n->[..]
-        //      3.) [..]->o->c->N
+        //      3.) [..]->p->c->N
         //
         //  Legend:
-        //      o - old_pointer.
+        //      p - prev_pointer.
         //      c - current_pointer.
         //      n - current_pointer->next.
         //      N - NULL.
         //
-        //  Where c is the current node with lifetime == 0;
+        //  Given a c that has lifetime == 0, there are three unlinking
+        //  scenarios that are possible:
+        //
         //      1, The c node is in the middle of the list.
         //      2, The c node is at the beginning of the list.
         //      3, The c node is at the end of the list.
         //          3.1.) End of list with predecessor.
         //          3.2.) Only element in list.
         //
+        //  Since the action-list can be nested, the above scenarios exists in
+        //  two variants, one where the current node has sub-nodes, and one
+        //  where it has none.
+        //
+        //      y/n the c node has sub-elements.
+        //
         //  Detection:
-        //      1.) current node has a next node and the old_pointer is not
+        //      1.) current node has a next node and the prev_pointer is not
         //          NULL.
-        //      2.) current->next is not NULL, but the old_pointer is NULL.
+        //      2.) current->next is not NULL, but prev_pointer == NULL.
         //      3.) current->next is NULL.
-        //          3.1.) old_pointer is not NULL.
-        //          3.2.) old_pointer is NULL.
+        //          3.1.) prev_pointer is not NULL.
+        //          3.2.) prev_pointer is NULL.
+        //      4.) sub_commands is not NULL.
         //
         //  Actions for unlinking:
-        //      1.) Point old_pointer->next to next_pointer.
-        //          old_pointer is still the old pointer, next becomes the
-        //          current, and new next_pointer = new current->next;
-        //      2.) Assign command_list to current_pointer->next, keep
-        //          old_pointer as NULL.
+        //      1.) Point prev_pointer->next to current_pointer->next.
+        //          prev_pointer is still the previous pointer. Advance the
+        //          current pointer to the new prev_pointer->next.
+        //      2.) Re-write the anchor for the supplied command_list to point
+        //          to the current_pointer->next.
         //      3.)
-        //          3.1) Assign old_pointer->next = NULL, move global last
-        //               pointer.
+        //          3.1) prev_pointer->next = NULL, move global last pointer.
         //          3.2) Assign command_list = NULL, and set last = NULL.
+        //
+        //     y/n: The presence of sub-commands does not change the unlinking
+        //          process, the main difference is that the sub-elements
+        //          should be 'bubbled-up' to the position of their parent in
+        //          the main list instead of getting rid of that spot in the
+        //          topmost-list.
         //
 
         if (current_pointer->lifetime == 0) {
-            // Unlink dead command.
 
-            // Save the current pointer in temp.
-            temp = current_pointer;
+            // Update the sub-command variable, the processing of sub-commands
+            // might have killed off all the previously defined sub-commands.
+            has_sub_commands = current_pointer->sub_commands != NULL;
 
-            // Store logical values.
-            int old_pointer_assigned = old_pointer != NULL;
-            int current_has_next = current_pointer->next != NULL;
+            if (has_sub_commands) {
 
-            if (old_pointer_assigned && current_has_next) {
-                // In the middle of the list, see 1 above.
-                // Re-link old->next to next.
-                old_pointer->next = next_pointer;
-                // Advance the current pointer.
-                current_pointer = next_pointer;
-                // Advance the next pointer.
-                next_pointer = current_pointer->next;
-            } else if (!old_pointer_assigned && current_has_next) {
-                // At the first element of the list, see 2 above.
-                command_list = current_pointer->next;
-                // Advance the current_pointer.
-                current_pointer = command_list;
-                // Check if there is something bound to current_pointer.
-                if (current_pointer != NULL) {
-                    next_pointer = current_pointer->next;
+                // The sub-command list should not be let to "unfold" if the
+                // sub-command list are the only commands left in the global
+                // command list. Still want new commands to be run in parallell
+                // with all stacks of nested sub-commands. In short, don't let
+                // a sub-command list become the new global command list.
+
+                // Save the current next pointer.
+                temp_next = temp->next;
+                // Save the current sub-commands last pointer.
+                temp_last_sub = temp->last_sub;
+
+                // current_pointer = the first sub-command for the dead node.
+                current_pointer = current_pointer->sub_commands;
+                // Move any other sub commands from the next pointer to the
+                // sub_element pointer of the moved node.
+                current_pointer->sub_commands = current_pointer->next;
+
+                // Restore old pointers gathered from temp.
+                current_pointer->next = temp_next;
+                current_pointer->last_sub = temp_last_sub;
+
+                // Check where we are in the list.
+                if (prev == NULL) { // First element of the list, re-write anchor and last.
+                    *command_list = current_pointer;
+                    *last = current_pointer;
+                } else { // Not the first or last element, re-link previous to us.
+                    prev->next = current_pointer;
                 }
-            } else if (!current_has_next) { // End of list or only element.
-                if (old_pointer_assigned) { // Last with predecessor.
-                    // At the last element of the list, see 3.1 above.
-                    old_pointer->next = NULL;
-                    // Re assign last node pointer.
-                    last = old_pointer;
-                } else { // Only element in list.
-                    command_list = NULL;
-                    last = NULL;
+
+                // Check if we are the child to the last element, if so, update
+                // the last pointer.
+                if (temp->next == NULL) {
+                    *last = current_pointer;
                 }
-                // Set the current_pointer to NULL.
-                current_pointer = NULL;
-            } else {
-                fprintf(stderr, "Unknown command list state, should not be here, aborting.\n");
-                exit(1);
+
+                // Advance the previous pointer to the new sub-element. The
+                // element has already been processed by the now dead parent
+                // element. Don't want to process it twice.
+                prev = current_pointer;
+
+                // Advance the current pointer to the next pointer.
+                current_pointer = current_pointer->next;
+
+                // Free the dead node.
+                free_command(temp);
+
+                // Continue with the iteration.
+                continue;
+
+            }  else {  // No sub-elements.
+
+                // De-link the dead node and de-allocate it.
+
+                if (prev == NULL) { // First element.
+
+                    // Set the global anchor and last to the current->next
+                    // element. Advance the current pointer and free the
+                    // current element stored in temp and continue execution.
+
+                    *command_list = current_pointer->next;
+                    *last = current_pointer->next;
+                    current_pointer = current_pointer->next;
+                    free_command(temp);
+
+                    // Continue iteration.
+                    continue;
+
+                } else { // Middle or last in list.
+
+                    if (current_pointer->next == NULL) { // Last element in list.
+
+                        // Re-link previous to NULL and move the global last
+                        // pointer.
+                        prev->next = NULL;
+                        *last = prev;
+
+                    } else { // Middle of list.
+                        // Link around the current node.
+                        prev->next = current_pointer->next;
+                    }
+
+                    // Set the previous node as the current node. Will advance
+                    // to the currently assigned next node or NULL further down
+                    // in the code.
+                    current_pointer = prev;
+
+                }
+
+                // Free the dead current element.
+                free_command(temp);
             }
-            // De-allocate the temp pointer.
-            free(temp);
-            temp = NULL;
+        }
+
+        // Check if this is an iteration in a sub level that is not 0. If we
+        // are in a sub-level and declared as blocking, abort all execution of
+        // the current evaluation by returning.
+        //
+        // The point of checking if we are in the main list or not is that
+        // blocking commands in the main list should only block the execution
+        // of its own sub-commands, not the rest of the actions in the main
+        // list. For a blocking sub-command the execution should stop since we
+        // want that node to be consumed before any of the nodes below become
+        // active.
+
+        if (action_type == BLOCKING && current_level != 0) {
+            return;
         }
 
         // Advance pointer through the list.
-        old_pointer = current_pointer;
-        current_pointer = next_pointer;
+        prev = current_pointer;
+        current_pointer = current_pointer->next;
     }
 }

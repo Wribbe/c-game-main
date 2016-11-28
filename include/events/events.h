@@ -8,6 +8,15 @@
 #define Y 1
 #define Z 2
 
+typedef enum global_index {
+    gravity,
+    speed,
+    is_jumping,
+    num_constants,
+} global_index;
+
+float global_constants[num_constants];
+
 int * keymap;
 
 VAO global_vao;
@@ -23,3 +32,4 @@ void callback_key(
                  );
 
 void poll_events(GLFWwindow * window);
+void setup_globals();

@@ -162,6 +162,9 @@ int main(void)
     glGenTextures(1, &texture);
     load_to_texture(&texture, filename);
 
+    // Setup environment variables.
+    setup_globals();
+
     while(!glfwWindowShouldClose(window)) {
 
         poll_events(window);

@@ -11,6 +11,7 @@
 #include "graphics/graphics.h"
 #include "utils/utils.h"
 #include "SOIL/SOIL.h"
+#include "components/components.h"
 
 void init(void)
 {
@@ -38,13 +39,18 @@ void display(
     glUseProgram(shader_program);
     // Write to uniform location.
 
-    glUniformMatrix4fv(transform_location, 1, GL_TRUE, &component->transformation[0][0]);
+    while( component != NULL) {
 
-    // Bind VAO.
-    VAO * vao = component->vao;
-    glBindVertexArray(vao->vao);
-    // Draw elements.
-    glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
+        glUniformMatrix4fv(transform_location, 1, GL_TRUE, &component->transformation[0][0]);
+
+        // Bind VAO.
+        VAO * vao = component->vao;
+        glBindVertexArray(vao->vao);
+        // Draw elements.
+        glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
+        // Advance component pointer.
+        component = component->next;
+    }
     // Unbind VAO.
     glBindVertexArray(0);
     // Unbind program.
@@ -165,16 +171,25 @@ int main(void)
     struct component * main_component = create_component("Dietrich",
                                                          &vao,
                                                          NULL);
-    // Copy identity-matrix to transformation.
-    m4_copy(main_component->transformation, m4_identity);
+
+    // set up second component.
+    struct component * second_component = create_component("Dietrich",
+                                                           &vao,
+                                                           NULL);
     // Scale the dimensions.
     m4_scale(main_component->transformation, 0.4, 0.3, 0.3);
+    m4_scale(second_component->transformation, 0.4, 0.3, 0.3);
 
-    current_component = &main_component;
-    components = &main_component;
-    last_component = &main_component;
+    // Set up component list.
+    controlled_component = main_component;
+    components = main_component;
+    last_component = main_component;
 
-    // Generte texture and load image data.
+    // Link main and second.
+    last_component->next = second_component;
+    last_component = last_component->next;
+
+    // Generate texture and load image data.
     GLuint texture;
     glGenTextures(1, &texture);
     load_to_texture(&texture, filename);
@@ -184,7 +199,7 @@ int main(void)
 
     while(!glfwWindowShouldClose(window)) {
         poll_events(window);
-        display(&main_component, shader_program, texture);
+        display(components, shader_program, texture);
         glfwSwapBuffers(window);
     }
 

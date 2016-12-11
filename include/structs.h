@@ -1,6 +1,7 @@
 #ifndef STRUCTS_H
 #define STRUCTS_H
 
+#include <stdbool.h>
 #include <GLFW/glfw3.h>
 #include "maths/math_utils.h"
 
@@ -89,6 +90,7 @@ struct component {
     char * id;
     m4 transformation;
     VAO * vao;
+    float modifiers[3];
     Command_Packet * command_list;
     Command_Packet * last_command;
     struct component * next;

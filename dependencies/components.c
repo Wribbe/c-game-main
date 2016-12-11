@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "components/components.h"
-#include "events/events.h"
 
 struct component * create_component(
                                     const char * id,
@@ -33,6 +32,9 @@ struct component * create_component(
     return_component->vao = vao;
     return_component->command_list = NULL;
     return_component->next = next;
+    return_component->modifiers[0] = 0;
+    return_component->modifiers[1] = 0;
+    return_component->modifiers[2] = 0;
     // Set transformation matrix to identity matrix.
     m4_copy(return_component->transformation, m4_identity);
 

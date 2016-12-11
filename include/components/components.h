@@ -4,6 +4,7 @@
 #include "structs.h"
 
 struct component * components;
+struct component * controlled_component;
 struct component * last_component;
 
 struct component * create_component(
@@ -11,4 +12,7 @@ struct component * create_component(
                                     VAO * vao,
                                     struct component * next
                                    );
+
+void free_component(struct component * component);
+
 #endif

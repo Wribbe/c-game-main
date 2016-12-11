@@ -1,16 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #include "GLFW/glfw3.h"
 #include "events/events.h"
 #include "utils/utils.h"
-
-int local_keymap[NUM_KEYS];
-int * keymap = local_keymap;
+#include "components/components.h"
 
 #define GRAVITY 0.03f
 
 // ### Prototypes for functions further down in the document.
+
+bool keymap[NUM_KEYS] = {false};
+uint32_t num_actions[NUM_KEYS] = {0};
+
 
 void process_keys(GLFWwindow * window);
 void collision_check(
@@ -46,10 +49,12 @@ void callback_key(
                   int mods
                  )
 {
-    if (action == GLFW_PRESS && !keymap[key]) {
-        keymap[key] = 1;
-    } else if (action == GLFW_RELEASE && keymap[key]) {
-        keymap[key] = 0;
+    if (action == GLFW_PRESS) {
+        num_actions[key] += 1;
+        keymap[key] = true;
+    } else if (action == GLFW_RELEASE) {
+        keymap[key] = false;
+        num_actions[key] = 0;
     }
 }
 
@@ -58,8 +63,15 @@ void poll_events(GLFWwindow * window) {
     process_keys(window);
 }
 
-int check(GLuint key) {
+bool check(GLuint key) {
     return keymap[key];
+}
+
+bool max_actions(GLuint key, uint32_t max) {
+    if (num_actions[key] > max) {
+        return false;
+    }
+    return true;
 }
 
 
@@ -191,32 +203,45 @@ void process_keys(GLFWwindow * window)
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
 
-    // Initialize modifiers.
-    float modifiers[3] = {0};
+    // Use controlled components modifiers.
+    float * modifiers = controlled_component->modifiers;
 
     float * x_modifier = &modifiers[X];
     float * y_modifier = &modifiers[Y];
 
-    float * x_write_pos = &current_component->transformation[0][3];
-    float * y_write_pos = &current_component->transformation[1][3];
+    // Reset modifiers.
+    *x_modifier = 0;
+    *y_modifier = 0;
+
+    float * x_write_pos = &controlled_component->transformation[0][3];
+    float * y_write_pos = &controlled_component->transformation[1][3];
 
     float * current_speed = &global_variables[speed];
     float * current_gravity = &global_variables[gravity];
 
     float * jump_flag = &global_variables[is_jumping];
 
+    // Modify controlled_component with tab.
+    if (check(GLFW_KEY_TAB) && max_actions(GLFW_KEY_TAB, 1)) {
+        // Cycle through available components. If NULL return to head.
+        controlled_component = controlled_component->next;
+        if (controlled_component == NULL) {
+            controlled_component = components;
+        }
+    }
+
     // Modify positions along x-axis.
     if (check(GLFW_KEY_LEFT)) {
         Command_Input inputs[] = {
            {x_modifier, -(*current_speed), action_add_value, NULL, 1, PASSTHROUGH},
         };
-        submit_command(inputs, SIZE(inputs), current_component);
+        submit_command(inputs, SIZE(inputs), controlled_component);
     }
     if (check(GLFW_KEY_RIGHT)) {
         Command_Input inputs[] = {
            {x_modifier, +(*current_speed), action_add_value, NULL, 1, PASSTHROUGH},
         };
-        submit_command(inputs, SIZE(inputs), current_component);
+        submit_command(inputs, SIZE(inputs), controlled_component);
     }
 
     // Modify positions along y-axis.
@@ -227,33 +252,57 @@ void process_keys(GLFWwindow * window)
            {y_modifier, 0.03f, action_add_value, NULL, 20, BLOCKING},
            {current_gravity, GRAVITY, action_set_value, NULL, 1, PASSTHROUGH},
         };
-        submit_command(inputs, SIZE(inputs), current_component);
+        submit_command(inputs, SIZE(inputs), controlled_component);
     }
 
-    // Process command list.
-    // Important that this is done before any global variables like
-    // current_gravity is used, since the commands might alter thees values.
-    process_command_list(modifiers,
-                         &current_component->command_list,
-                         &current_component->last_command,
-                         0);
+    // Process command list for each component.
+    struct component * comp_pointer = components;
+    while (comp_pointer != NULL) {
 
-    // Add gravity.
+        // Process command list.
+        // Important that this is done before any global variables like
+        // current_gravity is used, since the commands might alter thees values.
+        process_command_list(comp_pointer->modifiers,
+                             &comp_pointer->command_list,
+                             &comp_pointer->last_command, 0);
+
+        // Advance pointer.
+        comp_pointer= comp_pointer->next;
+    }
+
+    // Add gravity to controlled object.
     Command_Input grav_inputs[] = {
        {y_modifier, -(*current_gravity), action_add_value, NULL, 1, PASSTHROUGH},
     };
-    submit_command(grav_inputs, SIZE(grav_inputs), current_component);
+    submit_command(grav_inputs, SIZE(grav_inputs), controlled_component);
 
-    // Check collisions with the window.
-    collision_check(&current_component->transformation,
-                    x_modifier,
-                    x_write_pos,
-                    y_modifier,
-                    y_write_pos);
+    // Apply modifications to all components.
+    comp_pointer = components;
+    while (comp_pointer != NULL) {
 
-    // Write any modified data to the transformation matrix.
-    *x_write_pos += *x_modifier;
-    *y_write_pos += *y_modifier;
+        float * modifiers = comp_pointer->modifiers;
+        float * mat_transform = &comp_pointer->transformation[0][0];
+
+        float * x_write_pos = &mat_transform[0*4+3];
+        float * y_write_pos = &mat_transform[1*4+3];
+
+        float * x_modifier = &modifiers[X];
+        float * y_modifier = &modifiers[Y];
+
+        // Check collisions with the window.
+        collision_check(mat_transform,
+                        x_modifier,
+                        x_write_pos,
+                        y_modifier,
+                        y_write_pos);
+
+        // Write any modified data to the transformation matrix.
+        *x_write_pos += *x_modifier;
+        *y_write_pos += *y_modifier;
+
+        // Iterate to next component.
+        comp_pointer = comp_pointer->next;
+    }
 }
 
 void collision_check(
@@ -273,7 +322,7 @@ void collision_check(
     float y_pos_border =  1.0f;
     float y_neg_border = -1.0f;
 
-    float * bounds = current_component->vao->bounds;
+    float * bounds = controlled_component->vao->bounds;
 
     // Get height and widht of bounding box.
     float width = bounds[1*3+0] - bounds[0*3+0];  // 1'st x - 0'th x.
@@ -326,7 +375,7 @@ void collision_check(
            {jump_flag, 0.0f, action_set_value, NULL, 1, PASSTHROUGH},
         };
         if (*jump_flag != 0.0f) {
-            submit_command(set_not_jumping, SIZE(set_not_jumping), current_component);
+            submit_command(set_not_jumping, SIZE(set_not_jumping), controlled_component);
         }
     }
 }

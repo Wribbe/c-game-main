@@ -8,14 +8,6 @@
 int local_keymap[NUM_KEYS];
 int * keymap = local_keymap;
 
-//Control single object.
-m4 transformation = {
-    {0.6f, 0.0f, 0.0f, 0.0f},
-    {0.0f, 0.5f, 0.0f, 0.0f},
-    {0.0f, 0.0f, 0.5f, 0.0f},
-    {0.0f, 0.0f, 0.0f, 1.0f},
-};
-
 #define GRAVITY 0.03f
 
 // ### Prototypes for functions further down in the document.
@@ -70,9 +62,6 @@ int check(GLuint key) {
     return keymap[key];
 }
 
-
-Command_Packet * global_command_list = NULL;
-Command_Packet * global_last = NULL;
 
 void create_command_packet(
                            Command_Input * input,
@@ -129,18 +118,24 @@ void create_command_packet(
     }
 }
 
-void submit_command(Command_Input * inputs, size_t size)
+void submit_command(
+                    Command_Input * inputs,
+                    size_t size,
+                    struct component * component
+                   )
 {
     /* Submit Command Packet based on input values. */
 
     // Create first Command_Packet.
-    create_command_packet(&inputs[0], &global_command_list, &global_last);
+    create_command_packet(&inputs[0],
+                          &component->command_list,
+                          &component->last_command);
 
     // Append any other packages to the sub_commands head next pointer.
     for (size_t i=1; i<size; i++) {
         create_command_packet(&inputs[i],
-                              &global_last->sub_commands,
-                              &global_last->last_sub);
+                              &component->last_command->sub_commands,
+                              &component->last_command->last_sub);
     }
 }
 
@@ -202,8 +197,8 @@ void process_keys(GLFWwindow * window)
     float * x_modifier = &modifiers[X];
     float * y_modifier = &modifiers[Y];
 
-    float * x_write_pos = &transformation[0][3];
-    float * y_write_pos = &transformation[1][3];
+    float * x_write_pos = &current_component->transformation[0][3];
+    float * y_write_pos = &current_component->transformation[1][3];
 
     float * current_speed = &global_variables[speed];
     float * current_gravity = &global_variables[gravity];
@@ -215,13 +210,13 @@ void process_keys(GLFWwindow * window)
         Command_Input inputs[] = {
            {x_modifier, -(*current_speed), action_add_value, NULL, 1, PASSTHROUGH},
         };
-        submit_command(inputs, SIZE(inputs));
+        submit_command(inputs, SIZE(inputs), current_component);
     }
     if (check(GLFW_KEY_RIGHT)) {
         Command_Input inputs[] = {
            {x_modifier, +(*current_speed), action_add_value, NULL, 1, PASSTHROUGH},
         };
-        submit_command(inputs, SIZE(inputs));
+        submit_command(inputs, SIZE(inputs), current_component);
     }
 
     // Modify positions along y-axis.
@@ -232,23 +227,25 @@ void process_keys(GLFWwindow * window)
            {y_modifier, 0.03f, action_add_value, NULL, 20, BLOCKING},
            {current_gravity, GRAVITY, action_set_value, NULL, 1, PASSTHROUGH},
         };
-        submit_command(inputs, SIZE(inputs));
+        submit_command(inputs, SIZE(inputs), current_component);
     }
 
     // Process command list.
     // Important that this is done before any global variables like
     // current_gravity is used, since the commands might alter thees values.
-    process_command_list(modifiers, &global_command_list, &global_last, 0);
+    process_command_list(modifiers,
+                         &current_component->command_list,
+                         &current_component->last_command,
+                         0);
 
     // Add gravity.
     Command_Input grav_inputs[] = {
-       {y_modifier, -(*current_gravity), action_add_value, NULL, 1,
-           PASSTHROUGH},
+       {y_modifier, -(*current_gravity), action_add_value, NULL, 1, PASSTHROUGH},
     };
-    submit_command(grav_inputs, SIZE(grav_inputs));
+    submit_command(grav_inputs, SIZE(grav_inputs), current_component);
 
     // Check collisions with the window.
-    collision_check(transformation,
+    collision_check(&current_component->transformation,
                     x_modifier,
                     x_write_pos,
                     y_modifier,
@@ -276,7 +273,7 @@ void collision_check(
     float y_pos_border =  1.0f;
     float y_neg_border = -1.0f;
 
-    float * bounds = global_vao.bounds;
+    float * bounds = current_component->vao->bounds;
 
     // Get height and widht of bounding box.
     float width = bounds[1*3+0] - bounds[0*3+0];  // 1'st x - 0'th x.
@@ -284,9 +281,9 @@ void collision_check(
     float depth = bounds[4*3+3] - bounds[0*3+3];  // 4'th z - 0'th z.
 
     // Correctly handle scaling boxes.
-    float x_scale = transformation[0][0];
-    float y_scale = transformation[1][1];
-    float z_scale = transformation[2][2];
+    float x_scale = transformation_matrix[0]; // First diagonal pos.
+    float y_scale = transformation_matrix[1*3+2]; // Second diagonal pos.
+    float z_scale = transformation_matrix[2*3+3]; // Third diagonal pos.
 
     // Scale width and height;
     width *= x_scale;
@@ -329,7 +326,7 @@ void collision_check(
            {jump_flag, 0.0f, action_set_value, NULL, 1, PASSTHROUGH},
         };
         if (*jump_flag != 0.0f) {
-            submit_command(set_not_jumping, SIZE(set_not_jumping));
+            submit_command(set_not_jumping, SIZE(set_not_jumping), current_component);
         }
     }
 }

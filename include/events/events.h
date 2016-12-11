@@ -19,9 +19,8 @@ float global_variables[num_constants];
 
 int * keymap;
 
-VAO global_vao;
-
-m4 transformation;
+struct component * component_list;
+struct component * current_component;
 
 void callback_key(
                   GLFWwindow * window,

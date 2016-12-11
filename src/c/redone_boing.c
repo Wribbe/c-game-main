@@ -20,7 +20,11 @@ void init(void)
 
 // Set up uniform location.
 
-void display(VAO * vao, GLuint shader_program, GLuint texture)
+void display(
+             struct component * component,
+             GLuint shader_program,
+             GLuint texture
+            )
 {
     // Clear screen.
     glClear(GL_COLOR_BUFFER_BIT);
@@ -33,9 +37,11 @@ void display(VAO * vao, GLuint shader_program, GLuint texture)
     // Have to have the program active when writing.
     glUseProgram(shader_program);
     // Write to uniform location.
-    glUniformMatrix4fv(transform_location, 1, GL_TRUE, &transformation[0][0]);
+
+    glUniformMatrix4fv(transform_location, 1, GL_TRUE, &component->transformation[0][0]);
 
     // Bind VAO.
+    VAO * vao = component->vao;
     glBindVertexArray(vao->vao);
     // Draw elements.
     glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
@@ -155,7 +161,14 @@ int main(void)
     // Get texture file source.
     filename = texture_src("Dietrich.jpg");
 
-    global_vao = vao;
+    // Set up main component.
+    struct component main_component = {0};
+    main_component.id = "Dietrich";
+    main_component.vao = &vao;
+    main_component.command_list = NULL;
+    main_component.last_command = NULL;
+    m4_copy(main_component.transformation, m4_identity);
+    current_component = &main_component;
 
     // Generte texture and load image data.
     GLuint texture;
@@ -166,11 +179,9 @@ int main(void)
     setup_globals();
 
     while(!glfwWindowShouldClose(window)) {
-
         poll_events(window);
-        display(&vao, shader_program, texture);
+        display(&main_component, shader_program, texture);
         glfwSwapBuffers(window);
-
     }
 
     glfwTerminate();

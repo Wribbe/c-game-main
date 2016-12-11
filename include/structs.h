@@ -2,6 +2,7 @@
 #define STRUCTS_H
 
 #include <GLFW/glfw3.h>
+#include "maths/math_utils.h"
 
 typedef enum event_action_type {
     PASSTHROUGH,
@@ -83,5 +84,13 @@ typedef struct Action_Logic_Data{
     mod_function replacement_function;
     float replacement_value;
 } Action_Logic_Data;
+
+struct component {
+    const char * id;
+    m4 transformation;
+    VAO * vao;
+    Command_Packet * command_list;
+    Command_Packet * last_command;
+};
 
 #endif

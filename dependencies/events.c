@@ -182,6 +182,13 @@ float action_logic_wrapper(float input, float value, void * input_data)
     return next_value;
 }
 
+float action_print_value(float input, float value, void * input_data)
+{
+    char * prefix = (char * )input_data;
+    printf("%s %f\n", prefix, input);
+    return input;
+}
+
 void process_keys(GLFWwindow * window)
 {
 

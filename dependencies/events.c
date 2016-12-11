@@ -217,37 +217,22 @@ void process_keys(GLFWwindow * window)
            {jump_flag, 1.0f, action_set_value, NULL, 1, PASSTHROUGH},
            {current_gravity, 0.0f, action_set_value, NULL, 1, PASSTHROUGH},
            {y_modifier, 0.03f, action_add_value, NULL, 20, BLOCKING},
-           {jump_flag, 0.0f, action_set_value, NULL, 1, PASSTHROUGH},
            {current_gravity, global_constants[gravity], action_set_value, NULL, 1, PASSTHROUGH},
         };
         submit_command(inputs, SIZE(inputs));
     }
 
-//    // Add gravity to command list.
-//    Action_Logic_Data check_data = {
-//        // Data for the logic part.
-//        .logic_function = &logic_main,
-//        .comparison_value = -0.3f,
-//        .comparison_type = LT,
-//        // Function that should be run and value checked.
-//        .regular_function = &action_add_value,
-//        // The function that will be run and replace the value from the
-//        // regular function if that value was invalid.
-//        .replacement_function = &action_set_value,
-//        .replacement_value = -0.3f,
-//    };
-//    Command_Input grav_inputs[] = {
-//       {y_modifier, -(*current_gravity), action_logic_wrapper, &check_data,
-//           1, PASSTHROUGH},
-//    };
+    // Process command list.
+    // Important that this is done before any global variables like
+    // current_gravity is used, since the commands might alter thees values.
+    process_command_list(modifiers, &global_command_list, &global_last, 0);
+
+    // Add gravity.
     Command_Input grav_inputs[] = {
        {y_modifier, -(*current_gravity), action_add_value, NULL, 1,
            PASSTHROUGH},
     };
     submit_command(grav_inputs, SIZE(grav_inputs));
-
-    // Process command list.
-    process_command_list(modifiers, &global_command_list, &global_last, 0);
 
     // Check collisions with the window.
     collision_check(transformation,
@@ -321,9 +306,18 @@ void collision_check(
     if (pos_bound_y_val >= y_pos_border) {
         *y_modifier = 0;
         *y_write_pos = y_pos_border - half_height;
-    } else if (neg_bound_y_val <= y_neg_border) {
+    } else if (neg_bound_y_val < y_neg_border) {
         *y_modifier = 0;
         *y_write_pos = y_neg_border + half_height;
+
+        // Reset is jumping flag when hitting floor.
+        float * jump_flag = &global_variables[is_jumping];
+        Command_Input set_not_jumping[] = {
+           {jump_flag, 0.0f, action_set_value, NULL, 1, PASSTHROUGH},
+        };
+        if (*jump_flag != 0.0f) {
+            submit_command(set_not_jumping, SIZE(set_not_jumping));
+        }
     }
 }
 

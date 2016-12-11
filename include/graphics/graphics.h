@@ -1,12 +1,6 @@
 #ifndef INCLUDE_GRAPHICS
 #define INCLUDE_GRAPHICS
 
-#define shader_src(x) "src/glsl/"x
-#define SIZE(x) sizeof(x)/sizeof(x[0])
-
-#define VERTEX_ENDING ".vert"
-#define FRAGMENT_ENDING ".frag"
-
 #include "utils/utils.h"
 #include "structs.h"
 

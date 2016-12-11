@@ -74,7 +74,7 @@ void load_data(Point_Data * info, float * buffer, const char * filename)
 
         /* Count and return number of elements in file. */
 
-        int elements = 1; // Doesn't count last comma, will be short otherwise.
+        size_t elements = 1; // Doesn't count last comma, will be short otherwise.
 
         int element_flag = 0;
         int comment_flag = 0;
@@ -114,7 +114,7 @@ void load_data(Point_Data * info, float * buffer, const char * filename)
         /* Remove comments and parse the elements into floats. */
 
         // Count rows when there are no comments.
-        int rows = 1;
+        size_t rows = 1;
 
         // Remove comments in place.
         char * last_valid = temp_buffer;
@@ -176,4 +176,22 @@ void load_data(Point_Data * info, float * buffer, const char * filename)
     }
     // Free temp buffer.
     free(temp_buffer);
+}
+
+bool logic_main(float left_side, comparison_type comp, float right_side) {
+    // Main logic function for comparing values.
+
+
+    switch(comp)
+    {
+        case GT: return left_side > right_side; break;
+        case GTEQ: return left_side >= right_side; break;
+        case LT: return left_side < right_side; break;
+        case LTEQ: return left_side <= right_side; break;
+        case EQ: return left_side == right_side; break;
+        default:
+             fprintf(stderr, "[!] unknown case hit in login_main(), aborting");
+             exit(1);
+             break;
+    }
 }

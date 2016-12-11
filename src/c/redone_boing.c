@@ -162,13 +162,17 @@ int main(void)
     filename = texture_src("Dietrich.jpg");
 
     // Set up main component.
-    struct component main_component = {0};
-    main_component.id = "Dietrich";
-    main_component.vao = &vao;
-    main_component.command_list = NULL;
-    main_component.last_command = NULL;
-    m4_copy(main_component.transformation, m4_identity);
+    struct component * main_component = create_component("Dietrich",
+                                                         &vao,
+                                                         NULL);
+    // Copy identity-matrix to transformation.
+    m4_copy(main_component->transformation, m4_identity);
+    // Scale the dimensions.
+    m4_scale(main_component->transformation, 0.4, 0.3, 0.3);
+
     current_component = &main_component;
+    components = &main_component;
+    last_component = &main_component;
 
     // Generte texture and load image data.
     GLuint texture;
@@ -186,4 +190,5 @@ int main(void)
 
     glfwTerminate();
     free(vertex_buffer);
+    free_component(main_component);
 }

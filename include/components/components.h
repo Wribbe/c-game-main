@@ -1,12 +1,14 @@
 #ifndef COMPONENTS_H
 #define COMPONENTS_H
 
-#include "events.h"
+#include "structs.h"
 
-struct component {
-    const char * id;
-    m4 trasformation;
-    VAO * vao;
-};
+struct component * components;
+struct component * last_component;
 
+struct component * create_component(
+                                    const char * id,
+                                    VAO * vao,
+                                    struct component * next
+                                   );
 #endif

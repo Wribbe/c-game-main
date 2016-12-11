@@ -1,3 +1,5 @@
+#ifndef EVENTS_H
+#define EVENTS_H
 
 #include "maths/math_utils.h"
 #include "utils/utils.h"
@@ -32,3 +34,5 @@ void callback_key(
 
 void poll_events(GLFWwindow * window);
 void setup_globals();
+
+#endif

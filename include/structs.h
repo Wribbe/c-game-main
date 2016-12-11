@@ -86,11 +86,12 @@ typedef struct Action_Logic_Data{
 } Action_Logic_Data;
 
 struct component {
-    const char * id;
+    char * id;
     m4 transformation;
     VAO * vao;
     Command_Packet * command_list;
     Command_Packet * last_command;
+    struct component * next;
 };
 
 #endif

@@ -14,6 +14,13 @@ void m4_copy(m4 destination, m4 source) {
     }
 }
 
+void m4_scale(m4 matrix, float x, float y, float z)
+{
+    matrix[0][0] *= x;
+    matrix[1][1] *= y;
+    matrix[2][2] *= z;
+}
+
 m4 m4_identity = {
     {1.0f,  0.0f, 0.0f, 0.0f},
     {0.0f,  1.0f, 0.0f, 0.0f},

@@ -145,17 +145,20 @@ void submit_command(Command_Input * inputs, size_t size)
 }
 
 
-float action_add_value(float input, float value, void * data) {
+float action_add_value(float input, float value, void * data)
+{
     UNUSED(data);
     return input+value;
 }
 
-float action_set_value(float input, float value, void * data) {
+float action_set_value(float input, float value, void * data)
+{
     UNUSED(data);
     return input=value;
 }
 
-float action_logic_wrapper(float input, float value, void * input_data) {
+float action_logic_wrapper(float input, float value, void * input_data)
+{
     // Unpack the data.
     Action_Logic_Data * data = (Action_Logic_Data * )input_data;
 
@@ -375,7 +378,7 @@ void process_command_list(
                                                          data);
 
         // Process any sub-commands if type is non-blocking.
-        if (has_sub_commands && action_type != BLOCKING) {
+        if (has_sub_commands && (action_type != BLOCKING)) {
             process_command_list(modifiers,
                                  &current_pointer->sub_commands,
                                  &current_pointer->last_sub,
@@ -550,7 +553,7 @@ void process_command_list(
         // want that node to be consumed before any of the nodes below become
         // active.
 
-        if (action_type == BLOCKING && current_level != 0) {
+        if ((action_type == BLOCKING) && (current_level != 0)) {
             return;
         }
 

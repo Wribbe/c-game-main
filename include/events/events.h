@@ -15,7 +15,7 @@ typedef enum global_index {
     num_constants,
 } global_index;
 
-float global_constants[num_constants];
+float global_variables[num_constants];
 
 int * keymap;
 

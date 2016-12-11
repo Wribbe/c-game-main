@@ -16,6 +16,8 @@ m4 transformation = {
     {0.0f, 0.0f, 0.0f, 1.0f},
 };
 
+#define GRAVITY 0.03f
+
 // ### Prototypes for functions further down in the document.
 
 void process_keys(GLFWwindow * window);
@@ -38,9 +40,10 @@ void process_command_list(
 
 void setup_globals(void)
 {
-    global_constants[gravity] = 0.03f;
-    global_constants[speed] = 0.05f;
-    global_constants[is_jumping] = 0.0f;
+    printf("Setting up global variables.\n");
+    global_variables[gravity] = GRAVITY;
+    global_variables[speed] = 0.05f;
+    global_variables[is_jumping] = 0.0f;
 }
 
 void callback_key(
@@ -192,10 +195,10 @@ void process_keys(GLFWwindow * window)
     float * x_write_pos = &transformation[0][3];
     float * y_write_pos = &transformation[1][3];
 
-    float * current_speed = &global_constants[speed];
-    float * current_gravity = &global_constants[gravity];
+    float * current_speed = &global_variables[speed];
+    float * current_gravity = &global_variables[gravity];
 
-    float * jump_flag = &global_constants[is_jumping];
+    float * jump_flag = &global_variables[is_jumping];
 
     // Modify positions along x-axis.
     if (check(GLFW_KEY_LEFT)) {
@@ -217,7 +220,7 @@ void process_keys(GLFWwindow * window)
            {jump_flag, 1.0f, action_set_value, NULL, 1, PASSTHROUGH},
            {current_gravity, 0.0f, action_set_value, NULL, 1, PASSTHROUGH},
            {y_modifier, 0.03f, action_add_value, NULL, 20, BLOCKING},
-           {current_gravity, global_constants[gravity], action_set_value, NULL, 1, PASSTHROUGH},
+           {current_gravity, GRAVITY, action_set_value, NULL, 1, PASSTHROUGH},
         };
         submit_command(inputs, SIZE(inputs));
     }

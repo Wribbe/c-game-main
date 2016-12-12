@@ -37,6 +37,7 @@ void display(
              GLuint * shader_programs,
              GLuint * textures
             )
+    /* Main display function. */
 {
     // Clear screen.
     glClear(GL_COLOR_BUFFER_BIT);
@@ -44,7 +45,8 @@ void display(
     glBindTexture(GL_TEXTURE_2D, textures[0]);
 
     // Currently get location for shader_program every, unnecessary.
-    GLuint transform_location = glGetUniformLocation(shader_programs[0], "transform");
+    GLuint transform_location = glGetUniformLocation(shader_programs[0],
+                                                     "transform");
 
     // Have to have the program active when writing.
     glUseProgram(shader_programs[0]);
@@ -53,7 +55,10 @@ void display(
     while( component != NULL) {
 
         // Write component transform to current shader program.
-        glUniformMatrix4fv(transform_location, 1, GL_TRUE, &component->transformation[0][0]);
+        glUniformMatrix4fv(transform_location,
+                           1,
+                           GL_TRUE,
+                           &component->transformation[0][0]);
         // Draw component.
         draw_component(component);
         // Advance component pointer.

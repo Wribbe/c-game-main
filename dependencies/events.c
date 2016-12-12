@@ -392,9 +392,12 @@ void free_command(Command_Packet * command) {
         free(command->data);
     }
     // Free any sub-commands recursively.
-    Command_Packet * sub_command = command->sub_commands;
-    while (sub_command != NULL) {
-        free_command(sub_command);
+    Command_Packet * sub_command_pointer = command->sub_commands;
+    Command_Packet * sub_temp = NULL;
+    while (sub_command_pointer != NULL) {
+        sub_temp = sub_command_pointer;
+        sub_command_pointer = sub_command_pointer->next;
+        free_command(sub_temp);
     }
     // Free the command itself.
     free(command);

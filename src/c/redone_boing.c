@@ -21,14 +21,34 @@ void init(void)
 
 // Set up uniform location.
 
-void draw_component(struct component * component)
-    /* Function that binds component vao and draws stored geometry. */
+void draw_component(
+                    struct component * component,
+                    GLuint program,
+                    GLuint texture
+                   )
+    /* Function that binds component vao and draws stored geometry with
+     * supplied texture and shader program. */
 {
-        // Bind VAO.
-        VAO * vao = component->vao;
-        glBindVertexArray(vao->vao);
-        // Draw elements.
-        glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
+    // Must have the program active when writing.
+    glUseProgram(program);
+    // Write to uniform location.
+
+    // Bind texture.
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    // Currently get location for shader_program every, unnecessary.
+    GLuint transform_location = glGetUniformLocation(program, "transform");
+    // Write component transform to current shader program.
+    glUniformMatrix4fv(transform_location,
+                       1,
+                       GL_TRUE,
+                       &component->transformation[0][0]);
+    // Draw component.
+    // Bind VAO.
+    VAO * vao = component->vao;
+    glBindVertexArray(vao->vao);
+    // Draw elements.
+    glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
 }
 
 
@@ -41,30 +61,16 @@ void display(
 {
     // Clear screen.
     glClear(GL_COLOR_BUFFER_BIT);
-    // Bind texture.
-    glBindTexture(GL_TEXTURE_2D, textures[0]);
-
-    // Currently get location for shader_program every, unnecessary.
-    GLuint transform_location = glGetUniformLocation(shader_programs[0],
-                                                     "transform");
-
-    // Have to have the program active when writing.
-    glUseProgram(shader_programs[0]);
-    // Write to uniform location.
 
     while( component != NULL) {
-
-        // Write component transform to current shader program.
-        glUniformMatrix4fv(transform_location,
-                           1,
-                           GL_TRUE,
-                           &component->transformation[0][0]);
-        // Draw component.
-        draw_component(component);
+        draw_component(component, shader_programs[0], textures[0]);
         // Advance component pointer.
         component = component->next;
-
     }
+
+    // Draw controlled object with other shader but same texture.
+    draw_component(controlled_component, shader_programs[1], textures[0]);
+
     // Unbind VAO.
     glBindVertexArray(0);
     // Unbind program.
@@ -118,6 +124,26 @@ int main(void)
     // Set up and link shader program.
     GLuint shader_program = 0;
     link_program(&shader_program, shaders, SIZE(shaders));
+
+    // Set up controllable shader variables.
+    GLuint controllable_vertex = 0;
+    GLuint controllable_fragment = 0;
+
+    // Create shaders from text source.
+    create_shader(&controllable_vertex, shader_src("controllable.vert"));
+    create_shader(&controllable_fragment, shader_src("controllable.frag"));
+
+    // Set up shader list.
+    GLuint controllable_shaders[] = {
+        controllable_vertex,
+        controllable_fragment,
+    };
+
+    // Create and link a new shader program.
+    GLuint controllable_shader_program = 0;
+    link_program(&controllable_shader_program,
+                 controllable_shaders,
+                 SIZE(controllable_shaders));
 
     // Gather data.
     Point_Data point_data = {0};
@@ -214,11 +240,16 @@ int main(void)
     // Set up arrays of textures and shader programs.
     GLuint shader_programs[] = {
         shader_program,
+        controllable_shader_program,
     };
 
     GLuint textures[] = {
         texture,
     };
+
+    // Enable alpha blending.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     while(!glfwWindowShouldClose(window)) {
         poll_events(window);

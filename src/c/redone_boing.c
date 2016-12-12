@@ -21,6 +21,17 @@ void init(void)
 
 // Set up uniform location.
 
+void draw_component(struct component * component)
+    /* Function that binds component vao and draws stored geometry. */
+{
+        // Bind VAO.
+        VAO * vao = component->vao;
+        glBindVertexArray(vao->vao);
+        // Draw elements.
+        glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
+}
+
+
 void display(
              struct component * component,
              GLuint * shader_programs,
@@ -41,13 +52,10 @@ void display(
 
     while( component != NULL) {
 
+        // Write component transform to current shader program.
         glUniformMatrix4fv(transform_location, 1, GL_TRUE, &component->transformation[0][0]);
-
-        // Bind VAO.
-        VAO * vao = component->vao;
-        glBindVertexArray(vao->vao);
-        // Draw elements.
-        glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
+        // Draw component.
+        draw_component(component);
         // Advance component pointer.
         component = component->next;
 

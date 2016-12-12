@@ -31,6 +31,7 @@ struct component * create_component(
     // Populate defaults.
     return_component->vao = vao;
     return_component->command_list = NULL;
+    return_component->last_command = NULL;
     return_component->next = next;
     return_component->modifiers[0] = 0;
     return_component->modifiers[1] = 0;

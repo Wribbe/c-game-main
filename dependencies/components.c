@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "components/components.h"
+#include "events/events.h"
 
 struct component * create_component(
                                     const char * id,
@@ -45,6 +46,14 @@ struct component * create_component(
 void free_component(struct component * component)
     /* Function for freeing component struct. */
 {
+    // Iterate over all commands and free them.
+    Command_Packet * command_pointer = component->command_list;
+    Command_Packet * temp = NULL;
+    while(command_pointer != NULL) {
+        temp = command_pointer;
+        command_pointer = command_pointer->next;
+        free_command(temp);
+    }
     free(component->id);
     free(component);
 }

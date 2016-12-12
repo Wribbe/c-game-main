@@ -125,7 +125,7 @@ void create_command_packet(
         // Append to last element.
         (*last)->next = new_command;
         // Move last pointer;
-        *last = new_command;
+        *last = (*last)->next;
     }
 }
 
@@ -391,6 +391,11 @@ void free_command(Command_Packet * command) {
     if (command->data != NULL) {
         free(command->data);
     }
+    // Free any sub-commands recursively.
+    Command_Packet * sub_command = command->sub_commands;
+    while (sub_command != NULL) {
+        free_command(sub_command);
+    }
     // Free the command itself.
     free(command);
 }
@@ -526,6 +531,10 @@ void process_command_list(
                 // Restore old pointers gathered from temp.
                 current_pointer->next = temp_next;
                 current_pointer->last_sub = temp_last_sub;
+
+                // Remove pointers to sub-command in temp since free_command
+                // removes sub-commands recursively.
+                temp->sub_commands = NULL;
 
                 // Check where we are in the list.
                 if (prev == NULL) { // First element of the list, re-write anchor and last.

@@ -19,12 +19,23 @@ void init(void)
     glClearColor( 0.55f, 0.55f, 0.55f, 0.0f);
 }
 
-// Set up uniform location.
+struct uniform_data {
+    const char * name;
+    void * (*data_function)(struct component *);
+};
+
+void * get_component_transform(struct component * component)
+    /* Get and return pointer to component transformation matrix. */
+{
+    return (void * )&component->transformation[0][0];
+}
 
 void draw_component(
                     struct component * component,
                     GLuint program,
-                    GLuint texture
+                    GLuint texture,
+                    struct uniform_data * uniforms,
+                    size_t num_uniforms
                    )
     /* Function that binds component vao and draws stored geometry with
      * supplied texture and shader program. */
@@ -62,14 +73,28 @@ void display(
     // Clear screen.
     glClear(GL_COLOR_BUFFER_BIT);
 
+    struct uniform_data standard_uniforms[] = {
+        {"transform", get_component_transform},
+    };
     while( component != NULL) {
-        draw_component(component, shader_programs[0], textures[0]);
+        draw_component(component,
+                       shader_programs[0],
+                       textures[0],
+                       standard_uniforms,
+                       SIZE(standard_uniforms));
         // Advance component pointer.
         component = component->next;
     }
+    struct uniform_data outline_uniforms[] = {
+        {"transform", get_component_transform},
+    };
 
     // Draw controlled object with other shader but same texture.
-    draw_component(controlled_component, shader_programs[1], textures[0]);
+    draw_component(component,
+                   shader_programs[1],
+                   textures[0],
+                   outline_uniforms,
+                   SIZE(outline_uniforms));
 
     // Unbind VAO.
     glBindVertexArray(0);

@@ -50,7 +50,6 @@ void callback_key(
                  )
 {
     if (action == GLFW_PRESS) {
-        num_actions[key] += 1;
         keymap[key] = true;
     } else if (action == GLFW_RELEASE) {
         keymap[key] = false;
@@ -68,9 +67,10 @@ bool check(GLuint key) {
 }
 
 bool max_actions(GLuint key, uint32_t max) {
-    if (num_actions[key] > max) {
+    if (num_actions[key] >= max) {
         return false;
     }
+    num_actions[key]++;
     return true;
 }
 

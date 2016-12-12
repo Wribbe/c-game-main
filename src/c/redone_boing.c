@@ -23,20 +23,20 @@ void init(void)
 
 void display(
              struct component * component,
-             GLuint shader_program,
-             GLuint texture
+             GLuint * shader_programs,
+             GLuint * textures
             )
 {
     // Clear screen.
     glClear(GL_COLOR_BUFFER_BIT);
     // Bind texture.
-    glBindTexture(GL_TEXTURE_2D, texture);
+    glBindTexture(GL_TEXTURE_2D, textures[0]);
 
     // Currently get location for shader_program every, unnecessary.
-    GLuint transform_location = glGetUniformLocation(shader_program, "transform");
+    GLuint transform_location = glGetUniformLocation(shader_programs[0], "transform");
 
     // Have to have the program active when writing.
-    glUseProgram(shader_program);
+    glUseProgram(shader_programs[0]);
     // Write to uniform location.
 
     while( component != NULL) {
@@ -50,6 +50,7 @@ void display(
         glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
         // Advance component pointer.
         component = component->next;
+
     }
     // Unbind VAO.
     glBindVertexArray(0);
@@ -197,13 +198,23 @@ int main(void)
     // Setup environment variables.
     setup_globals();
 
+    // Set up arrays of textures and shader programs.
+    GLuint shader_programs[] = {
+        shader_program,
+    };
+
+    GLuint textures[] = {
+        texture,
+    };
+
     while(!glfwWindowShouldClose(window)) {
         poll_events(window);
-        display(components, shader_program, texture);
+        display(components, shader_programs, textures);
         glfwSwapBuffers(window);
     }
 
     glfwTerminate();
     free(vertex_buffer);
     free_component(main_component);
+    free_component(second_component);
 }

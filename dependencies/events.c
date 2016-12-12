@@ -14,7 +14,6 @@
 bool keymap[NUM_KEYS] = {false};
 uint32_t num_actions[NUM_KEYS] = {0};
 
-
 void process_keys(GLFWwindow * window);
 void collision_check(
                      float * transformation_matrix,
@@ -209,7 +208,7 @@ void process_keys(GLFWwindow * window)
     float * x_modifier = &modifiers[X];
     float * y_modifier = &modifiers[Y];
 
-    // Reset modifiers.
+    // Reset modifiers for controlled component.
     *x_modifier = 0;
     *y_modifier = 0;
 
@@ -299,6 +298,11 @@ void process_keys(GLFWwindow * window)
         // Write any modified data to the transformation matrix.
         *x_write_pos += *x_modifier;
         *y_write_pos += *y_modifier;
+
+        // Don't forget to reset the modifiers, otherwise the previous
+        // modifications will stick if there is a component change.
+        *x_modifier = 0.0f;
+        *y_modifier = 0.0f;
 
         // Iterate to next component.
         comp_pointer = comp_pointer->next;

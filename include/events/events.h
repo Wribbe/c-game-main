@@ -3,18 +3,17 @@
 
 #include <stdbool.h>
 
-#define NUM_KEYS 512
-
-extern bool keymap[NUM_KEYS];
-extern bool release[NUM_KEYS];
-
 #include "maths/math_utils.h"
 #include "utils/utils.h"
-
 
 #define X 0
 #define Y 1
 #define Z 2
+
+#define NUM_KEYS 512
+
+extern bool keymap[NUM_KEYS];
+extern bool release[NUM_KEYS];
 
 typedef enum global_index {
     gravity,

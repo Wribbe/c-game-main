@@ -13,21 +13,62 @@
 #include "SOIL/SOIL.h"
 #include "components/components.h"
 
+GLfloat global_time = 1.0f;
+
 void init(void)
 {
     // Set background color.
     glClearColor( 0.55f, 0.55f, 0.55f, 0.0f);
 }
 
+enum uniform_type {
+    /* Strip the gl part of the glUniform* functions used. */
+    UniformMatrix4fv,
+    Uniform1f,
+    NUM_TYPES,
+};
+
 struct uniform_data {
     const char * name;
     void * (*data_function)(struct component *);
+    enum uniform_type type;
 };
 
-void * get_component_transform(struct component * component)
+
+void * uniform_data_transform(struct component * component)
     /* Get and return pointer to component transformation matrix. */
 {
     return (void * )&component->transformation[0][0];
+}
+
+void * uniform_data_time(struct component * component)
+    /* Get and return pointer to component transformation matrix. */
+{
+    UNUSED(component);
+    return (void * )&global_time;
+}
+
+void write_data_to_uniform(
+                           struct uniform_data * uniform,
+                           GLuint location,
+                           void * data
+                          )
+    /* Use different functions depending on what type of uniform it is. */
+{
+    switch(uniform->type) {
+        case UniformMatrix4fv:
+            glUniformMatrix4fv(location,
+                               1,
+                               GL_TRUE,
+                               data);
+            break;
+        case Uniform1f:
+            glUniform1f(location, *(GLfloat * )data);
+            break;
+        default:
+            fprintf(stderr, "Unrecognized uniform type, aborting.\n");
+            exit(1);
+    }
 }
 
 void draw_component(
@@ -54,10 +95,9 @@ void draw_component(
         // Currently get location for shader_program every, unnecessary.
         GLuint uniform_location = glGetUniformLocation(program, current_uniform->name);
         // Write component transform to current shader program.
-        glUniformMatrix4fv(uniform_location,
-                           1,
-                           GL_TRUE,
-                           current_uniform->data_function(component));
+        write_data_to_uniform(current_uniform,
+                              uniform_location,
+                              current_uniform->data_function(component));
     }
     // Draw component.
     // Bind VAO.
@@ -79,7 +119,7 @@ void display(
     glClear(GL_COLOR_BUFFER_BIT);
 
     struct uniform_data standard_uniforms[] = {
-        {"transform", get_component_transform},
+        {"transform", uniform_data_transform, UniformMatrix4fv},
     };
     struct component * component_pointer = component;
     while( component_pointer != NULL) {
@@ -92,7 +132,8 @@ void display(
         component_pointer = component_pointer->next;
     }
     struct uniform_data outline_uniforms[] = {
-        {"transform", get_component_transform},
+        {"transform", uniform_data_transform, UniformMatrix4fv},
+        {"time", uniform_data_time, Uniform1f},
     };
     // Draw controlled object with other shader but same texture.
     draw_component(controlled_component,
@@ -282,6 +323,7 @@ int main(void)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     while(!glfwWindowShouldClose(window)) {
+        global_time = glfwGetTime();
         poll_events(window);
         display(components, shader_programs, textures);
         glfwSwapBuffers(window);

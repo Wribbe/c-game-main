@@ -1,6 +1,9 @@
 #version 330 core
+
 in vec3 color;
 in vec2 tex_coords;
+
+uniform float time;
 
 out vec4 frag_color;
 
@@ -9,6 +12,7 @@ out vec4 frag_color;
 void main() {
 
     vec2 uv = tex_coords;
+    float alpha_factor = cos(mod(time, 4.0f)-2.0f);
     vec3 base_color = vec3(0.0f, 0.0f, 1.0f);
 
     uv *= 2.0;
@@ -19,5 +23,6 @@ void main() {
     vec2 alpha = max(-1.0f+border_width + max(abs(uv.x), abs(uv.y)), 0.0) * 1.0f /
     border_width;
 
-    frag_color = vec4(base_color, alpha);
+
+    frag_color = vec4(base_color, alpha*alpha_factor);
 }

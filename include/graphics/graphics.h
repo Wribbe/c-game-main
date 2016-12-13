@@ -21,4 +21,18 @@ void gen_vertex_arrays(GLuint num_buffers,
 
 void load_to_texture(GLuint * texture, const char * filename);
 
+void * uniform_data_transform(struct component * component);
+
+void * uniform_data_time(struct component * component);
+
+void write_data_to_uniform(struct uniform_data * uniform,
+                           GLuint location,
+                           void * data);
+
+void draw_component(struct component * component,
+                    GLuint program,
+                    GLuint texture,
+                    struct uniform_data * uniforms,
+                    size_t num_uniforms);
+
 #endif

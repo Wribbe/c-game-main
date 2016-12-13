@@ -12,101 +12,13 @@
 #include "utils/utils.h"
 #include "SOIL/SOIL.h"
 #include "components/components.h"
-
-GLfloat global_time = 1.0f;
+#include "globals/globals.h"
 
 void init(void)
 {
     // Set background color.
     glClearColor( 0.55f, 0.55f, 0.55f, 0.0f);
 }
-
-enum uniform_type {
-    /* Strip the gl part of the glUniform* functions used. */
-    UniformMatrix4fv,
-    Uniform1f,
-    NUM_TYPES,
-};
-
-struct uniform_data {
-    const char * name;
-    void * (*data_function)(struct component *);
-    enum uniform_type type;
-};
-
-
-void * uniform_data_transform(struct component * component)
-    /* Get and return pointer to component transformation matrix. */
-{
-    return (void * )&component->transformation[0][0];
-}
-
-void * uniform_data_time(struct component * component)
-    /* Get and return pointer to component transformation matrix. */
-{
-    UNUSED(component);
-    return (void * )&global_time;
-}
-
-void write_data_to_uniform(
-                           struct uniform_data * uniform,
-                           GLuint location,
-                           void * data
-                          )
-    /* Use different functions depending on what type of uniform it is. */
-{
-    switch(uniform->type) {
-        case UniformMatrix4fv:
-            glUniformMatrix4fv(location,
-                               1,
-                               GL_TRUE,
-                               data);
-            break;
-        case Uniform1f:
-            glUniform1f(location, *(GLfloat * )data);
-            break;
-        default:
-            fprintf(stderr, "Unrecognized uniform type, aborting.\n");
-            exit(1);
-    }
-}
-
-void draw_component(
-                    struct component * component,
-                    GLuint program,
-                    GLuint texture,
-                    struct uniform_data * uniforms,
-                    size_t num_uniforms
-                   )
-    /* Function that binds component vao and draws stored geometry with
-     * supplied texture and shader program. */
-{
-    // Must have the program active when writing.
-    glUseProgram(program);
-    // Write to uniform location.
-
-    // Bind texture.
-    glBindTexture(GL_TEXTURE_2D, texture);
-
-    struct uniform_data * current_uniform = NULL;
-    // Iterate over and bind all uniforms.
-    for (size_t i=0; i<num_uniforms; i++) {
-        current_uniform = &uniforms[i];
-        // Currently get location for shader_program every, unnecessary.
-        GLuint uniform_location = glGetUniformLocation(program, current_uniform->name);
-        // Write component transform to current shader program.
-        write_data_to_uniform(current_uniform,
-                              uniform_location,
-                              current_uniform->data_function(component));
-    }
-    // Draw component.
-    // Bind VAO.
-    VAO * vao = component->vao;
-    glBindVertexArray(vao->vao);
-    // Draw elements.
-    glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
-}
-
 
 void display(
              struct component * component,
@@ -333,7 +245,7 @@ int main(void)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     while(!glfwWindowShouldClose(window)) {
-        global_time = glfwGetTime();
+        global_variables[glfw_time] = (float)glfwGetTime();
         poll_events(window);
         display(components, shader_programs, textures);
         glfwSwapBuffers(window);

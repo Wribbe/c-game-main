@@ -15,15 +15,6 @@
 extern bool keymap[NUM_KEYS];
 extern bool release[NUM_KEYS];
 
-typedef enum global_index {
-    gravity,
-    speed,
-    is_jumping,
-    num_constants,
-} global_index;
-
-float global_variables[num_constants];
-
 void callback_key(
                   GLFWwindow * window,
                   int key,

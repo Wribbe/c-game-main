@@ -6,8 +6,7 @@
 #include "events/events.h"
 #include "utils/utils.h"
 #include "components/components.h"
-
-#define GRAVITY 0.03f
+#include "globals/globals.h"
 
 // ### Prototypes for functions further down in the document.
 
@@ -31,14 +30,6 @@ void process_command_list(
                          );
 
 // ### End prototypes.
-
-void setup_globals(void)
-{
-    printf("Setting up global variables.\n");
-    global_variables[gravity] = GRAVITY;
-    global_variables[speed] = 0.05f;
-    global_variables[is_jumping] = 0.0f;
-}
 
 void callback_key(
                   GLFWwindow * window,

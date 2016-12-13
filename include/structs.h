@@ -18,6 +18,13 @@ typedef enum comparison_type {
     EQ,
 } comparison_type;
 
+enum uniform_type {
+    /* Strip the gl part of the glUniform* functions used. */
+    UniformMatrix4fv,
+    Uniform1f,
+    NUM_TYPES,
+};
+
 typedef struct Point_Data {
     size_t rows;
     size_t elements;
@@ -95,5 +102,13 @@ struct component {
     Command_Packet * last_command;
     struct component * next;
 };
+
+struct uniform_data {
+    const char * name;
+    void * (*data_function)(struct component *);
+    enum uniform_type type;
+};
+
+
 
 #endif

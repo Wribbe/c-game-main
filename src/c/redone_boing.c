@@ -11,6 +11,8 @@
 #include "graphics/graphics.h"
 #include "utils/utils.h"
 #include "SOIL/SOIL.h"
+#include "components/components.h"
+#include "globals/globals.h"
 
 void init(void)
 {
@@ -18,27 +20,50 @@ void init(void)
     glClearColor( 0.55f, 0.55f, 0.55f, 0.0f);
 }
 
-// Set up uniform location.
-
-void display(VAO * vao, GLuint shader_program, GLuint texture)
+void display(
+             struct component * component,
+             GLuint * shader_programs,
+             GLuint * textures
+            )
+    /* Main display function. */
 {
     // Clear screen.
     glClear(GL_COLOR_BUFFER_BIT);
-    // Bind texture.
-    glBindTexture(GL_TEXTURE_2D, texture);
 
-    // Currently get location for shader_program every, unnecessary.
-    GLuint transform_location = glGetUniformLocation(shader_program, "transform");
+    struct uniform_data standard_uniforms[] = {
+        {"transform", uniform_data_transform, UniformMatrix4fv},
+    };
+    struct component * compp;
+    for(compp = component; compp != NULL; compp = compp->next) {
+        // Don't draw the controlled component here.
+        if (compp == controlled_component) {
+            continue;
+        }
+        draw_component(compp,
+                       shader_programs[0],
+                       textures[0],
+                       standard_uniforms,
+                       SIZE(standard_uniforms));
+    }
 
-    // Have to have the program active when writing.
-    glUseProgram(shader_program);
-    // Write to uniform location.
-    glUniformMatrix4fv(transform_location, 1, GL_TRUE, &transformation[0][0]);
+    // Draw controlled object after other objects, to make it appear on top.
+    draw_component(controlled_component,
+                   shader_programs[0],
+                   textures[0],
+                   standard_uniforms,
+                   SIZE(standard_uniforms));
 
-    // Bind VAO.
-    glBindVertexArray(vao->vao);
-    // Draw elements.
-    glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
+    struct uniform_data outline_uniforms[] = {
+        {"transform", uniform_data_transform, UniformMatrix4fv},
+        {"time", uniform_data_time, Uniform1f},
+    };
+    // Draw controlled object with other shader but same texture for outline.
+    draw_component(controlled_component,
+                   shader_programs[1],
+                   textures[0],
+                   outline_uniforms,
+                   SIZE(outline_uniforms));
+
     // Unbind VAO.
     glBindVertexArray(0);
     // Unbind program.
@@ -92,6 +117,26 @@ int main(void)
     // Set up and link shader program.
     GLuint shader_program = 0;
     link_program(&shader_program, shaders, SIZE(shaders));
+
+    // Set up controllable shader variables.
+    GLuint controllable_vertex = 0;
+    GLuint controllable_fragment = 0;
+
+    // Create shaders from text source.
+    create_shader(&controllable_vertex, shader_src("controllable.vert"));
+    create_shader(&controllable_fragment, shader_src("controllable.frag"));
+
+    // Set up shader list.
+    GLuint controllable_shaders[] = {
+        controllable_vertex,
+        controllable_fragment,
+    };
+
+    // Create and link a new shader program.
+    GLuint controllable_shader_program = 0;
+    link_program(&controllable_shader_program,
+                 controllable_shaders,
+                 SIZE(controllable_shaders));
 
     // Gather data.
     Point_Data point_data = {0};
@@ -155,9 +200,29 @@ int main(void)
     // Get texture file source.
     filename = texture_src("Dietrich.jpg");
 
-    global_vao = vao;
+    // Set up main component.
+    struct component * main_component = create_component("Dietrich",
+                                                         &vao,
+                                                         NULL);
 
-    // Generte texture and load image data.
+    // set up second component.
+    struct component * second_component = create_component("Dietrich",
+                                                           &vao,
+                                                           NULL);
+    // Scale the dimensions.
+    m4_scale(main_component->transformation, 0.4, 0.3, 0.3);
+    m4_scale(second_component->transformation, 0.4, 0.3, 0.3);
+
+    // Set up component list.
+    controlled_component = main_component;
+    components = main_component;
+    last_component = main_component;
+
+    // Link main and second.
+    last_component->next = second_component;
+    last_component = last_component->next;
+
+    // Generate texture and load image data.
     GLuint texture;
     glGenTextures(1, &texture);
     load_to_texture(&texture, filename);
@@ -165,14 +230,29 @@ int main(void)
     // Setup environment variables.
     setup_globals();
 
+    // Set up arrays of textures and shader programs.
+    GLuint shader_programs[] = {
+        shader_program,
+        controllable_shader_program,
+    };
+
+    GLuint textures[] = {
+        texture,
+    };
+
+    // Enable alpha blending.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     while(!glfwWindowShouldClose(window)) {
-
+        global_variables[glfw_time] = (float)glfwGetTime();
         poll_events(window);
-        display(&vao, shader_program, texture);
+        display(components, shader_programs, textures);
         glfwSwapBuffers(window);
-
     }
 
     glfwTerminate();
     free(vertex_buffer);
+    free_component(main_component);
+    free_component(second_component);
 }

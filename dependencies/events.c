@@ -1,24 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #include "GLFW/glfw3.h"
 #include "events/events.h"
 #include "utils/utils.h"
-
-int local_keymap[NUM_KEYS];
-int * keymap = local_keymap;
-
-//Control single object.
-m4 transformation = {
-    {0.6f, 0.0f, 0.0f, 0.0f},
-    {0.0f, 0.5f, 0.0f, 0.0f},
-    {0.0f, 0.0f, 0.5f, 0.0f},
-    {0.0f, 0.0f, 0.0f, 1.0f},
-};
-
-#define GRAVITY 0.03f
+#include "components/components.h"
+#include "globals/globals.h"
 
 // ### Prototypes for functions further down in the document.
+
+bool keymap[NUM_KEYS] = {false};
+uint32_t num_actions[NUM_KEYS] = {0};
 
 void process_keys(GLFWwindow * window);
 void collision_check(
@@ -38,14 +31,6 @@ void process_command_list(
 
 // ### End prototypes.
 
-void setup_globals(void)
-{
-    printf("Setting up global variables.\n");
-    global_variables[gravity] = GRAVITY;
-    global_variables[speed] = 0.05f;
-    global_variables[is_jumping] = 0.0f;
-}
-
 void callback_key(
                   GLFWwindow * window,
                   int key,
@@ -54,10 +39,11 @@ void callback_key(
                   int mods
                  )
 {
-    if (action == GLFW_PRESS && !keymap[key]) {
-        keymap[key] = 1;
-    } else if (action == GLFW_RELEASE && keymap[key]) {
-        keymap[key] = 0;
+    if (action == GLFW_PRESS) {
+        keymap[key] = true;
+    } else if (action == GLFW_RELEASE) {
+        keymap[key] = false;
+        num_actions[key] = 0;
     }
 }
 
@@ -66,13 +52,18 @@ void poll_events(GLFWwindow * window) {
     process_keys(window);
 }
 
-int check(GLuint key) {
+bool check(GLuint key) {
     return keymap[key];
 }
 
+bool max_actions(GLuint key, uint32_t max) {
+    if (num_actions[key] >= max) {
+        return false;
+    }
+    num_actions[key]++;
+    return true;
+}
 
-Command_Packet * global_command_list = NULL;
-Command_Packet * global_last = NULL;
 
 void create_command_packet(
                            Command_Input * input,
@@ -125,22 +116,28 @@ void create_command_packet(
         // Append to last element.
         (*last)->next = new_command;
         // Move last pointer;
-        *last = new_command;
+        *last = (*last)->next;
     }
 }
 
-void submit_command(Command_Input * inputs, size_t size)
+void submit_command(
+                    Command_Input * inputs,
+                    size_t size,
+                    struct component * component
+                   )
 {
     /* Submit Command Packet based on input values. */
 
     // Create first Command_Packet.
-    create_command_packet(&inputs[0], &global_command_list, &global_last);
+    create_command_packet(&inputs[0],
+                          &component->command_list,
+                          &component->last_command);
 
     // Append any other packages to the sub_commands head next pointer.
     for (size_t i=1; i<size; i++) {
         create_command_packet(&inputs[i],
-                              &global_last->sub_commands,
-                              &global_last->last_sub);
+                              &component->last_command->sub_commands,
+                              &component->last_command->last_sub);
     }
 }
 
@@ -196,32 +193,45 @@ void process_keys(GLFWwindow * window)
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
 
-    // Initialize modifiers.
-    float modifiers[3] = {0};
+    // Use controlled components modifiers.
+    float * modifiers = controlled_component->modifiers;
 
     float * x_modifier = &modifiers[X];
     float * y_modifier = &modifiers[Y];
 
-    float * x_write_pos = &transformation[0][3];
-    float * y_write_pos = &transformation[1][3];
+    // Reset modifiers for controlled component.
+    *x_modifier = 0;
+    *y_modifier = 0;
+
+    float * x_write_pos = &controlled_component->transformation[0][3];
+    float * y_write_pos = &controlled_component->transformation[1][3];
 
     float * current_speed = &global_variables[speed];
     float * current_gravity = &global_variables[gravity];
 
     float * jump_flag = &global_variables[is_jumping];
 
+    // Modify controlled_component with tab.
+    if (check(GLFW_KEY_TAB) && max_actions(GLFW_KEY_TAB, 1)) {
+        // Cycle through available components. If NULL return to head.
+        controlled_component = controlled_component->next;
+        if (controlled_component == NULL) {
+            controlled_component = components;
+        }
+    }
+
     // Modify positions along x-axis.
     if (check(GLFW_KEY_LEFT)) {
         Command_Input inputs[] = {
            {x_modifier, -(*current_speed), action_add_value, NULL, 1, PASSTHROUGH},
         };
-        submit_command(inputs, SIZE(inputs));
+        submit_command(inputs, SIZE(inputs), controlled_component);
     }
     if (check(GLFW_KEY_RIGHT)) {
         Command_Input inputs[] = {
            {x_modifier, +(*current_speed), action_add_value, NULL, 1, PASSTHROUGH},
         };
-        submit_command(inputs, SIZE(inputs));
+        submit_command(inputs, SIZE(inputs), controlled_component);
     }
 
     // Modify positions along y-axis.
@@ -232,31 +242,62 @@ void process_keys(GLFWwindow * window)
            {y_modifier, 0.03f, action_add_value, NULL, 20, BLOCKING},
            {current_gravity, GRAVITY, action_set_value, NULL, 1, PASSTHROUGH},
         };
-        submit_command(inputs, SIZE(inputs));
+        submit_command(inputs, SIZE(inputs), controlled_component);
     }
 
-    // Process command list.
-    // Important that this is done before any global variables like
-    // current_gravity is used, since the commands might alter thees values.
-    process_command_list(modifiers, &global_command_list, &global_last, 0);
+    // Process command list for each component.
+    struct component * comp_pointer = components;
+    while (comp_pointer != NULL) {
 
-    // Add gravity.
+        // Process command list.
+        // Important that this is done before any global variables like
+        // current_gravity is used, since the commands might alter thees values.
+        process_command_list(comp_pointer->modifiers,
+                             &comp_pointer->command_list,
+                             &comp_pointer->last_command, 0);
+
+        // Advance pointer.
+        comp_pointer= comp_pointer->next;
+    }
+
+    // Add gravity to controlled object.
     Command_Input grav_inputs[] = {
-       {y_modifier, -(*current_gravity), action_add_value, NULL, 1,
-           PASSTHROUGH},
+       {y_modifier, -(*current_gravity), action_add_value, NULL, 1, PASSTHROUGH},
     };
-    submit_command(grav_inputs, SIZE(grav_inputs));
+    submit_command(grav_inputs, SIZE(grav_inputs), controlled_component);
 
-    // Check collisions with the window.
-    collision_check(transformation,
-                    x_modifier,
-                    x_write_pos,
-                    y_modifier,
-                    y_write_pos);
+    // Apply modifications to all components.
+    comp_pointer = components;
+    while (comp_pointer != NULL) {
 
-    // Write any modified data to the transformation matrix.
-    *x_write_pos += *x_modifier;
-    *y_write_pos += *y_modifier;
+        float * modifiers = comp_pointer->modifiers;
+        float * mat_transform = &comp_pointer->transformation[0][0];
+
+        float * x_write_pos = &mat_transform[0*4+3];
+        float * y_write_pos = &mat_transform[1*4+3];
+
+        float * x_modifier = &modifiers[X];
+        float * y_modifier = &modifiers[Y];
+
+        // Check collisions with the window.
+        collision_check(mat_transform,
+                        x_modifier,
+                        x_write_pos,
+                        y_modifier,
+                        y_write_pos);
+
+        // Write any modified data to the transformation matrix.
+        *x_write_pos += *x_modifier;
+        *y_write_pos += *y_modifier;
+
+        // Don't forget to reset the modifiers, otherwise the previous
+        // modifications will stick if there is a component change.
+        *x_modifier = 0.0f;
+        *y_modifier = 0.0f;
+
+        // Iterate to next component.
+        comp_pointer = comp_pointer->next;
+    }
 }
 
 void collision_check(
@@ -276,7 +317,7 @@ void collision_check(
     float y_pos_border =  1.0f;
     float y_neg_border = -1.0f;
 
-    float * bounds = global_vao.bounds;
+    float * bounds = controlled_component->vao->bounds;
 
     // Get height and widht of bounding box.
     float width = bounds[1*3+0] - bounds[0*3+0];  // 1'st x - 0'th x.
@@ -284,9 +325,9 @@ void collision_check(
     float depth = bounds[4*3+3] - bounds[0*3+3];  // 4'th z - 0'th z.
 
     // Correctly handle scaling boxes.
-    float x_scale = transformation[0][0];
-    float y_scale = transformation[1][1];
-    float z_scale = transformation[2][2];
+    float x_scale = transformation_matrix[0]; // First diagonal pos.
+    float y_scale = transformation_matrix[1*3+2]; // Second diagonal pos.
+    float z_scale = transformation_matrix[2*3+3]; // Third diagonal pos.
 
     // Scale width and height;
     width *= x_scale;
@@ -329,7 +370,7 @@ void collision_check(
            {jump_flag, 0.0f, action_set_value, NULL, 1, PASSTHROUGH},
         };
         if (*jump_flag != 0.0f) {
-            submit_command(set_not_jumping, SIZE(set_not_jumping));
+            submit_command(set_not_jumping, SIZE(set_not_jumping), controlled_component);
         }
     }
 }
@@ -340,6 +381,14 @@ void free_command(Command_Packet * command) {
     // Release command data if there is any.
     if (command->data != NULL) {
         free(command->data);
+    }
+    // Free any sub-commands recursively.
+    Command_Packet * sub_command_pointer = command->sub_commands;
+    Command_Packet * sub_temp = NULL;
+    while (sub_command_pointer != NULL) {
+        sub_temp = sub_command_pointer;
+        sub_command_pointer = sub_command_pointer->next;
+        free_command(sub_temp);
     }
     // Free the command itself.
     free(command);
@@ -476,6 +525,10 @@ void process_command_list(
                 // Restore old pointers gathered from temp.
                 current_pointer->next = temp_next;
                 current_pointer->last_sub = temp_last_sub;
+
+                // Remove pointers to sub-command in temp since free_command
+                // removes sub-commands recursively.
+                temp->sub_commands = NULL;
 
                 // Check where we are in the list.
                 if (prev == NULL) { // First element of the list, re-write anchor and last.

@@ -161,7 +161,7 @@ void load_data(Point_Data * info, float * buffer, const char * filename)
         current_token = strtok(temp_buffer, delimiter);
 
         // Iterate over and convert all the elements in the data.
-        for (int i = 0; i<info->elements; i++) {
+        for (size_t i = 0; i<info->elements; i++) {
             float converted = atof(current_token);
             buffer[i] = converted;
             current_token = strtok(NULL, delimiter);

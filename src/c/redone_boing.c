@@ -34,7 +34,7 @@ void display(
         {"transform", uniform_data_transform, UniformMatrix4fv},
     };
     struct component * compp;
-    for(compp = components; compp != NULL; compp = compp->next) {
+    for(compp = component; compp != NULL; compp = compp->next) {
         // Don't draw the controlled component here.
         if (compp == controlled_component) {
             continue;

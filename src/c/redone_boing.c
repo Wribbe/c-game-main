@@ -121,15 +121,17 @@ void display(
     struct uniform_data standard_uniforms[] = {
         {"transform", uniform_data_transform, UniformMatrix4fv},
     };
-    struct component * component_pointer = component;
-    while( component_pointer != NULL) {
-        draw_component(component_pointer,
+    struct component * compp;
+    for(compp = components; compp != NULL; compp = compp->next) {
+        // Don't draw the controlled component here.
+        if (compp == controlled_component) {
+            continue;
+        }
+        draw_component(compp,
                        shader_programs[0],
                        textures[0],
                        standard_uniforms,
                        SIZE(standard_uniforms));
-        // Advance component pointer.
-        component_pointer = component_pointer->next;
     }
     struct uniform_data outline_uniforms[] = {
         {"transform", uniform_data_transform, UniformMatrix4fv},

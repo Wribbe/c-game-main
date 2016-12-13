@@ -5,12 +5,7 @@
 
 #include "maths/math_utils.h"
 #include "utils/utils.h"
-
-#define X 0
-#define Y 1
-#define Z 2
-
-#define NUM_KEYS 512
+#include "globals/globals.h"
 
 extern bool keymap[NUM_KEYS];
 extern bool release[NUM_KEYS];

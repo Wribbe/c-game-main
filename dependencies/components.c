@@ -37,6 +37,7 @@ struct component * create_component(
     return_component->modifiers[0] = 0;
     return_component->modifiers[1] = 0;
     return_component->modifiers[2] = 0;
+    return_component->flags = 0;
     // Set transformation matrix to identity matrix.
     m4_copy(return_component->transformation, m4_identity);
 
@@ -56,4 +57,61 @@ void free_component(struct component * component)
     }
     free(component->id);
     free(component);
+}
+
+uint64_t get_base_mask(enum flag_type flag)
+    /* Get the basic mask with a bit set to one at the flag position. */
+{
+    uint64_t mask = 1;
+    return mask <<= flag;
+}
+
+void set_flag(struct component * component, enum flag_type flag)
+    /* Set the flag at bit "flag" to 1. */
+{
+    // Get standard mask.
+    uint64_t mask = get_base_mask(flag);
+    // Or the flag bit to make sure it is 1.
+    component->flags |= mask;
+}
+
+void unset_flag(struct component * component, enum flag_type flag)
+    /* Set the flag at bit "flag" to 0. */
+{
+    // Get base mask.
+    uint64_t mask = get_base_mask(flag);
+    // Invert the mask to one zero and rest ones.
+    mask = ~mask;
+    // And the mask to make sure that the flag bit is 0.
+    component->flags &= mask;
+}
+
+void toggle_flag(struct component * component, enum flag_type flag)
+    /* Toggle the value of the flag with XOR. */
+{
+    uint64_t mask = get_base_mask(flag);
+    // XOR the current flag value with mask to toggle the flag bit.
+    component->flags ^= mask;
+}
+
+bool flag_is_set(struct component * component, enum flag_type flag)
+    /* Return if flag is set or not. */
+{
+    uint64_t mask = get_base_mask(flag);
+    return component->flags & mask;
+}
+
+bool flag_is_unset(struct component * component, enum flag_type flag)
+{
+    return !flag_is_set(component, flag);
+}
+
+bool controlled_flag_is_unset(enum flag_type flag)
+{
+    return flag_is_unset(controlled_component, flag);
+}
+
+bool controlled_flag_is_set(enum flag_type flag)
+{
+    return flag_is_set(controlled_component, flag);
 }

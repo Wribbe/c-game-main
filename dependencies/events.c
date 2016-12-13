@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <GLFW/glfw3.h>
 
-#include "GLFW/glfw3.h"
+#include "globals/globals.h"
 #include "events/events.h"
 #include "utils/utils.h"
 #include "components/components.h"
-#include "globals/globals.h"
 
 // ### Prototypes for functions further down in the document.
 
@@ -15,7 +15,7 @@ uint32_t num_actions[NUM_KEYS] = {0};
 
 void process_keys(GLFWwindow * window);
 void collision_check(
-                     float * transformation_matrix,
+                     struct component * component,
                      float * x_modifier,
                      float * x_write_pos,
                      float * y_modifier,
@@ -235,9 +235,9 @@ void process_keys(GLFWwindow * window)
     }
 
     // Modify positions along y-axis.
-    if (check(GLFW_KEY_SPACE) && !(*jump_flag)) {
+    if (check(GLFW_KEY_SPACE) && controlled_flag_is_unset(JUMPING)) {
+        set_flag(controlled_component, JUMPING);
         Command_Input inputs[] = {
-           {jump_flag, 1.0f, action_set_value, NULL, 1, PASSTHROUGH},
            {current_gravity, 0.0f, action_set_value, NULL, 1, PASSTHROUGH},
            {y_modifier, 0.03f, action_add_value, NULL, 20, BLOCKING},
            {current_gravity, GRAVITY, action_set_value, NULL, 1, PASSTHROUGH},
@@ -280,7 +280,7 @@ void process_keys(GLFWwindow * window)
         float * y_modifier = &modifiers[Y];
 
         // Check collisions with the window.
-        collision_check(mat_transform,
+        collision_check(comp_pointer,
                         x_modifier,
                         x_write_pos,
                         y_modifier,
@@ -300,8 +300,105 @@ void process_keys(GLFWwindow * window)
     }
 }
 
+float get_bounds_width(float * bounds)
+    /* Return width of bound from bounds array. */
+{
+    return bounds[1*3+0] - bounds[0*3+0];  // 1'st x - 0'th x.
+}
+
+float get_bounds_height(float * bounds)
+    /* Return height of bound from bounds array. */
+{
+    return bounds[0*3+1] - bounds[2*3+1]; // 0'th y - 2'nd y.
+}
+
+float get_bounds_depth(float * bounds)
+    /* Return depth of bound from bounds array. */
+{
+    return bounds[4*3+3] - bounds[0*3+3];  // 4'th z - 0'th z.
+}
+
+float get_scale(float * transformation_matrix, enum coord coord)
+    /* Return scaling factor for a specific coordinate from the given
+     * transformation matrix. */
+{
+    switch (coord) {
+        case X:
+            return transformation_matrix[0]; // First diagonal pos.
+        case Y:
+            return transformation_matrix[1*3+2]; // Second diagonal pos.
+        case Z:
+            return transformation_matrix[1*3+2]; // Second diagonal pos.
+        default:
+            fprintf(stderr, "get_scale: No such coordinate, abroting.\n");
+            exit(1);
+            break;
+    }
+}
+
+void set_variable(
+                  enum coord type,
+                  struct component * component,
+                  float * var_modifier,
+                  float * var_write_pos,
+                  float collision_modfifier_value,
+                  struct collision_bound_data * bound_data,
+                  size_t num_bounds
+                 )
+    /* Function handling the setting of y modifier and position for supplied
+     * y_write_pos. */
+{
+    float relevant_component_size = 0;
+    float relevant_scale = 0;
+    float * bounds = component->vao->bounds;
+
+    float next_var = *var_write_pos + *var_modifier;
+
+    switch(type) {
+        case X:
+            relevant_component_size = get_bounds_width(bounds);
+            break;
+        case Y:
+            relevant_component_size = get_bounds_height(bounds);
+            break;
+        default:
+            fprintf(stderr, "set_variable: No such coordinate, aborting.\n");
+            exit(1);
+            break;
+    }
+
+    //Scale the relevant_component_size.
+    relevant_component_size *= get_scale(component->transformation, type);
+
+    // Signed half component size depending on current direction.
+    float additional_to_next = 0;
+    float half_relevant = relevant_component_size/2.0f;
+    if (*var_modifier < 0) { // Going down/left.
+        additional_to_next -= half_relevant;
+    } else { // Going up/right.
+        additional_to_next += half_relevant;
+    }
+
+
+    // Add additional offset to the calculated next_var.
+    next_var += additional_to_next;
+
+    // Compare to bounds.
+    for(size_t i=0; i<num_bounds; i++) {
+        struct collision_bound_data * data = &bound_data[i];
+        if(logic_main(next_var, data->compare_type, data->bound)) {
+            *var_modifier = 0;
+            *var_write_pos = data->value;
+            if (data->flag_operation != NULL) {
+                data->flag_operation(component, data->flag);
+            }
+            break;
+        }
+    }
+}
+
 void collision_check(
-                     float * transformation_matrix,
+                     struct component * component,
                      float * x_modifier,
                      float * x_write_pos,
                      float * y_modifier,
@@ -312,12 +409,8 @@ void collision_check(
      * position of the object at the edge of the window bounding box.
      */
 
-    float x_pos_border =  1.0f;
-    float x_neg_border = -1.0f;
-    float y_pos_border =  1.0f;
-    float y_neg_border = -1.0f;
-
-    float * bounds = controlled_component->vao->bounds;
+    float * bounds = component->vao->bounds;
+    float * transformation_matrix = &component->transformation[0][0];
 
     // Get height and widht of bounding box.
     float width = bounds[1*3+0] - bounds[0*3+0];  // 1'st x - 0'th x.
@@ -333,6 +426,11 @@ void collision_check(
     width *= x_scale;
     height *= y_scale;
     depth *= z_scale;
+
+    float x_pos_border = global_variables[wb_x_pos];
+    float x_neg_border = global_variables[wb_x_neg];
+    float y_pos_border = global_variables[wb_y_pos];
+    float y_neg_border = global_variables[wb_y_neg];
 
     // Calculate next position for x and y.
     float next_x = *x_write_pos + *x_modifier;
@@ -356,23 +454,23 @@ void collision_check(
         *x_write_pos = x_neg_border + half_width;
     }
 
-    // Check out of bounds y.
-    if (pos_bound_y_val >= y_pos_border) {
-        *y_modifier = 0;
-        *y_write_pos = y_pos_border - half_height;
-    } else if (neg_bound_y_val < y_neg_border) {
-        *y_modifier = 0;
-        *y_write_pos = y_neg_border + half_height;
+    float window_border_x[][2] = {
+        {-1.0f, 1.0f},
+        {x_neg_border+half_width, x_pos_border-half_width},
+    };
 
-        // Reset is jumping flag when hitting floor.
-        float * jump_flag = &global_variables[is_jumping];
-        Command_Input set_not_jumping[] = {
-           {jump_flag, 0.0f, action_set_value, NULL, 1, PASSTHROUGH},
-        };
-        if (*jump_flag != 0.0f) {
-            submit_command(set_not_jumping, SIZE(set_not_jumping), controlled_component);
-        }
-    }
+    struct collision_bound_data y_bounds[] = {
+        {1.0f, y_pos_border-half_height, GT, NULL, 0},
+        {-1.0f, y_neg_border+half_height, LT, unset_flag, JUMPING},
+    };
+
+    set_variable(Y,
+                 component,
+                 y_modifier,
+                 y_write_pos,
+                 0,
+                 y_bounds,
+                 SIZE(y_bounds));
 }
 
 void free_command(Command_Packet * command) {

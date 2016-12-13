@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <GLFW/glfw3.h>
 #include "maths/math_utils.h"
+#include "globals/globals.h"
 
 typedef enum event_action_type {
     PASSTHROUGH,
@@ -101,6 +102,7 @@ struct component {
     Command_Packet * command_list;
     Command_Packet * last_command;
     struct component * next;
+    uint64_t flags;
 };
 
 struct uniform_data {
@@ -109,6 +111,12 @@ struct uniform_data {
     enum uniform_type type;
 };
 
-
+struct collision_bound_data {
+    float bound;
+    float value;
+    comparison_type compare_type;
+    void (*flag_operation)(struct component * component, enum flag_type flag);
+    enum flag_type flag;
+};
 
 #endif

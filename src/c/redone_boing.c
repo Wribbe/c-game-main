@@ -133,11 +133,19 @@ void display(
                        standard_uniforms,
                        SIZE(standard_uniforms));
     }
+
+    // Draw controlled object after other objects, to make it appear on top.
+    draw_component(controlled_component,
+                   shader_programs[0],
+                   textures[0],
+                   standard_uniforms,
+                   SIZE(standard_uniforms));
+
     struct uniform_data outline_uniforms[] = {
         {"transform", uniform_data_transform, UniformMatrix4fv},
         {"time", uniform_data_time, Uniform1f},
     };
-    // Draw controlled object with other shader but same texture.
+    // Draw controlled object with other shader but same texture for outline.
     draw_component(controlled_component,
                    shader_programs[1],
                    textures[0],

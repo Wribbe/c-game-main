@@ -47,13 +47,18 @@ void draw_component(
     // Bind texture.
     glBindTexture(GL_TEXTURE_2D, texture);
 
-    // Currently get location for shader_program every, unnecessary.
-    GLuint transform_location = glGetUniformLocation(program, "transform");
-    // Write component transform to current shader program.
-    glUniformMatrix4fv(transform_location,
-                       1,
-                       GL_TRUE,
-                       &component->transformation[0][0]);
+    struct uniform_data * current_uniform = NULL;
+    // Iterate over and bind all uniforms.
+    for (size_t i=0; i<num_uniforms; i++) {
+        current_uniform = &uniforms[i];
+        // Currently get location for shader_program every, unnecessary.
+        GLuint uniform_location = glGetUniformLocation(program, current_uniform->name);
+        // Write component transform to current shader program.
+        glUniformMatrix4fv(uniform_location,
+                           1,
+                           GL_TRUE,
+                           current_uniform->data_function(component));
+    }
     // Draw component.
     // Bind VAO.
     VAO * vao = component->vao;
@@ -76,21 +81,21 @@ void display(
     struct uniform_data standard_uniforms[] = {
         {"transform", get_component_transform},
     };
-    while( component != NULL) {
-        draw_component(component,
+    struct component * component_pointer = component;
+    while( component_pointer != NULL) {
+        draw_component(component_pointer,
                        shader_programs[0],
                        textures[0],
                        standard_uniforms,
                        SIZE(standard_uniforms));
         // Advance component pointer.
-        component = component->next;
+        component_pointer = component_pointer->next;
     }
     struct uniform_data outline_uniforms[] = {
         {"transform", get_component_transform},
     };
-
     // Draw controlled object with other shader but same texture.
-    draw_component(component,
+    draw_component(controlled_component,
                    shader_programs[1],
                    textures[0],
                    outline_uniforms,

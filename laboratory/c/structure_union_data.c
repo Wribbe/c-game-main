@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 struct TypeA {
+    int (*function)(int a, int b, int c, int d, int e);
     int a;
     int b;
     int c;
@@ -10,6 +11,7 @@ struct TypeA {
 } TypeA;
 
 struct TypeB {
+    void (*function)(struct TypeB * pointer);
     float a;
     float b;
     float c;
@@ -20,48 +22,46 @@ union wrapper_type {
     struct TypeB b;
 };
 
-struct Wrapper {
-    void (*mod_function)(union wrapper_type);
+struct wrapper {
     union wrapper_type type;
 };
 
-void type_a_func(union wrapper_type * type)
+int type_a_func(int a, int b, int c, int d, int e)
 {
-    struct TypeA * pointer = (struct TypeA * )&type->a;
-    printf("The current ints are: %d %d %d %d %d\n", pointer->a, pointer->b, pointer->c, pointer->d, pointer->e);
+    int max_int = 0;
+    int ints[] = {a,b,c,d,e};
+    for (size_t i=0; i<sizeof(ints); i++) {
+        if (ints[i] > max_int) {
+            max_int = ints[i];
+        }
+    }
+    return max_int;
 }
 
-void type_b_func(union wrapper_type * type)
+void type_b_func(struct TypeB * pointer)
 {
-    struct TypeB * pointer = (struct TypeB * )&type->b;
     printf("The current floats are: %f %f %f\n", pointer->a, pointer->b, pointer->c);
 }
 
-void wrapper_consumer(struct Wrapper * wrapper)
+void wrapper_consumer(struct wrapper * list, size_t size)
 {
-    void (*mod_function)(void * data) = wrapper->mod_function;
-    mod_function(&wrapper->type);
+    for (size_t i=0; i<size; i++) {
+        struct wrapper * current = &list[i];
+        if (current->type.a.function == type_a_func) {
+            printf("It was A!\n");
+        } else if (current->type.b.function == type_b_func) {
+            printf("It was B!\n");
+        }
+    }
 }
 
 int main(void)
 {
-    struct TypeB typeb = {
-        1.0f,
-        2.0f,
-        3.0f,
+    struct wrapper wrapper_list[] = {
+        {.type.a={type_a_func, 1,2,3,4,5}},
+        {.type.b={type_b_func, 3.0f, 5.0f, 9.0f}},
+        {.type.a={type_a_func, 11,21,31,41,51}},
     };
 
-    struct Wrapper wrap = {
-        type_b_func,
-        .type.b = typeb,
-    };
-
-    wrapper_consumer(&wrap);
-
-    struct Wrapper wrap2 = {
-        type_a_func,
-        .type.a = {3, 4, 5, 6, 7},
-    };
-
-    wrapper_consumer(&wrap2);
+    wrapper_consumer(wrapper_list, sizeof(wrapper_list));
 }

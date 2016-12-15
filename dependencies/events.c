@@ -574,20 +574,21 @@ void collision_check(
     float pos_bound_y_val = next_y + half_height;
     float neg_bound_y_val = next_y - half_height;
 
-    // Check out of bounds x.
-    if (pos_bound_x_val >= x_pos_border) {
-        *x_modifier = 0;
-        *x_write_pos = x_pos_border - half_width;
-    } else if (neg_bound_x_val <= x_neg_border) {
-        *x_modifier = 0;
-        *x_write_pos = x_neg_border + half_width;
-    }
-
-    float window_border_x[][2] = {
-        {-1.0f, 1.0f},
-        {x_neg_border+half_width, x_pos_border-half_width},
+    // Check for collisions with window along x-axis.
+    struct collision_bound_data x_bounds[] = {
+        {1.0f, x_pos_border-half_height, GT, NULL, 0},
+        {-1.0f, x_neg_border+half_height, LT, NULL, 0},
     };
 
+    set_variable(X,
+                 component,
+                 x_modifier,
+                 x_write_pos,
+                 0,
+                 x_bounds,
+                 SIZE(x_bounds));
+
+    // Check for collisions with window along y-axis.
     struct collision_bound_data y_bounds[] = {
         {1.0f, y_pos_border-half_height, GT, NULL, 0},
         {-1.0f, y_neg_border+half_height, LT, unset_flag, JUMPING},

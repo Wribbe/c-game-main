@@ -289,17 +289,15 @@ void process_keys(GLFWwindow * window)
     }
 
     // Use controlled components modifiers.
-    float * modifiers = controlled_component->modifiers;
-
-    float * x_modifier = &modifiers[X];
-    float * y_modifier = &modifiers[Y];
+    float * x_modifier = get_modifier(X, controlled_component);
+    float * y_modifier = get_modifier(Y, controlled_component);
 
     // Reset modifiers for controlled component.
     *x_modifier = 0;
     *y_modifier = 0;
 
-    float * x_write_pos = &controlled_component->transformation[0][3];
-    float * y_write_pos = &controlled_component->transformation[1][3];
+    float * x_write_pos = get_write_location(X, controlled_component);
+    float * y_write_pos = get_write_location(Y, controlled_component);
 
     float * current_speed = &global_variables[speed];
     float * current_gravity = &global_variables[gravity];

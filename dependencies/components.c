@@ -131,3 +131,16 @@ bool controlled_flag_is_set(enum flag_type flag)
 {
     return flag_is_set(controlled_component, flag);
 }
+
+float * get_modifier(enum coord coordinate, struct component * component)
+    /* Return the appropriate coordinate modifier. */
+{
+    return &component->modifiers[coordinate];
+}
+
+float * get_write_location(enum coord coordinate, struct component * component)
+    /* Return the appropriate write location for altering component position
+     * depending on coordinate type. */
+{
+    return &component->transformation[coordinate][3];
+}

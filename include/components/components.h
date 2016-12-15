@@ -31,4 +31,9 @@ bool controlled_flag_is_set(enum flag_type flag);
 void wrapper_set_flag(union submit_type * type);
 void wrapper_unset_flag(union submit_type * type);
 
+// Functions handling altering component coordinate modifiers and position
+// values.
+float * get_modifier(enum coord coordinate, struct component * component);
+float * get_write_location(enum coord coordinate, struct component * component);
+
 #endif

@@ -14,12 +14,6 @@
 #include "components/components.h"
 #include "globals/globals.h"
 
-void init(void)
-{
-    // Set background color.
-    glClearColor( 0.55f, 0.55f, 0.55f, 0.0f);
-}
-
 void display(
              struct component * component,
              GLuint * shader_programs,
@@ -99,7 +93,7 @@ int main(void)
     glfwSetKeyCallback(window, callback_key);
 
     // Initialize values.
-    init();
+    global_init();
 
     // Set up shaders.
     GLuint vertex_shader = 0;
@@ -225,8 +219,6 @@ int main(void)
     glGenTextures(1, &texture);
     load_to_texture(&texture, filename);
 
-    // Setup environment variables.
-    setup_globals();
 
     // Set up arrays of textures and shader programs.
     GLuint shader_programs[] = {
@@ -237,6 +229,9 @@ int main(void)
     GLuint textures[] = {
         texture,
     };
+
+    // Setup environment variables.
+    setup_globals();
 
     // Enable alpha blending.
     glEnable(GL_BLEND);

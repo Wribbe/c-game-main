@@ -28,6 +28,7 @@ typedef enum global_index {
 extern float global_variables[];
 
 void setup_globals(void);
+void global_init(void);
 
 enum flag_type {
     JUMPING,
@@ -40,8 +41,9 @@ enum component_list_type {
     NUM_COMPONENT_TYPES,
 };
 
-extern struct component * components[NUM_COMPONENT_TYPES];
-extern struct component * last_component[NUM_COMPONENT_TYPES];
-extern struct component * controlled_component;
+// Global pointers to different components.
+struct component * components[NUM_COMPONENT_TYPES];
+struct component * last_component[NUM_COMPONENT_TYPES];
+struct component * controlled_component;
 
 #endif

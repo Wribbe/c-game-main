@@ -1,9 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "components/components.h"
-#include "events/events.h"
+
 #include "globals/globals.h"
+#include "events/events.h"
+#include "components/components.h"
 
 struct component * create_component(
                                     const char * id,

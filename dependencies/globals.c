@@ -4,6 +4,7 @@
 
 float global_variables[num_globals];
 
+
 void set_flags(struct component * component, enum flag_type flag)
     /* Set flag for the whole list of component. */
 {
@@ -31,9 +32,17 @@ void setup_globals(void)
     // Set initial flag values.
     set_flags(get_component(CONTROLLABLE), GRAVITY_ON);
     set_flags(get_component(NON_CONTROLLABLE), GRAVITY_ON);
+}
+
+void global_init(void)
+{
+    // Set background color.
+    glClearColor( 0.55f, 0.55f, 0.55f, 0.0f);
 
     // Set up initial component values.
-    struct components * components = {0};
-    struct components * last_components = {0};
-    struct components * controlled_component = NULL;
+    for (unsigned int i = 0; i<NUM_COMPONENT_TYPES; i++) {
+        components[i] = NULL;
+        last_component[i] = NULL;
+    }
+    controlled_component = NULL;
 }

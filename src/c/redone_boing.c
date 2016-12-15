@@ -214,13 +214,11 @@ int main(void)
     m4_scale(second_component->transformation, 0.4, 0.3, 0.3);
 
     // Set up component list.
-    controlled_component = main_component;
-    components = main_component;
-    last_component = main_component;
+    set_as_controlled(main_component);
+    append_component(main_component, CONTROLLABLE);
 
     // Link main and second.
-    last_component->next = second_component;
-    last_component = last_component->next;
+    append_component(second_component, CONTROLLABLE);
 
     // Generate texture and load image data.
     GLuint texture;
@@ -247,7 +245,7 @@ int main(void)
     while(!glfwWindowShouldClose(window)) {
         global_variables[glfw_time] = (float)glfwGetTime();
         poll_events(window);
-        display(components, shader_programs, textures);
+        display(get_component(CONTROLLABLE), shader_programs, textures);
         glfwSwapBuffers(window);
     }
 

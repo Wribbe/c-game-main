@@ -3,6 +3,7 @@
 #include <string.h>
 #include "components/components.h"
 #include "events/events.h"
+#include "globals/globals.h"
 
 struct component * create_component(
                                     const char * id,
@@ -143,4 +144,41 @@ float * get_write_location(enum coord coordinate, struct component * component)
      * depending on coordinate type. */
 {
     return &component->transformation[coordinate][3];
+}
+
+float get_dimension_scale(enum coord dimension, struct component * component)
+    /* Return the scaling value for the specified dimension. */
+{
+    return component->transformation[dimension][dimension];
+}
+
+struct component * get_last_component(enum component_list_type type)
+    /* Return last component from specific component list. */
+{
+    return last_component[type];
+}
+
+struct component * get_component(enum component_list_type type)
+    /* Return first component from selected list. */
+{
+    return components[type];
+}
+
+void append_component(struct component * component,
+                      enum component_list_type type)
+    /* Append a component to a specific list. */
+{
+    if (components[type] == NULL) { // New list.
+        components[type] = component;
+        last_component[type] = component;
+    } else { // Populated, append to last.
+        get_last_component(type)->next = component;
+        last_component[type] = component;
+    }
+}
+
+void set_as_controlled(struct component * component)
+    /* Method for setting which component is the controlled one. */
+{
+    controlled_component = component;
 }

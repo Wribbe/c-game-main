@@ -285,9 +285,9 @@ void process_keys(GLFWwindow * window)
     // Modify controlled_component with tab.
     if (check(GLFW_KEY_TAB) && max_actions(GLFW_KEY_TAB, 1)) {
         // Cycle through available components. If NULL return to head.
-        controlled_component = controlled_component->next;
+        set_as_controlled(controlled_component->next);
         if (controlled_component == NULL) {
-            controlled_component = components;
+            controlled_component = get_component(CONTROLLABLE);
         }
     }
 
@@ -348,7 +348,7 @@ void process_keys(GLFWwindow * window)
     }
 
     // Process command list for each component.
-    struct component * comp_pointer = components;
+    struct component * comp_pointer = get_component(CONTROLLABLE);
     while (comp_pointer != NULL) {
 
         // Process command list.
@@ -379,8 +379,8 @@ void process_keys(GLFWwindow * window)
         submit_command(grav_inputs, SIZE(grav_inputs), controlled_component);
     }
 
-    // Apply modifications to all components.
-    comp_pointer = components;
+    // Apply modifications to all controllable components.
+    comp_pointer = get_component(CONTROLLABLE);
     while (comp_pointer != NULL) {
 
         float * x_write_pos = get_write_location(X, comp_pointer);

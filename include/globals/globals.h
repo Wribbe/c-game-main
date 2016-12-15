@@ -34,4 +34,14 @@ enum flag_type {
     GRAVITY_ON,
 };
 
+enum component_list_type {
+    CONTROLLABLE,
+    NON_CONTROLLABLE,
+    NUM_COMPONENT_TYPES,
+};
+
+extern struct component * components[NUM_COMPONENT_TYPES];
+extern struct component * last_component[NUM_COMPONENT_TYPES];
+extern struct component * controlled_component;
+
 #endif

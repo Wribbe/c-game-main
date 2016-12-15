@@ -4,10 +4,6 @@
 #include "structs.h"
 #include "globals/globals.h"
 
-struct component * components;
-struct component * controlled_component;
-struct component * last_component;
-
 struct component * create_component(
                                     const char * id,
                                     VAO * vao,
@@ -37,4 +33,10 @@ float * get_modifier(enum coord coordinate, struct component * component);
 float * get_write_location(enum coord coordinate, struct component * component);
 float get_dimension_scale(enum coord dimension, struct component * component);
 
+// Methods for adding and retrieving different components.
+struct component * get_last_component(enum component_list_type type);
+struct component * get_component(enum component_list_type type);
+void append_component(struct component * component,
+                      enum component_list_type type);
+void set_as_controlled(struct component * component);
 #endif

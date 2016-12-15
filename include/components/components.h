@@ -27,4 +27,8 @@ bool flag_is_unset(struct component * component, enum flag_type flag);
 bool controlled_flag_is_unset(enum flag_type flag);
 bool controlled_flag_is_set(enum flag_type flag);
 
+// Wrapper functions for automatic command execution.
+void wrapper_set_flag(union submit_type * type);
+void wrapper_unset_flag(union submit_type * type);
+
 #endif

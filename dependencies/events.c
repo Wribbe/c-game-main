@@ -24,8 +24,8 @@ void collision_check(
 
 void process_command_list(
                           float * modifiers,
-                          Command_Packet ** command_list,
-                          Command_Packet ** last,
+                          struct Command_Packet ** command_list,
+                          struct Command_Packet ** last,
                           int current_level
                          );
 
@@ -64,88 +64,18 @@ bool max_actions(GLuint key, uint32_t max) {
     return true;
 }
 
-
-void create_command_packet(
-                           Command_Input * input,
-                           Command_Packet ** command_list,
-                           Command_Packet ** last
-                          )
-{
-    /* Allocate memory for populate and append a Command_Packet to the supplied
-     * list.
-     */
-
-    // Allocate memory for new_command.
-    Command_Packet * new_command = malloc(sizeof(Command_Packet));
-
-    // Populate Command_Packet.
-    new_command->variable = input->variable;
-    new_command->value = input->value;
-    new_command->mod_function = input->mod_function;
-    new_command->lifetime = input->lifetime;
-    new_command->next = NULL;
-    new_command->sub_commands = NULL;
-    new_command->last_sub = NULL;
-    new_command->type = input->type;
-
-    // Copy over data to permanent malloc if it's present.
-    if (input->data != NULL) {
-        // Allocate memory.
-        Action_Logic_Data * data_pointer = malloc(sizeof(Action_Logic_Data));
-        Action_Logic_Data * input_data = (Action_Logic_Data * )input->data;
-
-        // Populate data pointer.
-        data_pointer->logic_function = input_data->logic_function;
-        data_pointer->comparison_value = input_data->comparison_value;
-        data_pointer->comparison_type = input_data->comparison_type;
-        data_pointer->regular_function = input_data->regular_function;
-        data_pointer->replacement_function = input_data->replacement_function;
-        data_pointer->replacement_value = input_data->replacement_value;
-
-        // Set data to populated data pointer.
-        new_command->data = data_pointer;
-
-    } else {
-        new_command->data = NULL;
-    }
-
-    if (*command_list == NULL) { // Begin new command_list.
-        *command_list = new_command;
-        *last = new_command;
-    } else { // Append to end of current list.
-        // Append to last element.
-        (*last)->next = new_command;
-        // Move last pointer;
-        *last = (*last)->next;
-    }
-}
-
-void submit_command(
-                    Command_Input * inputs,
-                    size_t size,
-                    struct component * component
-                   )
-{
-    /* Submit Command Packet based on input values. */
-
-    // Create first Command_Packet.
-    create_command_packet(&inputs[0],
-                          &component->command_list,
-                          &component->last_command);
-
-    // Append any other packages to the sub_commands head next pointer.
-    for (size_t i=1; i<size; i++) {
-        create_command_packet(&inputs[i],
-                              &component->last_command->sub_commands,
-                              &component->last_command->last_sub);
-    }
-}
-
-
-float action_add_value(float input, float value, void * data)
+float action_add_value(float input, float * variable, void * data)
 {
     UNUSED(data);
-    return input+value;
+    return input+*variable;
+}
+
+void wrapper_action_add_value(union submit_type * type)
+{
+    struct s_float * pointer = (struct s_float * )type;
+    *pointer->result = action_add_value(pointer->input, pointer->variable, pointer->data);
+    *pointer->signal_result = true;
+    *pointer->result_write_pos = pointer->variable;
 }
 
 float action_set_value(float input, float value, void * data)
@@ -186,6 +116,171 @@ float action_print_value(float input, float value, void * input_data)
     return input;
 }
 
+
+
+void create_command_packet(
+                           struct Command_Packet * input,
+                           struct Command_Packet ** command_list,
+                           struct Command_Packet ** last
+                          )
+{
+    /* Allocate memory for populate and append a Command_Packet to the supplied
+     * list.
+     */
+
+    const char * output_tag = "create_command_packet:";
+
+    // Allocate memory for new_command.
+    struct Command_Packet * new_command = malloc(sizeof(struct Command_Packet));
+
+    // Set up common attributes.
+    new_command->next = NULL;
+    new_command->sub_commands = NULL;
+    new_command->last_sub = NULL;
+    new_command->result = 0.0f;
+    new_command->got_result = false;
+    new_command->variable_write_pos = NULL;
+
+    int command_type = 0;
+
+    void (*wrapper_function)(union submit_type * type) = NULL;
+    void (*remove_function)(union submit_type * type) = NULL;
+
+    int lifetime = 0;
+    enum event_action_type action_type = 0;
+
+    enum {
+        float_type,
+        flag_type,
+    };
+
+    // Assume it is flag type.
+    struct s_flag * s_flag = (struct s_flag * )&input->type.s_flag;
+    if (s_flag->function == set_flag) {
+
+        command_type = flag_type;
+        wrapper_function = wrapper_set_flag;
+        remove_function = free_s_flag;
+
+    } else if (s_flag->function == unset_flag) {
+
+        command_type = flag_type;
+        wrapper_function = wrapper_unset_flag;
+        remove_function = free_s_flag;
+
+    }
+
+    if (wrapper_function == NULL) { // Not found anything yet.
+
+        // Assume it is float type.
+        struct s_float * s_float = (struct s_float * )&input->type.s_float;
+
+        if (input->type.s_float.function == action_add_value) {
+
+            command_type = float_type;
+            wrapper_function = wrapper_action_add_value;
+            remove_function = free_s_float;
+
+        }
+    }
+
+    if (wrapper_function == NULL || remove_function == NULL) {
+        // No match, crash.
+        const char * error = "%s Unknown input type, can't determine func methods!\n";
+        fprintf(stderr, error, output_tag);
+        exit(1);
+    }
+
+    if (command_type == flag_type) {
+
+        struct s_flag * flag_input = (struct s_flag * )&input->type.s_flag;
+        struct s_flag * flag_new = (struct s_flag * )&new_command->type.s_flag;
+
+        flag_new->function = flag_input->function;
+        flag_new->flag = flag_input->flag;
+        flag_new->component = flag_input->component;
+        lifetime = flag_input->lifetime;
+        action_type = flag_input->action_type;
+
+    } else if (command_type == float_type) {
+
+        struct s_float * float_input = (struct s_float* )&input->type.s_float;
+        struct s_float * float_new = (struct s_float* )&new_command->type.s_float;
+
+        float_new->function = float_input->function;
+        float_new->input = float_input->input;
+        float_new->variable = float_input->variable;
+        lifetime = float_input->lifetime;
+        action_type = float_input->action_type;
+        float_new->result = &new_command->result;
+        float_new->signal_result = &new_command->got_result;
+        float_new->result_write_pos = &new_command->variable_write_pos;
+
+        // Copy over data to permanent malloc if it's present.
+        if (float_input->data != NULL) {
+            // Allocate memory.
+            Action_Logic_Data * data_pointer = malloc(sizeof(Action_Logic_Data));
+            Action_Logic_Data * input_data = (Action_Logic_Data * )float_input->data;
+
+            // Populate data pointer.
+            data_pointer->logic_function = input_data->logic_function;
+            data_pointer->comparison_value = input_data->comparison_value;
+            data_pointer->comparison_type = input_data->comparison_type;
+            data_pointer->regular_function = input_data->regular_function;
+            data_pointer->replacement_function = input_data->replacement_function;
+            data_pointer->replacement_value = input_data->replacement_value;
+
+            // Set data to populated data pointer.
+            float_new->data = data_pointer;
+
+            } else {
+                float_new->data = NULL;
+            }
+    }
+
+    // Set wrapper and remove function for new command.
+    new_command->wrapper_function = wrapper_function;
+    new_command->remove = remove_function;
+
+    // Set lifetime of command.
+    new_command->lifetime = lifetime;
+
+    // Set action type.
+    new_command->action_type = action_type;
+
+    if (*command_list == NULL) { // Begin new command_list.
+        *command_list = new_command;
+        *last = new_command;
+    } else { // Append to end of current list.
+        // Append to last element.
+        (*last)->next = new_command;
+        // Move last pointer;
+        *last = (*last)->next;
+    }
+}
+
+void submit_command(
+                    struct Command_Packet * inputs,
+                    size_t size,
+                    struct component * component
+                   )
+{
+    /* Submit Command Packet based on input values. */
+
+    // Create first Command_Packet.
+    create_command_packet(&inputs[0],
+                          &component->command_list,
+                          &component->last_command);
+
+    // Append any other packages to the sub_commands head next pointer.
+    for (size_t i=1; i<size; i++) {
+        create_command_packet(&inputs[i],
+                              &component->last_command->sub_commands,
+                              &component->last_command->last_sub);
+    }
+}
+
+
 void process_keys(GLFWwindow * window)
 {
 
@@ -222,14 +317,31 @@ void process_keys(GLFWwindow * window)
 
     // Modify positions along x-axis.
     if (check(GLFW_KEY_LEFT)) {
-        Command_Input inputs[] = {
-           {x_modifier, -(*current_speed), action_add_value, NULL, 1, PASSTHROUGH},
+        struct Command_Packet inputs[] = {
+           {.type.s_float = {
+                    action_add_value,
+                    -(*current_speed),
+                    x_modifier,
+                    1,
+                    NULL,
+                    PASSTHROUGH,
+                }
+           },
         };
         submit_command(inputs, SIZE(inputs), controlled_component);
     }
+
     if (check(GLFW_KEY_RIGHT)) {
-        Command_Input inputs[] = {
-           {x_modifier, +(*current_speed), action_add_value, NULL, 1, PASSTHROUGH},
+        struct Command_Packet inputs[] = {
+           {.type.s_float = {
+                    action_add_value,
+                    +(*current_speed),
+                    x_modifier,
+                    1,
+                    NULL,
+                    PASSTHROUGH,
+                }
+           },
         };
         submit_command(inputs, SIZE(inputs), controlled_component);
     }
@@ -237,10 +349,19 @@ void process_keys(GLFWwindow * window)
     // Modify positions along y-axis.
     if (check(GLFW_KEY_SPACE) && controlled_flag_is_unset(JUMPING)) {
         set_flag(controlled_component, JUMPING);
-        Command_Input inputs[] = {
-           {current_gravity, 0.0f, action_set_value, NULL, 1, PASSTHROUGH},
-           {y_modifier, 0.03f, action_add_value, NULL, 20, BLOCKING},
-           {current_gravity, GRAVITY, action_set_value, NULL, 1, PASSTHROUGH},
+        struct Command_Packet inputs[] = {
+            {.type.s_flag = {
+                    unset_flag, GRAVITY_ON, controlled_component, 1, PASSTHROUGH
+                }
+            },
+            {.type.s_float = {
+                    action_add_value, 0.03f, y_modifier, 20, NULL, BLOCKING
+                }
+            },
+            {.type.s_flag = {
+                    set_flag, GRAVITY_ON, controlled_component, 1, PASSTHROUGH
+                }
+            },
         };
         submit_command(inputs, SIZE(inputs), controlled_component);
     }
@@ -252,19 +373,27 @@ void process_keys(GLFWwindow * window)
         // Process command list.
         // Important that this is done before any global variables like
         // current_gravity is used, since the commands might alter thees values.
-        process_command_list(comp_pointer->modifiers,
-                             &comp_pointer->command_list,
-                             &comp_pointer->last_command, 0);
+        process_command_list(comp_pointer->modifiers, &comp_pointer->command_list, &comp_pointer->last_command, 0);
 
         // Advance pointer.
         comp_pointer= comp_pointer->next;
     }
 
-    // Add gravity to controlled object.
-    Command_Input grav_inputs[] = {
-       {y_modifier, -(*current_gravity), action_add_value, NULL, 1, PASSTHROUGH},
-    };
-    submit_command(grav_inputs, SIZE(grav_inputs), controlled_component);
+    if (controlled_flag_is_set(GRAVITY_ON)) {
+        // Add gravity to controlled object.
+        struct Command_Packet grav_inputs[] = {
+           {.type.s_float = {
+                    action_add_value,
+                    -(*current_gravity),
+                    y_modifier,
+                    1,
+                    NULL,
+                    PASSTHROUGH,
+                }
+           },
+        };
+        submit_command(grav_inputs, SIZE(grav_inputs), controlled_component);
+    }
 
     // Apply modifications to all components.
     comp_pointer = components;
@@ -473,16 +602,17 @@ void collision_check(
                  SIZE(y_bounds));
 }
 
-void free_command(Command_Packet * command) {
+void free_command(struct Command_Packet * command) {
     // Function used to free command package.
 
-    // Release command data if there is any.
-    if (command->data != NULL) {
-        free(command->data);
-    }
+    // Release the type first.
+    union submit_type * type = &command->type;
+    // Use stored remove to free any of types internal resources.
+    command->remove(type);
+
     // Free any sub-commands recursively.
-    Command_Packet * sub_command_pointer = command->sub_commands;
-    Command_Packet * sub_temp = NULL;
+    struct Command_Packet * sub_command_pointer = command->sub_commands;
+    struct Command_Packet * sub_temp = NULL;
     while (sub_command_pointer != NULL) {
         sub_temp = sub_command_pointer;
         sub_command_pointer = sub_command_pointer->next;
@@ -494,23 +624,23 @@ void free_command(Command_Packet * command) {
 
 void process_command_list(
                           float * modifiers,
-                          Command_Packet ** command_list,
-                          Command_Packet ** last,
+                          struct Command_Packet ** command_list,
+                          struct Command_Packet ** last,
                           int current_level
                          )
 {
 
     // Dereference to the struct and take pointer to avoid overwriting the
     // anchor when assigning new current.
-    Command_Packet * current_pointer = &**command_list;
+    struct Command_Packet * current_pointer = &**command_list;
 
     // Set up utility pointers.
-    Command_Packet * prev = NULL;
-    Command_Packet * temp = NULL;
+    struct Command_Packet * prev = NULL;
+    struct Command_Packet * temp = NULL;
 
     // Pointers for saving values when de-linking node.
-    Command_Packet * temp_next = NULL;
-    Command_Packet * temp_last_sub = NULL;
+    struct Command_Packet * temp_next = NULL;
+    struct Command_Packet * temp_last_sub = NULL;
 
     // Iterate over the command list.
     while(current_pointer != NULL) {
@@ -518,18 +648,18 @@ void process_command_list(
         // Save the current pointer to temp.
         temp = current_pointer;
 
-        // Extract some useful values.
-        float * value_to_modify = current_pointer->variable;
-        float current_value = *value_to_modify;
-        float input_value = current_pointer->value;
-        event_action_type action_type = current_pointer->type;
-        int has_sub_commands = current_pointer->sub_commands != NULL;
-        void * data = current_pointer->data;
+        // Get command data.
+        enum event_action_type action_type = current_pointer->action_type;
+        bool has_sub_commands = current_pointer->sub_commands != NULL;
 
-        // Apply the modifications in the package.
-        *value_to_modify = current_pointer->mod_function(current_value,
-                                                         input_value,
-                                                         data);
+        // Run wrapper function.
+        current_pointer->wrapper_function(&current_pointer->type);
+
+        // Did we get any results?
+        if (current_pointer->got_result) {
+            float * value_to_modify = current_pointer->variable_write_pos;
+            *value_to_modify = current_pointer->result;
+        }
 
         // Process any sub-commands if type is non-blocking.
         if (has_sub_commands && (action_type != BLOCKING)) {

@@ -106,24 +106,27 @@ struct collision_bound_data {
 };
 
 struct s_flag {
+    // Begin manual input.
     void (*function)(struct component * component, enum flag_type flag);
     enum flag_type flag;
     struct component * component;
     int lifetime;
     enum event_action_type action_type;
-    void (*wrapper_function)(union submit_type * type);
-    void (*remove)(union submit_type * type);
+    // End manual input.
 };
 
 struct s_float {
-    float (*function)(float input, float value, void * data);
-    float value;
+    // Begin manual input.
+    float (*function)(float input, float * value, void * data);
+    float input;
     float * variable;
     int lifetime;
     void * data;
     enum event_action_type action_type;
-    float (*wrapper_function)(union submit_type * type);
-    void (*remove)(union submit_type * type);
+    // End manual input.
+    float * result;
+    bool * signal_result;
+    float ** result_write_pos;
 };
 
 union submit_type {
@@ -132,11 +135,25 @@ union submit_type {
 };
 
 struct Command_Packet {
-    union submit_type type;
+    // Standard variables for all command.s
+    int lifetime;
+    enum event_action_type action_type;
+    // Special flag and result store for float commands.
+    bool got_result;
+    float result;
+    float * variable_write_pos;
+    // Pointers that make it possible to link Command_Packets together.
     struct Command_Packet * next;
-    struct Command_Packet * sub_command;
+    struct Command_Packet * sub_commands;
     struct Command_Packet * last_sub;
+    // Standard wrapper and remove functionality for submit_types.
+    void (*wrapper_function)(union submit_type * type);
+    void (*remove)(union submit_type * type);
+    // The submit_type itself.
+    union submit_type type;
 };
 
+extern void free_s_flag(union submit_type * type);
+extern void free_s_float(union submit_type * type);
 
 #endif

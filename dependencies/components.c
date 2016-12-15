@@ -48,8 +48,8 @@ void free_component(struct component * component)
     /* Function for freeing component struct. */
 {
     // Iterate over all commands and free them.
-    Command_Packet * command_pointer = component->command_list;
-    Command_Packet * temp = NULL;
+    struct Command_Packet * command_pointer = component->command_list;
+    struct Command_Packet * temp = NULL;
     while(command_pointer != NULL) {
         temp = command_pointer;
         command_pointer = command_pointer->next;
@@ -75,6 +75,14 @@ void set_flag(struct component * component, enum flag_type flag)
     component->flags |= mask;
 }
 
+void wrapper_set_flag(union submit_type * type)
+    /* Wrapper metod for set_flag to enable easier internal execution, not ment
+     * for manual use. */
+{
+    struct s_flag * pointer = (struct s_flag * )type;
+    set_flag(pointer->component, pointer->flag);
+}
+
 void unset_flag(struct component * component, enum flag_type flag)
     /* Set the flag at bit "flag" to 0. */
 {
@@ -84,6 +92,14 @@ void unset_flag(struct component * component, enum flag_type flag)
     mask = ~mask;
     // And the mask to make sure that the flag bit is 0.
     component->flags &= mask;
+}
+
+void wrapper_unset_flag(union submit_type * type)
+    /* Wrapper metod for unset_flag to enable easier internal execution, not ment
+     * for manual use. */
+{
+    struct s_flag * pointer = (struct s_flag * )type;
+    unset_flag(pointer->component, pointer->flag);
 }
 
 void toggle_flag(struct component * component, enum flag_type flag)

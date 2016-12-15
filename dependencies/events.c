@@ -434,24 +434,6 @@ float get_bound_dimension(enum coord dimension, struct component * component)
     }
 }
 
-float get_scale(float * transformation_matrix, enum coord dimension)
-    /* Return scaling factor for a specific coordinate from the given
-     * transformation matrix. */
-{
-    switch (dimension) {
-        case X:
-            return transformation_matrix[0]; // First diagonal pos.
-        case Y:
-            return transformation_matrix[1*3+2]; // Second diagonal pos.
-        case Z:
-            return transformation_matrix[1*3+2]; // Second diagonal pos.
-        default:
-            fprintf(stderr, "get_scale: No such dimension, aborting.\n");
-            exit(1);
-            break;
-    }
-}
-
 void set_variable(
                   enum coord type,
                   struct component * component,

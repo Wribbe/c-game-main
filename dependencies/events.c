@@ -583,8 +583,8 @@ void collision_check(
 
     // Check for collisions with window along x-axis.
     struct collision_bound_data x_bounds[] = {
-        {1.0f, x_pos_border-half_height, GT, NULL, 0},
-        {-1.0f, x_neg_border+half_height, LT, NULL, 0},
+        {1.0f, x_pos_border-half_width, GT, NULL, 0},
+        {-1.0f, x_neg_border+half_width, LT, NULL, 0},
     };
 
     set_variable(X,

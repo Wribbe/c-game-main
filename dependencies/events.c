@@ -429,37 +429,33 @@ void process_keys(GLFWwindow * window)
     }
 }
 
-v3 * get_bounds(struct component * component)
+float get_bound_dimension(enum coord dimension, struct component * component)
+    /* Return the correct value of bounds depending on dimension. */
 {
-    return &component->vao->bounds[0][0];
+    v3 * bounds = &component->vao->bounds[0][0];
+
+    switch(dimension) {
+        case X:
+            return bounds[1][X] - bounds[0][X];  // 1'st x - 0'th x.
+            break;
+        case Y:
+            return bounds[0][Y] - bounds[2][Y]; // 0'th y - 2'nd y.
+            break;
+        case Z:
+            return bounds[4][Z] - bounds[0][Z];  // 4'th z - 0'th z.
+            break;
+        default:
+            fprintf(stderr, "get_bound_dimension: No such dimension.\n");
+            exit(1);
+            break;
+    }
 }
 
-float get_bounds_width(struct component * component)
-    /* Return width of bound from bounds array. */
-{
-    v3 * bounds = get_bounds(component);
-    return bounds[1][X] - bounds[0][X];  // 1'st x - 0'th x.
-}
-
-float get_bounds_height(struct component * component)
-    /* Return height of bound from bounds array. */
-{
-    v3 * bounds = get_bounds(component);
-    return bounds[0][Y] - bounds[2][Y]; // 0'th y - 2'nd y.
-}
-
-float get_bounds_depth(struct component * component)
-    /* Return depth of bound from bounds array. */
-{
-    v3 * bounds = get_bounds(component);
-    return bounds[4][Z] - bounds[0][Z];  // 4'th z - 0'th z.
-}
-
-float get_scale(float * transformation_matrix, enum coord coord)
+float get_scale(float * transformation_matrix, enum coord dimension)
     /* Return scaling factor for a specific coordinate from the given
      * transformation matrix. */
 {
-    switch (coord) {
+    switch (dimension) {
         case X:
             return transformation_matrix[0]; // First diagonal pos.
         case Y:
@@ -467,7 +463,7 @@ float get_scale(float * transformation_matrix, enum coord coord)
         case Z:
             return transformation_matrix[1*3+2]; // Second diagonal pos.
         default:
-            fprintf(stderr, "get_scale: No such coordinate, aborting.\n");
+            fprintf(stderr, "get_scale: No such dimension, aborting.\n");
             exit(1);
             break;
     }
@@ -490,18 +486,7 @@ void set_variable(
 
     float next_var = *var_write_pos + *var_modifier;
 
-    switch(type) {
-        case X:
-            relevant_component_size = get_bounds_width(component);
-            break;
-        case Y:
-            relevant_component_size = get_bounds_height(component);
-            break;
-        default:
-            fprintf(stderr, "set_variable: No such coordinate, aborting.\n");
-            exit(1);
-            break;
-    }
+    relevant_component_size = get_bound_dimension(type, component);
 
     //Scale the relevant_component_size.
     relevant_component_size *= get_scale(component->transformation, type);
@@ -549,9 +534,9 @@ void collision_check(
     float * transformation_matrix = &component->transformation[0][0];
 
     // Get height and widht of bounding box.
-    float width = get_bounds_width(component);
-    float height = get_bounds_height(component);
-    float depth = get_bounds_depth(component);
+    float width = get_bound_dimension(X, component);
+    float height = get_bound_dimension(Y, component);
+    float depth = get_bound_dimension(Z, component);
 
     // Correctly handle scaling boxes.
     float x_scale = transformation_matrix[0]; // First diagonal pos.

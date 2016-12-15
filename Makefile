@@ -68,13 +68,14 @@ $(dir_exec)/boing $(dir_exec)/redone_boing : $(dir_obj)/glad.o
 $(dir_exec)/redone_boing : $(call depp,$(dep_obj))
 
 $(dir_obj)/%.o : %.c | mkdirs
-	$(CC) -c $(FLAGS) $^ -o $@
+	@$(CC) $^ -c $(FLAGS) -o $@
 
 #$(dir_exec)/% : $(dir_obj)/%.o
 #	$(CC) $^ $(FLAGS) -o $@
 
-$(dir_exec)/% : $(dir_obj)/%.o $(call depp,$(dep_obj))
-	$(CC) $^ $(FLAGS) $(local_libs) -o $@
+#$(dir_exec)/% : $(call depp,$(global.o dep_obj)) $(dir_obj)/%.o
+$(dir_exec)/% : $(dir_obj)/globals.o $(call depp,$(dep_obj)) $(dir_obj)/%.o
+	@$(CC) -o $@ $^ $(FLAGS) $(local_libs)
 
 mkdirs:
 	$(call conditional_mkdir,$(dir_exec))

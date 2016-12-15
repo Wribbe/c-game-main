@@ -429,22 +429,30 @@ void process_keys(GLFWwindow * window)
     }
 }
 
-float get_bounds_width(float * bounds)
+v3 * get_bounds(struct component * component)
+{
+    return &component->vao->bounds[0][0];
+}
+
+float get_bounds_width(struct component * component)
     /* Return width of bound from bounds array. */
 {
-    return bounds[1*3+0] - bounds[0*3+0];  // 1'st x - 0'th x.
+    v3 * bounds = get_bounds(component);
+    return bounds[1][X] - bounds[0][X];  // 1'st x - 0'th x.
 }
 
-float get_bounds_height(float * bounds)
+float get_bounds_height(struct component * component)
     /* Return height of bound from bounds array. */
 {
-    return bounds[0*3+1] - bounds[2*3+1]; // 0'th y - 2'nd y.
+    v3 * bounds = get_bounds(component);
+    return bounds[0][Y] - bounds[2][Y]; // 0'th y - 2'nd y.
 }
 
-float get_bounds_depth(float * bounds)
+float get_bounds_depth(struct component * component)
     /* Return depth of bound from bounds array. */
 {
-    return bounds[4*3+3] - bounds[0*3+3];  // 4'th z - 0'th z.
+    v3 * bounds = get_bounds(component);
+    return bounds[4][Z] - bounds[0][Z];  // 4'th z - 0'th z.
 }
 
 float get_scale(float * transformation_matrix, enum coord coord)
@@ -479,16 +487,15 @@ void set_variable(
 {
     float relevant_component_size = 0;
     float relevant_scale = 0;
-    float * bounds = component->vao->bounds;
 
     float next_var = *var_write_pos + *var_modifier;
 
     switch(type) {
         case X:
-            relevant_component_size = get_bounds_width(bounds);
+            relevant_component_size = get_bounds_width(component);
             break;
         case Y:
-            relevant_component_size = get_bounds_height(bounds);
+            relevant_component_size = get_bounds_height(component);
             break;
         default:
             fprintf(stderr, "set_variable: No such coordinate, aborting.\n");
@@ -538,13 +545,13 @@ void collision_check(
      * position of the object at the edge of the window bounding box.
      */
 
-    float * bounds = component->vao->bounds;
+//    float * bounds = component->vao->bounds;
     float * transformation_matrix = &component->transformation[0][0];
 
     // Get height and widht of bounding box.
-    float width = bounds[1*3+0] - bounds[0*3+0];  // 1'st x - 0'th x.
-    float height = bounds[0*3+1] - bounds[2*3+1]; // 0'th y - 2'nd y.
-    float depth = bounds[4*3+3] - bounds[0*3+3];  // 4'th z - 0'th z.
+    float width = get_bounds_width(component);
+    float height = get_bounds_height(component);
+    float depth = get_bounds_depth(component);
 
     // Correctly handle scaling boxes.
     float x_scale = transformation_matrix[0]; // First diagonal pos.

@@ -135,7 +135,7 @@ void gen_vertex_arrays(
     // ( remember that the z-axis is inverted in OpenGL, negative z are closer
     //   to the "front". )
 
-    float * bounds = vao->bounds;
+    v3 * bounds = vao->bounds;
     float order[] = {
         // Front plane.
         min_x, max_y, min_z, // top front left.
@@ -149,11 +149,13 @@ void gen_vertex_arrays(
         min_x, min_y, max_z, // bottom back left.
     };
 
-    // Use pointer arithmetic to write to the bounds array.
+    // Use pointer arithmetic to write to the bounds vector array.
     for(size_t i=0; i<SIZE(order); i+=3) { // One row at the time.
-        *(bounds++) = order[i];
-        *(bounds++) = order[i+1];
-        *(bounds++) = order[i+2];
+        float * current_x = &order[i];
+        float * current_vector = bounds[i/3];
+        *current_vector = *current_x;
+        *(current_vector+1) = *(current_x+1);
+        *(current_vector+2) = *(current_x+2);
     }
 
     // Unbind the vertex array buffer.

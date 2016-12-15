@@ -75,7 +75,7 @@ typedef struct VAO {
     GLuint vao;
     GLint start;
     GLsizei count;
-    GLfloat bounds[24];
+    v3 bounds[8];
     GLsizei list_size;
     Attrib_Pointer_Info * attrib_list;
 } VAO;

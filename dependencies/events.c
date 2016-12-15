@@ -459,7 +459,7 @@ float get_scale(float * transformation_matrix, enum coord coord)
         case Z:
             return transformation_matrix[1*3+2]; // Second diagonal pos.
         default:
-            fprintf(stderr, "get_scale: No such coordinate, abroting.\n");
+            fprintf(stderr, "get_scale: No such coordinate, aborting.\n");
             exit(1);
             break;
     }

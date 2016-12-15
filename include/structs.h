@@ -99,7 +99,6 @@ struct uniform_data {
 
 struct collision_bound_data {
     float bound;
-    float value;
     comparison_type compare_type;
     void (*flag_operation)(struct component * component, enum flag_type flag);
     enum flag_type flag;

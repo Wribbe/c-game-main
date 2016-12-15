@@ -513,15 +513,15 @@ void collision_check(struct component * component)
 
     // Check for collisions with window along x-axis.
     struct collision_bound_data x_bounds[] = {
-        {1.0f, 0, GT, NULL, 0},
-        {-1.0f, 0, LT, NULL, 0},
+        {1.0f, GT, NULL, 0},
+        {-1.0f, LT, NULL, 0},
     };
     set_variable(X, component, 0, x_bounds, SIZE(x_bounds));
 
     // Check for collisions with window along y-axis.
     struct collision_bound_data y_bounds[] = {
-        {1.0f, 0, GT, NULL, 0},
-        {-1.0f, 0, LT, unset_flag, JUMPING},
+        {1.0f, GT, NULL, 0},
+        {-1.0f, LT, unset_flag, JUMPING},
     };
     set_variable(Y, component, 0, y_bounds, SIZE(y_bounds));
 }

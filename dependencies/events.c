@@ -14,13 +14,7 @@ bool keymap[NUM_KEYS] = {false};
 uint32_t num_actions[NUM_KEYS] = {0};
 
 void process_keys(GLFWwindow * window);
-void collision_check(
-                     struct component * component,
-                     float * x_modifier,
-                     float * x_write_pos,
-                     float * y_modifier,
-                     float * y_write_pos
-                    );
+void collision_check(struct component * component);
 
 void process_command_list(
                           float * modifiers,
@@ -288,22 +282,6 @@ void process_keys(GLFWwindow * window)
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
 
-    // Use controlled components modifiers.
-    float * x_modifier = get_modifier(X, controlled_component);
-    float * y_modifier = get_modifier(Y, controlled_component);
-
-    // Reset modifiers for controlled component.
-    *x_modifier = 0;
-    *y_modifier = 0;
-
-    float * x_write_pos = get_write_location(X, controlled_component);
-    float * y_write_pos = get_write_location(Y, controlled_component);
-
-    float * current_speed = &global_variables[speed];
-    float * current_gravity = &global_variables[gravity];
-
-    float * jump_flag = &global_variables[is_jumping];
-
     // Modify controlled_component with tab.
     if (check(GLFW_KEY_TAB) && max_actions(GLFW_KEY_TAB, 1)) {
         // Cycle through available components. If NULL return to head.
@@ -318,8 +296,8 @@ void process_keys(GLFWwindow * window)
         struct Command_Packet inputs[] = {
            {.type.s_float = {
                     action_add_value,
-                    -(*current_speed),
-                    x_modifier,
+                    -global_variables[speed],
+                    get_modifier(X, controlled_component),
                     1,
                     NULL,
                     PASSTHROUGH,
@@ -333,8 +311,8 @@ void process_keys(GLFWwindow * window)
         struct Command_Packet inputs[] = {
            {.type.s_float = {
                     action_add_value,
-                    +(*current_speed),
-                    x_modifier,
+                    global_variables[speed],
+                    get_modifier(X, controlled_component),
                     1,
                     NULL,
                     PASSTHROUGH,
@@ -353,7 +331,12 @@ void process_keys(GLFWwindow * window)
                 }
             },
             {.type.s_float = {
-                    action_add_value, 0.03f, y_modifier, 20, NULL, BLOCKING
+                    action_add_value,
+                    0.03f,
+                    get_modifier(Y, controlled_component),
+                    20,
+                    NULL,
+                    BLOCKING
                 }
             },
             {.type.s_flag = {
@@ -371,7 +354,10 @@ void process_keys(GLFWwindow * window)
         // Process command list.
         // Important that this is done before any global variables like
         // current_gravity is used, since the commands might alter thees values.
-        process_command_list(comp_pointer->modifiers, &comp_pointer->command_list, &comp_pointer->last_command, 0);
+        process_command_list(comp_pointer->modifiers,
+                             &comp_pointer->command_list,
+                             &comp_pointer->last_command,
+                             0);
 
         // Advance pointer.
         comp_pointer= comp_pointer->next;
@@ -382,8 +368,8 @@ void process_keys(GLFWwindow * window)
         struct Command_Packet grav_inputs[] = {
            {.type.s_float = {
                     action_add_value,
-                    -(*current_gravity),
-                    y_modifier,
+                    -global_variables[gravity],
+                    get_modifier(Y, controlled_component),
                     1,
                     NULL,
                     PASSTHROUGH,
@@ -397,21 +383,14 @@ void process_keys(GLFWwindow * window)
     comp_pointer = components;
     while (comp_pointer != NULL) {
 
-        float * modifiers = comp_pointer->modifiers;
-        float * mat_transform = &comp_pointer->transformation[0][0];
+        float * x_write_pos = get_write_location(X, comp_pointer);
+        float * y_write_pos = get_write_location(Y, comp_pointer);
 
-        float * x_write_pos = &mat_transform[0*4+3];
-        float * y_write_pos = &mat_transform[1*4+3];
-
-        float * x_modifier = &modifiers[X];
-        float * y_modifier = &modifiers[Y];
+        float * x_modifier = get_modifier(X, comp_pointer);
+        float * y_modifier = get_modifier(Y, comp_pointer);
 
         // Check collisions with the window.
-        collision_check(comp_pointer,
-                        x_modifier,
-                        x_write_pos,
-                        y_modifier,
-                        y_write_pos);
+        collision_check(comp_pointer);
 
         // Write any modified data to the transformation matrix.
         *x_write_pos += *x_modifier;
@@ -425,6 +404,12 @@ void process_keys(GLFWwindow * window)
         // Iterate to next component.
         comp_pointer = comp_pointer->next;
     }
+
+    // Reset old modifiers.
+    *get_modifier(X, controlled_component) = 0;
+    *get_modifier(Y, controlled_component) = 0;
+    *get_modifier(Z, controlled_component) = 0;
+
 }
 
 float get_bound_dimension(enum coord dimension, struct component * component)
@@ -470,8 +455,6 @@ float get_scale(float * transformation_matrix, enum coord dimension)
 void set_variable(
                   enum coord type,
                   struct component * component,
-                  float * var_modifier,
-                  float * var_write_pos,
                   float collision_modfifier_value,
                   struct collision_bound_data * bound_data,
                   size_t num_bounds
@@ -482,22 +465,26 @@ void set_variable(
     float relevant_component_size = 0;
     float relevant_scale = 0;
 
+    float * var_write_pos = get_write_location(type, component);
+    float * var_modifier = get_modifier(type, component);
+
     float next_var = *var_write_pos + *var_modifier;
 
     relevant_component_size = get_bound_dimension(type, component);
 
     //Scale the relevant_component_size.
-    relevant_component_size *= get_scale(component->transformation, type);
+    relevant_component_size *= get_dimension_scale(type, component);
 
     // Signed half component size depending on current direction.
     float additional_to_next = 0;
     float half_relevant = relevant_component_size/2.0f;
-    if (*var_modifier < 0) { // Going down/left.
+    // Determine direction.
+    bool neg_modifier = *var_modifier < 0;
+    if (neg_modifier) { // Going down/left.
         additional_to_next -= half_relevant;
     } else { // Going up/right.
         additional_to_next += half_relevant;
     }
-
 
     // Add additional offset to the calculated next_var.
     next_var += additional_to_next;
@@ -507,7 +494,9 @@ void set_variable(
         struct collision_bound_data * data = &bound_data[i];
         if(logic_main(next_var, data->compare_type, data->bound)) {
             *var_modifier = 0;
-            *var_write_pos = data->value;
+            // Positive offset if negative modifier, else negative offset.
+            float offset = neg_modifier ? half_relevant : -half_relevant;
+            *var_write_pos = data->bound + offset;
             if (data->flag_operation != NULL) {
                 data->flag_operation(component, data->flag);
             }
@@ -516,81 +505,25 @@ void set_variable(
     }
 }
 
-void collision_check(
-                     struct component * component,
-                     float * x_modifier,
-                     float * x_write_pos,
-                     float * y_modifier,
-                     float * y_write_pos
-                    )
+void collision_check(struct component * component)
 {
     /* Check collisions against window border. If collision detected set the
      * position of the object at the edge of the window bounding box.
      */
 
-//    float * bounds = component->vao->bounds;
-    float * transformation_matrix = &component->transformation[0][0];
-
-    // Get height and widht of bounding box.
-    float width = get_bound_dimension(X, component);
-    float height = get_bound_dimension(Y, component);
-    float depth = get_bound_dimension(Z, component);
-
-    // Correctly handle scaling boxes.
-    float x_scale = transformation_matrix[0]; // First diagonal pos.
-    float y_scale = transformation_matrix[1*3+2]; // Second diagonal pos.
-    float z_scale = transformation_matrix[2*3+3]; // Third diagonal pos.
-
-    // Scale width and height;
-    width *= x_scale;
-    height *= y_scale;
-    depth *= z_scale;
-
-    float x_pos_border = global_variables[wb_x_pos];
-    float x_neg_border = global_variables[wb_x_neg];
-    float y_pos_border = global_variables[wb_y_pos];
-    float y_neg_border = global_variables[wb_y_neg];
-
-    // Calculate next position for x and y.
-    float next_x = *x_write_pos + *x_modifier;
-    float next_y = *y_write_pos + *y_modifier;
-
-    float half_width = width/2.0f;
-    float half_height = height/2.0f;
-
-    float pos_bound_x_val = next_x + half_width;
-    float neg_bound_x_val = next_x - half_width;
-
-    float pos_bound_y_val = next_y + half_height;
-    float neg_bound_y_val = next_y - half_height;
-
     // Check for collisions with window along x-axis.
     struct collision_bound_data x_bounds[] = {
-        {1.0f, x_pos_border-half_width, GT, NULL, 0},
-        {-1.0f, x_neg_border+half_width, LT, NULL, 0},
+        {1.0f, 0, GT, NULL, 0},
+        {-1.0f, 0, LT, NULL, 0},
     };
-
-    set_variable(X,
-                 component,
-                 x_modifier,
-                 x_write_pos,
-                 0,
-                 x_bounds,
-                 SIZE(x_bounds));
+    set_variable(X, component, 0, x_bounds, SIZE(x_bounds));
 
     // Check for collisions with window along y-axis.
     struct collision_bound_data y_bounds[] = {
-        {1.0f, y_pos_border-half_height, GT, NULL, 0},
-        {-1.0f, y_neg_border+half_height, LT, unset_flag, JUMPING},
+        {1.0f, 0, GT, NULL, 0},
+        {-1.0f, 0, LT, unset_flag, JUMPING},
     };
-
-    set_variable(Y,
-                 component,
-                 y_modifier,
-                 y_write_pos,
-                 0,
-                 y_bounds,
-                 SIZE(y_bounds));
+    set_variable(Y, component, 0, y_bounds, SIZE(y_bounds));
 }
 
 void free_command(struct Command_Packet * command) {

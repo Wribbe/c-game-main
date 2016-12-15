@@ -35,5 +35,6 @@ void wrapper_unset_flag(union submit_type * type);
 // values.
 float * get_modifier(enum coord coordinate, struct component * component);
 float * get_write_location(enum coord coordinate, struct component * component);
+float get_dimension_scale(enum coord dimension, struct component * component);
 
 #endif

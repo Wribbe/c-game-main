@@ -40,79 +40,14 @@ size_t read_file(char * data_buffer, size_t filesize, FILE * file_handle)
     return read;
 }
 
-void utils_load_data(Point_Data * info, float * buffer, const char * filename)
+
+size_t strip_comments(
+                      char * temp_buffer,
+                      size_t data_size,
+                      size_t * return_rows
+                     )
+    /* Strip commands and return the new size without commands. */
 {
-    /* Function servers two purposes.
-     *  - buffer == NULL:
-     *      Count and populate the info struct with the number of elements and
-     *      rows that are present in the data.
-     *  - buffer != NULL:
-     *      Outbound buffer has been provided, store data in the buffer and
-     *      return, no further processing of the data done.
-     */
-
-    const char * error_base = "[!] load_data:";
-
-    // Load point data.
-    size_t data_size = 0;
-    FILE * point_file = open_file(filename, &data_size);
-
-    // Allocate temporary buffer on the heap.
-    char * temp_buffer = malloc(sizeof(char)*(data_size+1));
-    if (!temp_buffer) {
-        fprintf(stderr, "%s could not allocate enough memory (%zu) for %s.\n",
-                error_base,
-                data_size,
-                filename);
-        exit(1);
-    }
-
-    // Read data into temp_buffer.
-    read_file(temp_buffer, data_size, point_file);
-
-    if (buffer == NULL) { // No buffer supplied.
-
-        /* Count and return number of elements in file. */
-
-        size_t elements = 1; // Doesn't count last comma, will be short otherwise.
-
-        int element_flag = 0;
-        int comment_flag = 0;
-
-        char current = ' ';
-        char prev = ' ';
-        for(size_t i=1; i<data_size; i++) {
-            current = temp_buffer[i];
-            prev = temp_buffer[i-1];
-            if (current == '/' && prev == '/') {
-                comment_flag = 1;
-                continue;
-            }
-            if (current == '\n') {
-                if (comment_flag) {
-                    comment_flag = 0;
-                }
-                continue;
-            }
-            if (comment_flag) {
-                continue;
-            }
-            // Next element after flag was not a newline or end of buffer.
-            if (element_flag) {
-                element_flag = 0;
-                elements++;
-            }
-            if (current == ',') {
-                element_flag = 1;
-            }
-        }
-
-        info->elements = elements;
-
-    } else { // Buffer supplied, parse data.
-
-        /* Remove comments and parse the elements into floats. */
-
         // Count rows when there are no comments.
         size_t rows = 1;
 
@@ -140,6 +75,9 @@ void utils_load_data(Point_Data * info, float * buffer, const char * filename)
                 comment_flag = 1;
                 continue;
             }
+            if (isspace(prev)) { // Strip all whitespace.
+                continue;
+            }
             // Copy the previous character to last_valid and increase the pointer.
             if (last_valid == NULL) {
                 last_valid = temp_buffer;
@@ -157,6 +95,65 @@ void utils_load_data(Point_Data * info, float * buffer, const char * filename)
 
         // Add NULL at end.
         *last_valid = '\0';
+
+        // Write to return_rows.
+        *return_rows = rows;
+
+        return new_size;
+}
+
+
+void utils_load_data(Point_Data * info, float * buffer, const char * filename)
+    /* Function servers two purposes.
+     *  - buffer == NULL:
+     *      Count and populate the info struct with the number of elements and
+     *      rows that are present in the data.
+     *  - buffer != NULL:
+     *      Outbound buffer has been provided, store data in the buffer and
+     *      return, no further processing of the data done.
+     */
+{
+    const char * error_base = "[!] load_data:";
+
+    // Load point data.
+    size_t data_size = 0;
+    FILE * point_file = open_file(filename, &data_size);
+
+    // Allocate temporary buffer on the heap.
+    char * temp_buffer = malloc(sizeof(char)*(data_size+1));
+    if (!temp_buffer) {
+        fprintf(stderr, "%s could not allocate enough memory (%zu) for %s.\n",
+                error_base,
+                data_size,
+                filename);
+        exit(1);
+    }
+
+    // Read data into temp_buffer.
+    read_file(temp_buffer, data_size, point_file);
+
+    static size_t new_size = 0;
+    static size_t rows = 0;
+
+    if (buffer == NULL) { // No buffer supplied.
+
+        new_size = strip_comments(temp_buffer, data_size, &rows);
+
+        /* Count and return number of elements in file. */
+
+        size_t elements = 1; // Doesn't count last comma, will be short otherwise.
+
+        char prev = ' ';
+        for(size_t i=1; i<new_size; i++) {
+            prev = temp_buffer[i-1];
+            if (prev == ',') { // Avoid counting training separator.
+                elements++;
+            }
+        }
+
+        info->elements = elements;
+
+    } else { // Buffer supplied, parse data.
 
         // Adjust to new size.
         data_size = new_size*sizeof(char);

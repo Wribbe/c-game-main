@@ -40,7 +40,7 @@ size_t read_file(char * data_buffer, size_t filesize, FILE * file_handle)
     return read;
 }
 
-void load_data(Point_Data * info, float * buffer, const char * filename)
+void utils_load_data(Point_Data * info, float * buffer, const char * filename)
 {
     /* Function servers two purposes.
      *  - buffer == NULL:
@@ -176,6 +176,22 @@ void load_data(Point_Data * info, float * buffer, const char * filename)
     }
     // Free temp buffer.
     free(temp_buffer);
+}
+
+Point_Data * load_data(const char * filename)
+    /* External function for loading data from a text file to a float array.
+     * Use old utils_load_data to load data into a heap buffer. */
+{
+    // Allocate point data on the heap.
+    Point_Data * point_data = malloc(sizeof(Point_Data));
+    // Run load vertex data without buffer to get dimensions.
+    utils_load_data(point_data, NULL, filename);
+    // Allocate memory for vertex data.
+    float * vertex_buffer = malloc(sizeof(float) * point_data->elements);
+    // Run load vertex with buffer to process the vertices.
+    utils_load_data(point_data, vertex_buffer, filename);
+    // Return pointer to point data.
+    return point_data;
 }
 
 bool logic_main(float left_side, comparison_type comp, float right_side) {

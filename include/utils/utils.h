@@ -21,6 +21,6 @@
 FILE * open_file(const char * filename, size_t * filesize);
 size_t read_file(char * data_buffer, size_t filesize, FILE * file_handle);
 
-void load_data(Point_Data * info, float * buffer, const char *  filename);
+Point_Data * load_data(const char * filename);
 bool logic_main(float left_side, comparison_type comp, float right_side);
 #endif

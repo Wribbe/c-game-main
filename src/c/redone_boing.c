@@ -132,23 +132,17 @@ int main(void)
                  controllable_shaders,
                  SIZE(controllable_shaders));
 
-    // Gather data.
-    Point_Data point_data = {0};
     // Set up filename.
     filename = data_src("test_rectangle_rainbow.txt");
-    // Run load vertex data without buffer to get dimensions.
-    load_data(&point_data, NULL, filename);
-    // Allocate memory for vertex data.
-    float * vertex_buffer = malloc(sizeof(float) * point_data.elements);
-    // Run load vertex with buffer to process the vertices.
-    load_data(&point_data, vertex_buffer, filename);
+    // Load data to point data.
+    Point_Data * point_data = load_data(filename);
 
     // Define VAO and VBO for vao and vbo.
     VAO vao = {0};
     VBO vbo = {0};
 
     // Generate buffers.
-    gen_buffers(1, &vbo, &point_data, GL_STATIC_DRAW);
+    gen_buffers(1, &vbo, point_data, GL_STATIC_DRAW);
 
     // Set render type for vbo.
     vbo.render_geometry = GL_TRIANGLES;
@@ -245,7 +239,8 @@ int main(void)
     }
 
     glfwTerminate();
-    free(vertex_buffer);
+    free(point_data->data);
+    free(point_data);
     free_component(main_component);
     free_component(second_component);
 }

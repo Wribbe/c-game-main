@@ -137,65 +137,20 @@ int main(void)
     // Load data to point data.
     Point_Data * point_data = load_data(filename);
 
-    // Define VAO and VBO for vao and vbo.
-    VAO vao = {0};
-    VBO vbo = {0};
-
-    // Generate buffers.
-    gen_buffers(1, &vbo, point_data, GL_STATIC_DRAW);
-
-    // Set render type for vbo.
-    vbo.render_geometry = GL_TRIANGLES;
-
-    // Set up attribute pointer information.
-    Attrib_Pointer_Info attribs[] = {
-        (Attrib_Pointer_Info){ // Vertex data.
-            .index = 0,
-            .size = 3,
-        },
-        (Attrib_Pointer_Info){ // Color data.
-            .index = 1,
-            .size = 3,
-        },
-        (Attrib_Pointer_Info){ // Texture coord data.
-            .index = 2,
-            .size = 2,
-        },
-    };
-
-    // Set up the vbos that should be bound to the vao.
-    VBO * vbo_binds[] = {
-        &vbo,
-    };
-
-    // Generate vertex array buffer.
-    gen_vertex_arrays(
-                      1,
-                      &vao,
-                      vbo_binds,
-                      SIZE(vbo_binds),
-                      attribs,
-                      SIZE(attribs)
-                     );
-
-    // Set vbo as vao.vbo.
-    vao.vbo = vbo;
-    // Set start.
-    vao.start = 0;
-    // Set count.
-    vao.count = vao.vbo.point_data->rows;
+    // Create vao based on point_data.
+    VAO * vao = create_vao(point_data, GL_DYNAMIC_DRAW, GL_TRIANGLES);
 
     // Get texture file source.
     filename = texture_src("Dietrich.jpg");
 
     // Set up main component.
     struct component * main_component = create_component("Dietrich",
-                                                         &vao,
+                                                         vao,
                                                          NULL);
 
     // set up second component.
     struct component * second_component = create_component("Dietrich",
-                                                           &vao,
+                                                           vao,
                                                            NULL);
     // Scale the dimensions.
     m4_scale(main_component->transformation, 0.4, 0.3, 0.3);
@@ -243,4 +198,5 @@ int main(void)
     free(point_data);
     free_component(main_component);
     free_component(second_component);
+    free(vao);
 }

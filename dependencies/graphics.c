@@ -301,6 +301,62 @@ void write_data_to_uniform(
     }
 }
 
+VAO * create_vao(Point_Data * point_data, GLuint draw_option, GLuint geometry)
+    /* Take Point_Data pointer GLuint options and return a pointer to allocated
+     * and populated VAO object. Automatically creates vao that conforms to the
+     * vertex | color | texture-coord data format. */
+{
+    // Define VAO and VBO for vao and vbo.
+    VAO * vao = malloc(sizeof(VAO));
+    VBO * vbo = malloc(sizeof(VBO));
+
+    // Generate buffers.
+    gen_buffers(1, vbo, point_data, draw_option);
+
+    // Set render type for vbo.
+    vbo->render_geometry = geometry;
+
+    // Set up attribute pointer information.
+    Attrib_Pointer_Info attribs[] = {
+        (Attrib_Pointer_Info){ // Vertex data.
+            .index = 0,
+            .size = 3,
+        },
+        (Attrib_Pointer_Info){ // Color data.
+            .index = 1,
+            .size = 3,
+        },
+        (Attrib_Pointer_Info){ // Texture coord data.
+            .index = 2,
+            .size = 2,
+        },
+    };
+
+    // Set up the vbos that should be bound to the vao.
+    VBO * vbo_binds[] = {
+        vbo,
+    };
+
+    // Generate vertex array buffer.
+    gen_vertex_arrays(
+                      1,
+                      vao,
+                      vbo_binds,
+                      SIZE(vbo_binds),
+                      attribs,
+                      SIZE(attribs)
+                     );
+
+    // Set vbo as vao.vbo.
+    vao->vbo = *vbo;
+    // Set start.
+    vao->start = 0;
+    // Set count.
+    vao->count = vao->vbo.point_data->rows;
+
+    return vao;
+}
+
 /* #### Component related functionality. */
 
 void draw_component(

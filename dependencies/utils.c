@@ -117,27 +117,33 @@ void utils_load_data(Point_Data * info, float * buffer, const char * filename)
         size_t rows = 1;
 
         // Remove comments in place.
-        char * last_valid = temp_buffer;
+        char * last_valid = NULL;
         char prev, current = ' ';
         int comment_flag = 0;
         size_t new_size = 0;
         for (size_t i=1; i<data_size; i++) {
             current = temp_buffer[i];
             prev = temp_buffer[i-1];
+            // If comment, skip the chars until newline.
+            if (comment_flag) {
+                if (current == '\n') {
+                    if (last_valid == NULL || *(last_valid-1) == '\n') { // Whole line comment.
+                        i++; // Advance prev past the newline.
+                    }
+                    comment_flag = 0;
+                    continue;
+                }
+                continue;
+            }
             // Is this a comment?
             if( current == '/' && prev == '/') {
                 comment_flag = 1;
                 continue;
             }
-            // If comment, skip the chars until newline.
-            if (comment_flag) {
-                if (current == '\n') {
-                    comment_flag = 0;
-                    i++; // Advance prev past the newline.
-                }
-                continue;
-            }
             // Copy the previous character to last_valid and increase the pointer.
+            if (last_valid == NULL) {
+                last_valid = temp_buffer;
+            }
             *last_valid++ = prev;
             // Increment rows if there was a newline.
             if (prev == '\n') {

@@ -14,56 +14,6 @@
 #include "components/components.h"
 #include "globals/globals.h"
 
-void display(
-             struct component * component,
-             GLuint * shader_programs,
-             GLuint * textures
-            )
-    /* Main display function. */
-{
-    // Clear screen.
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    struct uniform_data standard_uniforms[] = {
-        {"transform", uniform_data_transform, UniformMatrix4fv},
-    };
-    struct component * compp;
-    for(compp = component; compp != NULL; compp = compp->next) {
-        // Don't draw the controlled component here.
-        if (compp == controlled_component) {
-            continue;
-        }
-        draw_component(compp,
-                       shader_programs[0],
-                       textures[0],
-                       standard_uniforms,
-                       SIZE(standard_uniforms));
-    }
-
-    // Draw controlled object after other objects, to make it appear on top.
-    draw_component(controlled_component,
-                   shader_programs[0],
-                   textures[0],
-                   standard_uniforms,
-                   SIZE(standard_uniforms));
-
-    struct uniform_data outline_uniforms[] = {
-        {"transform", uniform_data_transform, UniformMatrix4fv},
-        {"time", uniform_data_time, Uniform1f},
-    };
-    // Draw controlled object with other shader but same texture for outline.
-    draw_component(controlled_component,
-                   shader_programs[1],
-                   textures[0],
-                   outline_uniforms,
-                   SIZE(outline_uniforms));
-
-    // Unbind VAO.
-    glBindVertexArray(0);
-    // Unbind program.
-    glUseProgram(0);
-}
-
 int main(void)
 {
     GLFWwindow * window;
@@ -140,44 +90,45 @@ int main(void)
     // Create vao based on point_data.
     VAO * vao = create_vao(point_data, GL_DYNAMIC_DRAW, GL_TRIANGLES);
 
+    // Create window vao.
+    filename = data_src("window_component_data.txt");
+    Point_Data * window_points = load_data(filename);
+    VAO * window_vao = create_vao(window_points, GL_STATIC_DRAW, GL_TRIANGLES);
+
+
     // Get texture file source.
     filename = texture_src("Dietrich.jpg");
 
     // Set up main component.
-    struct component * main_component = create_component("Dietrich",
+    struct component * main_component = create_component("Dietrich_1",
                                                          vao,
                                                          NULL);
 
     // set up second component.
-    struct component * second_component = create_component("Dietrich",
+    struct component * second_component = create_component("Dietrich_2",
                                                            vao,
                                                            NULL);
     // Scale the dimensions.
-    m4_scale(main_component->transformation, 0.4, 0.3, 0.3);
-    m4_scale(second_component->transformation, 0.4, 0.3, 0.3);
+    scale_component(main_component, 0.4, 0.3, 0.3);
+    scale_component(second_component, 0.4, 0.3, 0.3);
 
-    // Set up component list.
-    set_as_controlled(main_component);
+    // Append controllable to corrct list.
     append_component(main_component, CONTROLLABLE);
-
-    // Link main and second.
     append_component(second_component, CONTROLLABLE);
+
+    // Create window component.
+    struct component * window_component = create_component("window",
+                                                           window_vao,
+                                                           NULL);
+    // Append to correct list.
+    append_component(window_component, SCENE_COMPONENTS);
+    // Add specific collision function to window.
+    set_collision_function(window_component, collision_keep_inside_border);
 
     // Generate texture and load image data.
     GLuint texture;
     glGenTextures(1, &texture);
     load_to_texture(&texture, filename);
-
-
-    // Set up arrays of textures and shader programs.
-    GLuint shader_programs[] = {
-        shader_program,
-        controllable_shader_program,
-    };
-
-    GLuint textures[] = {
-        texture,
-    };
 
     // Setup environment variables.
     setup_globals();
@@ -189,14 +140,28 @@ int main(void)
     while(!glfwWindowShouldClose(window)) {
         global_variables[glfw_time] = (float)glfwGetTime();
         poll_events(window);
-        display(get_component(CONTROLLABLE), shader_programs, textures);
+        // Clear screen.
+        glClear(GL_COLOR_BUFFER_BIT);
+        draw_components(get_component(SCENE_COMPONENTS),
+                        shader_program,
+                        texture);
+        draw_components(get_component(CONTROLLABLE),
+                        shader_program,
+                        texture);
+        draw_component(controlled_component,
+                       shader_program,
+                       texture);
+        draw_component(controlled_component,
+                       controllable_shader_program,
+                       texture);
         glfwSwapBuffers(window);
     }
 
     glfwTerminate();
-    free(point_data->data);
-    free(point_data);
+    free_point_data(point_data);
+    free_point_data(window_points);
     free_component(main_component);
     free_component(second_component);
-    free(vao);
+    free_vao(vao);
+    free_vao(window_vao);
 }

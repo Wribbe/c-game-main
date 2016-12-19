@@ -19,6 +19,11 @@ void callback_key(
                  );
 
 void poll_events(GLFWwindow * window);
-void setup_globals();
-
+void collision_keep_outside_border(enum coord coord,
+                                   struct component * component,
+                                   struct component * other,
+                                   enum bound_order bound_order);
+void collision_keep_inside_border(enum coord coord,
+                                  struct component * component,
+                                  struct component * other);
 #endif

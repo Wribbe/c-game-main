@@ -75,7 +75,7 @@ size_t strip_comments(
                 comment_flag = 1;
                 continue;
             }
-            if (isspace(prev)) { // Strip all whitespace.
+            if (prev != '\n' && isspace(prev)) { // Strip all whitespace.
                 continue;
             }
             // Copy the previous character to last_valid and increase the pointer.
@@ -102,22 +102,13 @@ size_t strip_comments(
         return new_size;
 }
 
-
-void utils_load_data(Point_Data * info, float * buffer, const char * filename)
-    /* Function servers two purposes.
-     *  - buffer == NULL:
-     *      Count and populate the info struct with the number of elements and
-     *      rows that are present in the data.
-     *  - buffer != NULL:
-     *      Outbound buffer has been provided, store data in the buffer and
-     *      return, no further processing of the data done.
-     */
+char * get_text_without_comments(const char * filename, Point_Data * info)
 {
-    const char * error_base = "[!] load_data:";
-
     // Load point data.
     size_t data_size = 0;
     FILE * point_file = open_file(filename, &data_size);
+
+    const char * error_base = "[!] get_text_without_comments:";
 
     // Allocate temporary buffer on the heap.
     char * temp_buffer = malloc(sizeof(char)*(data_size+1));
@@ -132,53 +123,47 @@ void utils_load_data(Point_Data * info, float * buffer, const char * filename)
     // Read data into temp_buffer.
     read_file(temp_buffer, data_size, point_file);
 
-    static size_t new_size = 0;
-    static size_t rows = 0;
+    size_t new_size = 0;
+    size_t rows = 0;
 
-    if (buffer == NULL) { // No buffer supplied.
+    new_size = strip_comments(temp_buffer, data_size, &rows);
 
-        new_size = strip_comments(temp_buffer, data_size, &rows);
+    /* Count and return number of elements in file. */
+    size_t elements = 1; // Doesn't count last comma, will be short otherwise.
 
-        /* Count and return number of elements in file. */
-
-        size_t elements = 1; // Doesn't count last comma, will be short otherwise.
-
-        char prev = ' ';
-        for(size_t i=1; i<new_size; i++) {
-            prev = temp_buffer[i-1];
-            if (prev == ',') { // Avoid counting training separator.
-                elements++;
-            }
+    char prev = ' ';
+    for(size_t i=1; i<new_size; i++) {
+        prev = temp_buffer[i-1];
+        if (prev == ',') { // Avoid counting training separator.
+            elements++;
         }
-
-        info->elements = elements;
-
-    } else { // Buffer supplied, parse data.
-
-        // Adjust to new size.
-        data_size = new_size*sizeof(char);
-
-        // Define delimiter and current_token.
-        const char * current_token = "";
-        const char * delimiter = ",";
-        current_token = strtok(temp_buffer, delimiter);
-
-        // Iterate over and convert all the elements in the data.
-        for (size_t i = 0; i<info->elements; i++) {
-            float converted = atof(current_token);
-            buffer[i] = converted;
-            current_token = strtok(NULL, delimiter);
-        }
-
-        // Bind buffer to info->data.
-        info->data = buffer;
-
-        // Add number of rows.
-        info->rows = rows;
-
     }
-    // Free temp buffer.
-    free(temp_buffer);
+
+    info->elements = elements;
+
+    // Add number of rows.
+    info->rows = rows;
+
+    return temp_buffer;
+}
+
+
+void utils_load_data(Point_Data * info, float * buffer, char * temp_buffer)
+{
+    // Define delimiter and current_token.
+    const char * current_token = "";
+    const char * delimiter = ",";
+    current_token = strtok(temp_buffer, delimiter);
+
+    // Iterate over and convert all the elements in the data.
+    for (size_t i = 0; i<info->elements; i++) {
+        float converted = atof(current_token);
+        buffer[i] = converted;
+        current_token = strtok(NULL, delimiter);
+    }
+
+    // Bind buffer to info->data.
+    info->data = buffer;
 }
 
 Point_Data * load_data(const char * filename)
@@ -187,12 +172,14 @@ Point_Data * load_data(const char * filename)
 {
     // Allocate point data on the heap.
     Point_Data * point_data = malloc(sizeof(Point_Data));
-    // Run load vertex data without buffer to get dimensions.
-    utils_load_data(point_data, NULL, filename);
+    // Strip the comments from the data file.
+    char * temp_buffer = get_text_without_comments(filename, point_data);
     // Allocate memory for vertex data.
     float * vertex_buffer = malloc(sizeof(float) * point_data->elements);
-    // Run load vertex with buffer to process the vertices.
-    utils_load_data(point_data, vertex_buffer, filename);
+    // Parse float in temp_buffer and store in point data.
+    utils_load_data(point_data, vertex_buffer, temp_buffer);
+    // Free temp buffer.
+    free(temp_buffer);
     // Return pointer to point data.
     return point_data;
 }

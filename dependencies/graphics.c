@@ -7,6 +7,7 @@
 
 #include "utils/utils.h"
 #include "globals/globals.h"
+#include "structs.h"
 
 void gen_buffers(
                  GLuint num_buffers,
@@ -94,7 +95,8 @@ void gen_vertex_arrays(
     GLfloat min_z = 0;
 
     GLfloat * point_data = vbo_binds[0]->point_data->data;
-    for(size_t i=0; i<vbo_binds[0]->point_data->elements; i += items_per_row) {
+    size_t i=0;
+    for(i=0; i<vbo_binds[0]->point_data->elements; i += items_per_row) {
 
         GLfloat x = point_data[i];
         GLfloat y = point_data[i+1];
@@ -348,11 +350,11 @@ VAO * create_vao(Point_Data * point_data, GLuint draw_option, GLuint geometry)
                      );
 
     // Set vbo as vao.vbo.
-    vao->vbo = *vbo;
+    vao->vbo = vbo;
     // Set start.
     vao->start = 0;
     // Set count.
-    vao->count = vao->vbo.point_data->rows;
+    vao->count = vao->vbo->point_data->rows;
 
     return vao;
 }
@@ -362,9 +364,7 @@ VAO * create_vao(Point_Data * point_data, GLuint draw_option, GLuint geometry)
 void draw_component(
                     struct component * component,
                     GLuint program,
-                    GLuint texture,
-                    struct uniform_data * uniforms,
-                    size_t num_uniforms
+                    GLuint texture
                    )
     /* Function that binds component vao and draws stored geometry with
      * supplied texture and shader program. */
@@ -375,6 +375,10 @@ void draw_component(
 
     // Bind texture.
     glBindTexture(GL_TEXTURE_2D, texture);
+
+    // Get component internal uniform data.
+    size_t num_uniforms = component->uniform_size;
+    struct uniform_data * uniforms = component->uniform_data;
 
     struct uniform_data * current_uniform = NULL;
     // Iterate over and bind all uniforms.
@@ -392,5 +396,34 @@ void draw_component(
     VAO * vao = component->vao;
     glBindVertexArray(vao->vao);
     // Draw elements.
-    glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
+    glDrawArrays(vao->vbo->render_geometry, vao->start, vao->count);
+}
+
+void draw_components(
+                    struct component * component,
+                    GLuint program,
+                    GLuint texture
+                   )
+    /* Draw the supplied component and continue through the linked component
+     * until the end is reached. If the ignore component is set, don't draw
+     * that component. */
+{
+    struct component * compp = component;
+    for (compp; compp != NULL; compp = compp->next) {
+        draw_component(compp, program, texture);
+    }
+}
+
+void free_vao(VAO * vao)
+    /* Free the resources allocated in a vao. */
+{
+    free(vao->vbo);
+    free(vao);
+}
+
+void free_point_data(Point_Data * point_data)
+    /* Free the data allocated by point data. */
+{
+    free(point_data->data);
+    free(point_data);
 }

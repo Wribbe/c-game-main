@@ -14,7 +14,8 @@ bool keymap[NUM_KEYS] = {false};
 uint32_t num_actions[NUM_KEYS] = {0};
 
 void process_keys(GLFWwindow * window);
-void collision_check(struct component * component);
+void collision_check(struct component * component, struct component * other);
+void get_current_coordinates(struct component * component, v3 * result);
 
 void process_command_list(
                           float * modifiers,
@@ -58,18 +59,18 @@ bool max_actions(GLuint key, uint32_t max) {
     return true;
 }
 
-float action_add_value(float input, float * variable, void * data)
+float action_add_value(float input, float * modifier, void * data)
 {
     UNUSED(data);
-    return input+*variable;
+    return input+*modifier;
 }
 
 void wrapper_action_add_value(union submit_type * type)
 {
     struct s_float * pointer = (struct s_float * )type;
-    *pointer->result = action_add_value(pointer->input, pointer->variable, pointer->data);
+    *pointer->result = action_add_value(pointer->input, pointer->modifier, pointer->data);
     *pointer->signal_result = true;
-    *pointer->result_write_pos = pointer->variable;
+    *pointer->result_write_pos = pointer->modifier;
 }
 
 float action_set_value(float input, float value, void * data)
@@ -133,7 +134,7 @@ void create_command_packet(
     new_command->last_sub = NULL;
     new_command->result = 0.0f;
     new_command->got_result = false;
-    new_command->variable_write_pos = NULL;
+    new_command->modifier = NULL;
 
     int command_type = 0;
 
@@ -203,14 +204,14 @@ void create_command_packet(
 
         float_new->function = float_input->function;
         float_new->input = float_input->input;
-        float_new->variable = float_input->variable;
+        float_new->modifier = float_input->modifier;
         lifetime = float_input->lifetime;
         action_type = float_input->action_type;
         float_new->result = &new_command->result;
         float_new->signal_result = &new_command->got_result;
-        float_new->result_write_pos = &new_command->variable_write_pos;
+        float_new->result_write_pos = &new_command->modifier;
 
-        // Copy over data to permanent malloc if it's present.
+        // Copy ove2 data to permanent malloc if it's present.
         if (float_input->data != NULL) {
             // Allocate memory.
             Action_Logic_Data * data_pointer = malloc(sizeof(Action_Logic_Data));
@@ -285,9 +286,14 @@ void process_keys(GLFWwindow * window)
     // Modify controlled_component with tab.
     if (check(GLFW_KEY_TAB) && max_actions(GLFW_KEY_TAB, 1)) {
         // Cycle through available components. If NULL return to head.
-        set_as_controlled(controlled_component->next);
         if (controlled_component == NULL) {
             controlled_component = get_component(CONTROLLABLE);
+        } else {
+            struct component * next_controllable = controlled_component->next;
+            if (next_controllable == NULL) {
+                next_controllable = get_component(CONTROLLABLE);
+            }
+            set_as_controlled(next_controllable);
         }
     }
 
@@ -323,11 +329,15 @@ void process_keys(GLFWwindow * window)
     }
 
     // Modify positions along y-axis.
-    if (check(GLFW_KEY_SPACE) && controlled_flag_is_unset(JUMPING)) {
-        set_flag(controlled_component, JUMPING);
+    bool is_not_jumping = controlled_flag_is_unset(IS_JUMPING);
+    bool not_airborn = controlled_flag_is_unset(AIRBORN);
+    bool possible_to_jump = is_not_jumping && not_airborn;
+
+    if (check(GLFW_KEY_SPACE) && possible_to_jump) {
+        set_flag(controlled_component, IS_JUMPING);
         struct Command_Packet inputs[] = {
             {.type.s_flag = {
-                    unset_flag, GRAVITY_ON, controlled_component, 1, PASSTHROUGH
+                    set_flag, AIRBORN, controlled_component, 1, PASSTHROUGH
                 }
             },
             {.type.s_float = {
@@ -340,7 +350,7 @@ void process_keys(GLFWwindow * window)
                 }
             },
             {.type.s_flag = {
-                    set_flag, GRAVITY_ON, controlled_component, 1, PASSTHROUGH
+                    unset_flag, IS_JUMPING, controlled_component, 1, PASSTHROUGH
                 }
             },
         };
@@ -363,6 +373,7 @@ void process_keys(GLFWwindow * window)
         comp_pointer= comp_pointer->next;
     }
 
+    //if (controlled_flag_is_set(GRAVITY_ON) && controlled_flag_is_set(AIRBORN)) {
     if (controlled_flag_is_set(GRAVITY_ON)) {
         // Add gravity to controlled object.
         struct Command_Packet grav_inputs[] = {
@@ -380,57 +391,37 @@ void process_keys(GLFWwindow * window)
     }
 
     // Apply modifications to all controllable components.
+    struct component * window_comp_pointer = get_component(SCENE_COMPONENTS);
     comp_pointer = get_component(CONTROLLABLE);
     while (comp_pointer != NULL) {
 
-        float * x_write_pos = get_write_location(X, comp_pointer);
-        float * y_write_pos = get_write_location(Y, comp_pointer);
-
-        float * x_modifier = get_modifier(X, comp_pointer);
-        float * y_modifier = get_modifier(Y, comp_pointer);
-
         // Check collisions with the window.
-        collision_check(comp_pointer);
+        collision_check(comp_pointer, window_comp_pointer);
 
-        // Write any modified data to the transformation matrix.
-        *x_write_pos += *x_modifier;
-        *y_write_pos += *y_modifier;
-
-        // Don't forget to reset the modifiers, otherwise the previous
-        // modifications will stick if there is a component change.
-        *x_modifier = 0.0f;
-        *y_modifier = 0.0f;
+        // Check collisions with other objects.
+        struct component * other_controllable = get_component(CONTROLLABLE);
+        struct component * other_p = other_controllable;
+        for (other_p; other_p != NULL; other_p= other_p->next) {
+            other_controllable = other_p;
+            if (other_controllable == comp_pointer) {
+                continue;
+            }
+            collision_check(comp_pointer, other_controllable);
+        }
 
         // Iterate to next component.
         comp_pointer = comp_pointer->next;
+
     }
 
-    // Reset old modifiers.
-    *get_modifier(X, controlled_component) = 0;
-    *get_modifier(Y, controlled_component) = 0;
-    *get_modifier(Z, controlled_component) = 0;
-
-}
-
-float get_bound_dimension(enum coord dimension, struct component * component)
-    /* Return the correct value of bounds depending on dimension. */
-{
-    v3 * bounds = &component->vao->bounds[0][0];
-
-    switch(dimension) {
-        case X:
-            return bounds[1][X] - bounds[0][X];  // 1'st x - 0'th x.
-            break;
-        case Y:
-            return bounds[0][Y] - bounds[2][Y]; // 0'th y - 2'nd y.
-            break;
-        case Z:
-            return bounds[4][Z] - bounds[0][Z];  // 4'th z - 0'th z.
-            break;
-        default:
-            fprintf(stderr, "get_bound_dimension: No such dimension.\n");
-            exit(1);
-            break;
+    // Iterate over all components and write their modifications to position.
+    // Don't forget to reset modifications.
+    for (unsigned int i=0; i< NUM_COMPONENT_TYPES; i++) {
+        comp_pointer = get_component(i);
+        while (comp_pointer != NULL) {
+            write_modifications_to_position(comp_pointer);
+            comp_pointer = comp_pointer->next;
+        }
     }
 }
 
@@ -452,14 +443,9 @@ void set_variable(
 
     float next_var = *var_write_pos + *var_modifier;
 
-    relevant_component_size = get_bound_dimension(type, component);
-
-    //Scale the relevant_component_size.
-    relevant_component_size *= get_dimension_scale(type, component);
-
     // Signed half component size depending on current direction.
     float additional_to_next = 0;
-    float half_relevant = relevant_component_size/2.0f;
+    float half_relevant = component->half_size[type];
     // Determine direction.
     bool neg_modifier = *var_modifier < 0;
     if (neg_modifier) { // Going down/left.
@@ -487,25 +473,209 @@ void set_variable(
     }
 }
 
-void collision_check(struct component * component)
+void collision_keep_outside_border(
+                                   enum coord coord,
+                                   struct component * component,
+                                   struct component * other,
+                                   enum bound_order bound_order
+                                  )
+    /* If the other component is inside our bounds place it at the border to
+     * our bounds. */
 {
-    /* Check collisions against window border. If collision detected set the
-     * position of the object at the edge of the window bounding box.
-     */
+    // Check sign of modifier.
+    bool mod_neg = *get_modifier(coord, component) < 0;
+    // Calculate adjustment depending on component size.
+    float component_half_size = component->half_size[coord] + 2*EPSILON;
+    float adjustment = mod_neg ?  component_half_size : -component_half_size;
+    // Calculate and write new value to component.
+    enum bound_order type = mod_neg ? MAX : MIN;
+    v3 coordinates[2] = {0};
+    get_current_coordinates(other, coordinates);
+    *get_write_location(coord, component) = coordinates[type][coord] + adjustment;
+    // Reset modifier.
+    reset_modifier(coord, component); // Stop, otherwise stuck inside bounds.
+    // Reset jump flag.
+    if (coord == Y && type == MAX && mod_neg) {
+        struct Command_Packet inputs[] = {
+            {.type.s_flag = {
+                    unset_flag, AIRBORN, controlled_component, 1, PASSTHROUGH
+                }
+            },
+        };
+        submit_command(inputs, SIZE(inputs), component);
+    }
+}
 
-    // Check for collisions with window along x-axis.
-    struct collision_bound_data x_bounds[] = {
-        {1.0f, GT, NULL, 0},
-        {-1.0f, LT, NULL, 0},
-    };
-    set_variable(X, component, 0, x_bounds, SIZE(x_bounds));
+void collision_keep_inside_border(
+                                  enum coord coord,
+                                  struct component * component,
+                                  struct component * other
+                                 )
+    /* If the other component is inside our borders, keep it there.
+     * Currently other is the window.*/
+{
+    // Check sign of modifier.
+    bool mod_neg = *get_modifier(coord, component) < 0;
+    // Calculate adjustment depending on component size.
+    float component_half_size = component->half_size[coord];
+    float adjustment = mod_neg ? component_half_size : -component_half_size;
+    // Calculate and write new value to component.
+    enum bound_order type = mod_neg ? MIN : MAX;
+    v3 coordinates[2] = {0};
+    get_current_coordinates(other, coordinates);
+    *get_write_location(coord, component) = coordinates[type][coord] + adjustment;
+    // Reset modifier.
+    reset_modifier(coord, component); // Stop, otherwise stuck inside bounds.
+    // Reset jump flag.
+    if (coord == Y && type == MIN && mod_neg) {
+        struct Command_Packet inputs[] = {
+            {.type.s_flag = {
+                    unset_flag, AIRBORN, controlled_component, 1, PASSTHROUGH
+                }
+            },
+        };
+        submit_command(inputs, SIZE(inputs), component);
+    }
+}
 
-    // Check for collisions with window along y-axis.
-    struct collision_bound_data y_bounds[] = {
-        {1.0f, GT, NULL, 0},
-        {-1.0f, LT, unset_flag, JUMPING},
-    };
-    set_variable(Y, component, 0, y_bounds, SIZE(y_bounds));
+void get_minmax(
+                enum coord coord,
+                float * min,
+                float * max,
+                v3 * vector_list,
+                size_t size
+               )
+    /* Get the min and max component from a vector v3 list. */
+{
+    float max_float = vector_list[0][coord];
+    float min_float = max_float;
+
+    for (size_t i=1; i<size; i++) {
+        float current = vector_list[i][coord];
+        if (current > max_float) {
+            max_float = current;
+        }
+        if (current < min_float) {
+            min_float = current;
+        }
+    }
+    // Write the values to supplied pointers.
+    *min = min_float;
+    *max = max_float;
+}
+
+bool point_is_inside_corners(v3 * point, corners corner_array)
+    /* Return if a v3 point is inside of a set of corners or not. */
+{
+    v3 * top_left = corner_array[0];
+    v3 * top_right = corner_array[1];
+    v3 * lower_left = corner_array[3];
+
+    float point_x = (*point)[X];
+    float point_y = (*point)[Y];
+    float top_left_x = (*top_left)[X];
+    float top_right_x = (*top_right)[X];
+
+
+    // Check if point is more left then the most left x coordinate.
+    if (point_x < top_left_x && fabs(top_left_x - point_x) > EPSILON) {
+        return false;
+    }
+
+    // Check if point is more right then the right-most coordinate.
+    if (point_x > top_right_x && fabs(point_x - top_right_x) > EPSILON) {
+        return false;
+    }
+
+    float top_right_y = (*top_right)[Y];
+    float lower_left_y = (*lower_left)[Y];
+
+    // Check if point is higher then the highest coordinate.
+    if (point_y > top_right_y && fabs(point_y - top_right_y) > EPSILON) {
+        return false;
+    }
+
+    // Check if point is lower then the lowest coordinate.
+    if (point_y < lower_left_y && fabs(point_y - lower_left_y) > EPSILON) {
+        return false;
+    }
+    return true;
+}
+
+
+int num_corners_inside(corners component, corners other)
+    /* Return the number of corners of component that is inside of the corners
+     * of other. */
+{
+    int inside = 0;
+    for (int i=0; i<4; i++) { // Iterate over all points.
+        v3 * point = &component[i];
+        if (point_is_inside_corners(point, other)) {
+            inside++;
+        }
+    }
+    return inside;
+}
+
+
+void intersecting(
+                  struct component * component,
+                  struct component * other,
+                  bool result[3]
+                 )
+    /* Other in this case is window. */
+{
+    // Don't do anything with 0-velocity components for the time being.
+    // TODO: Make sure that we can handle 0-velocity components.
+    //
+    float x_mod = *get_modifier(X, component);
+    float y_mod = *get_modifier(Y, component);
+    if (x_mod == 0 && y_mod == 0) { // Stationary components are never colliding.
+        return;
+    }
+
+    corners current_component_corners = {0};
+    get_corners(component, &current_component_corners);
+
+    corners current_other_corners = {0};
+    get_corners(other, &current_other_corners);
+
+    int current_corners_inside = num_corners_inside(current_component_corners,
+                                                    current_other_corners);
+
+    // Check next component corners for each coordinate.
+    corners next_component_corners[NUM_COORD] = {0};
+
+    for (enum coord coord = 0; coord < NUM_COORD; coord++) {
+        // No modifier -> false.
+        if (*get_modifier(coord, component) == 0) {
+            result[coord] = false;
+            continue;
+        }
+        // Update advancing corners for current axis.
+        corners * write_pos = &next_component_corners[coord];
+        get_corners_next(coord, component, current_component_corners, write_pos);
+        int next_corners_inside = num_corners_inside(*write_pos,
+                                                    current_other_corners);
+        result[coord] = next_corners_inside != current_corners_inside;
+    }
+}
+
+void collision_check(struct component * component, struct component * other)
+    /* Check collision against other component. If there is a collision, fire
+     * the collision method of the other component with the colliding component
+     * as input.
+     *
+     * As example, other should typically be the window, which will execute
+     * its collision method on anything that collides with it.*/
+{
+    bool collision_axies[NUM_COORD] = {0};
+    intersecting(component, other, collision_axies);
+    for (int i=0; i<NUM_COORD; i++) {
+        if (collision_axies[i]) {
+            other->collision_function(i, component, other);
+        }
+    }
 }
 
 void free_command(struct Command_Packet * command) {
@@ -563,8 +733,9 @@ void process_command_list(
 
         // Did we get any results?
         if (current_pointer->got_result) {
-            float * value_to_modify = current_pointer->variable_write_pos;
-            *value_to_modify = current_pointer->result;
+            float * modifier = current_pointer->modifier;
+            *current_pointer->modifier += current_pointer->result;
+            current_pointer->got_result = false;
         }
 
         // Process any sub-commands if type is non-blocking.

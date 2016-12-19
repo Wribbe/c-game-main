@@ -9,7 +9,7 @@ out vec2 tex_coords;
 uniform mat4 transform;
 
 void main() {
-    gl_Position = transform * vec4(position*1.07, 1.0);
+    gl_Position = transform * vec4(position*1.0f, 1.0f);
     color = inbound_color;
     tex_coords = inbound_tex_coords;
 }

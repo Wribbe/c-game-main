@@ -13,30 +13,10 @@ struct component;
 struct s_flag;
 struct s_float;
 
-enum event_action_type {
-    PASSTHROUGH,
-    BLOCKING,
-} event_action_type;
-
-enum uniform_type {
-    /* Strip the gl part of the glUniform* functions used. */
-    UniformMatrix4fv,
-    Uniform1f,
-    NUM_TYPES,
-};
-
-typedef enum comparison_type {
-    GT,
-    GTEQ,
-    LT,
-    LTEQ,
-    EQ,
-} comparison_type;
-
 typedef struct Point_Data {
     size_t rows;
     size_t elements;
-    void * data;
+    float * data;
 } Point_Data;
 
 typedef struct Attrib_Pointer_Info {
@@ -71,7 +51,7 @@ typedef struct VBO {
 } VBO;
 
 typedef struct VAO {
-    VBO vbo;
+    VBO * vbo;
     GLuint vao;
     GLint start;
     GLsizei count;
@@ -80,21 +60,23 @@ typedef struct VAO {
     Attrib_Pointer_Info * attrib_list;
 } VAO;
 
+typedef void (*collision_function)(enum coord coord,
+                                   struct component * component,
+                                   struct component * other);
+
 struct component {
     char * id;
     m4 transformation;
     VAO * vao;
     float modifiers[3];
+    float half_size[3];
     struct Command_Packet * command_list;
     struct Command_Packet * last_command;
     struct component * next;
     uint64_t flags;
-};
-
-struct uniform_data {
-    const char * name;
-    void * (*data_function)(struct component *);
-    enum uniform_type type;
+    struct uniform_data * uniform_data;
+    size_t uniform_size;
+    collision_function collision_function;
 };
 
 struct collision_bound_data {
@@ -118,7 +100,7 @@ struct s_float {
     // Begin manual input.
     float (*function)(float input, float * value, void * data);
     float input;
-    float * variable;
+    float * modifier;
     int lifetime;
     void * data;
     enum event_action_type action_type;
@@ -140,7 +122,7 @@ struct Command_Packet {
     // Special flag and result store for float commands.
     bool got_result;
     float result;
-    float * variable_write_pos;
+    float * modifier;
     // Pointers that make it possible to link Command_Packets together.
     struct Command_Packet * next;
     struct Command_Packet * sub_commands;
@@ -154,5 +136,10 @@ struct Command_Packet {
 
 extern void free_s_flag(union submit_type * type);
 extern void free_s_float(union submit_type * type);
+extern void free_point_data(Point_Data * point_data);
+extern void free_vao(VAO * vao);
+
+typedef float v3[NUM_COORD];
+typedef v3 corners[4];
 
 #endif

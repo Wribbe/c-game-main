@@ -1,9 +1,14 @@
 #include <stdlib.h>
 #include "globals/globals.h"
 #include "components/components.h"
+#include "structs.h"
+#include "graphics/graphics.h"
 
 float global_variables[num_globals];
+float EPSILON = 1e-5;
 
+struct uniform_data controlled_uniforms[controlled_size];
+struct uniform_data standard_uniforms[standard_size];
 
 void set_flags(struct component * component, enum flag_type flag)
     /* Set flag for the whole list of component. */
@@ -32,12 +37,35 @@ void setup_globals(void)
     // Set initial flag values.
     set_flags(get_component(CONTROLLABLE), GRAVITY_ON);
     set_flags(get_component(NON_CONTROLLABLE), GRAVITY_ON);
+    set_flags(get_component(CONTROLLABLE), AIRBORN);
+
+    // Set up uniform collections.
+    controlled_uniforms[0] = (struct uniform_data){
+                                "transform",
+                                uniform_data_transform,
+                                UniformMatrix4fv,
+                             };
+    controlled_uniforms[1] = (struct uniform_data){
+                                "time",
+                                 uniform_data_time,
+                                 Uniform1f
+                             };
+
+    standard_uniforms[0] = (struct uniform_data){
+                                "transform",
+                                uniform_data_transform,
+                                UniformMatrix4fv,
+                           };
+
+    // Set up initial controllable.
+    set_as_controlled(get_component(CONTROLLABLE));
 }
 
 void global_init(void)
 {
     // Set background color.
     glClearColor( 0.55f, 0.55f, 0.55f, 0.0f);
+
 
     // Set up initial component values.
     for (unsigned int i = 0; i<NUM_COMPONENT_TYPES; i++) {

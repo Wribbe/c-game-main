@@ -56,4 +56,7 @@ void get_corners_next(enum coord coord,
                       struct component * component,
                       corners * current_corners,
                       corners * return_pointer);
+void get_corners_next_diag(struct component * component,
+                           corners * current_corners,
+                           corners * return_pointer);
 #endif

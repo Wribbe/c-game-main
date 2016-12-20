@@ -378,3 +378,25 @@ void get_corners_next(
         (*return_pointer)[i][coord] += mod;
     }
 }
+
+void get_corners_next_diag(
+                           struct component * component,
+                           corners * current_corners,
+                           corners * return_pointer
+                          )
+    /* Return arrays of v2 structs representing component corners with current
+     * modifiers applied.  */
+{
+    float x_mod = *get_modifier(X, component);
+    float y_mod = *get_modifier(Y, component);
+
+    // Copy current values.
+    for (int i=0; i<4; i++) {
+        for (int j=0; j<NUM_COORD; j++) {
+            (*return_pointer)[i][j] = (*current_corners)[i][j];
+        }
+        // Add modifier.
+        (*return_pointer)[i][X] += x_mod;
+        (*return_pointer)[i][Y] += y_mod;
+    }
+}

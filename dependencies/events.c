@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <GLFW/glfw3.h>
+#include <math.h>
 
 #include "globals/globals.h"
 #include "events/events.h"
@@ -495,7 +496,7 @@ void collision_keep_outside_border(
     // Reset modifier.
     reset_modifier(coord, component); // Stop, otherwise stuck inside bounds.
     // Reset jump flag.
-    if (coord == Y && type == MAX && mod_neg) {
+    if (coord == Y && type == MAX && mod_neg && flag_is_unset(component, IS_JUMPING)) {
         struct Command_Packet inputs[] = {
             {.type.s_flag = {
                     unset_flag, AIRBORN, controlled_component, 1, PASSTHROUGH
@@ -517,7 +518,7 @@ void collision_keep_inside_border(
     // Check sign of modifier.
     bool mod_neg = *get_modifier(coord, component) < 0;
     // Calculate adjustment depending on component size.
-    float component_half_size = component->half_size[coord];
+    float component_half_size = component->half_size[coord] + 2 * EPSILON;
     float adjustment = mod_neg ? component_half_size : -component_half_size;
     // Calculate and write new value to component.
     enum bound_order type = mod_neg ? MIN : MAX;
@@ -527,10 +528,10 @@ void collision_keep_inside_border(
     // Reset modifier.
     reset_modifier(coord, component); // Stop, otherwise stuck inside bounds.
     // Reset jump flag.
-    if (coord == Y && type == MIN && mod_neg) {
+    if (coord == Y && type == MIN && mod_neg && flag_is_unset(component, IS_JUMPING)) {
         struct Command_Packet inputs[] = {
             {.type.s_flag = {
-                    unset_flag, AIRBORN, controlled_component, 1, PASSTHROUGH
+                    unset_flag, AIRBORN, component, 1, PASSTHROUGH
                 }
             },
         };
@@ -567,9 +568,9 @@ void get_minmax(
 bool point_is_inside_corners(v3 * point, corners corner_array)
     /* Return if a v3 point is inside of a set of corners or not. */
 {
-    v3 * top_left = corner_array[0];
-    v3 * top_right = corner_array[1];
-    v3 * lower_left = corner_array[3];
+    v3 * top_left = &corner_array[0];
+    v3 * top_right = &corner_array[1];
+    v3 * lower_left = &corner_array[3];
 
     float point_x = (*point)[X];
     float point_y = (*point)[Y];
@@ -628,6 +629,12 @@ void intersecting(
     // Don't do anything with 0-velocity components for the time being.
     // TODO: Make sure that we can handle 0-velocity components.
     //
+
+    // Set initial values.
+    result[X] = false;
+    result[Y] = false;
+    result[Z] = false;
+
     float x_mod = *get_modifier(X, component);
     float y_mod = *get_modifier(Y, component);
     if (x_mod == 0 && y_mod == 0) { // Stationary components are never colliding.
@@ -646,18 +653,44 @@ void intersecting(
     // Check next component corners for each coordinate.
     corners next_component_corners[NUM_COORD] = {0};
 
-    for (enum coord coord = 0; coord < NUM_COORD; coord++) {
-        // No modifier -> false.
-        if (*get_modifier(coord, component) == 0) {
-            result[coord] = false;
-            continue;
+    corners * corners_X = &next_component_corners[0];
+    corners * corners_Y = &next_component_corners[1];
+    corners * corners_diag = &next_component_corners[2];
+
+    // Get corners for diagonal result.
+    get_corners_next_diag(component, &current_component_corners, corners_diag);
+
+    int diagonal_corners = num_corners_inside(*corners_diag,
+                                              current_other_corners);
+
+    if (diagonal_corners != current_corners_inside) {
+
+        // Get individual corners for X.
+        get_corners_next(X, component, &current_component_corners, corners_X);
+        int num_x_corners = num_corners_inside(*corners_X,
+                                               current_other_corners);
+
+        // Get individual corners for Y.
+        get_corners_next(Y, component, &current_component_corners, corners_Y);
+        int num_y_corners = num_corners_inside(*corners_Y,
+                                               current_other_corners);
+
+        // Check if there is collision in only y and x.
+        bool no_x_collision = num_x_corners == current_corners_inside;
+        bool no_y_collision = num_y_corners == current_corners_inside;
+        if (no_x_collision && no_y_collision) {
+            // Only the combination results in a collision.
+            result[X] = true;
+            result[Y] = true;
+            return;
+        } else if (no_x_collision) {
+            result[Y] = true;
+        } else if (no_y_collision) {
+            result[X] = true;
+        } else {
+            result[X] = true;
+            result[Y] = true;
         }
-        // Update advancing corners for current axis.
-        corners * write_pos = &next_component_corners[coord];
-        get_corners_next(coord, component, current_component_corners, write_pos);
-        int next_corners_inside = num_corners_inside(*write_pos,
-                                                    current_other_corners);
-        result[coord] = next_corners_inside != current_corners_inside;
     }
 }
 

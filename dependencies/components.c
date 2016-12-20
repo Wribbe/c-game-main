@@ -222,7 +222,7 @@ void write_modifications_to_position(struct component * component)
         float * mod_location = get_modifier(i, component);
         float * write_location = get_write_location(i, component);
 //        printf("Writing location before %f addition of mod_location: %f for: %s\n", *write_location, *mod_location, id);
-        *write_location += *mod_location;
+        *write_location += *mod_location * timestep();
 //        printf("Writing location after %f addition of mod_location: %f for: %s\n", *write_location, *mod_location, id);
         // Reset modification.
         *mod_location = 0.0f;
@@ -286,7 +286,7 @@ void update_size(struct component * component)
 void scale_component(struct component * component, float x, float y, float z)
     /* Apply scaling to transformation matrix and update size. */
 {
-    m4_scale(component->transformation, 0.4, 0.3, 0.3);
+    m4_scale(component->transformation, x, y, z);
     update_size(component);
 }
 

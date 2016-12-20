@@ -4,7 +4,6 @@
 #include <GLFW/glfw3.h>
 
 #define NUM_KEYS 512
-#define GRAVITY 0.03f
 
 enum coord {
     X,
@@ -14,14 +13,11 @@ enum coord {
 };
 
 typedef enum global_index {
-    gravity,
-    speed,
-    is_jumping,
+    GRAVITY,
+    SPEED,
     glfw_time,
-    wb_x_pos,
-    wb_x_neg,
-    wb_y_pos,
-    wb_y_neg,
+    TIMESTEP,
+    JUMP_VELOCITY,
     // Keep this one as last element.
     num_globals,
 } global_index;
@@ -92,5 +88,10 @@ struct component * components[NUM_COMPONENT_TYPES];
 struct component * last_component[NUM_COMPONENT_TYPES];
 struct component * controlled_component;
 
+extern float timestep(void);
+extern float gravity(void);
+extern float speed(void);
+extern float jump_velocity(void);
+void set_timestep(float new_value);
 
 #endif

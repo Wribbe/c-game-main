@@ -91,7 +91,7 @@ struct s_flag {
     void (*function)(struct component * component, enum flag_type flag);
     enum flag_type flag;
     struct component * component;
-    int lifetime;
+    float lifetime;
     enum event_action_type action_type;
     // End manual input.
 };
@@ -99,9 +99,9 @@ struct s_flag {
 struct s_float {
     // Begin manual input.
     float (*function)(float input, float * value, void * data);
-    float input;
+    float (*float_func)(void);
     float * modifier;
-    int lifetime;
+    float lifetime;
     void * data;
     enum event_action_type action_type;
     // End manual input.
@@ -117,7 +117,7 @@ union submit_type {
 
 struct Command_Packet {
     // Standard variables for all command.s
-    int lifetime;
+    float lifetime;
     enum event_action_type action_type;
     // Special flag and result store for float commands.
     bool got_result;

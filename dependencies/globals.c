@@ -25,14 +25,10 @@ void set_flags(struct component * component, enum flag_type flag)
 void setup_globals(void)
 {
     printf("Setting up global variables.\n");
-    global_variables[gravity] = GRAVITY;
-    global_variables[speed] = 0.05f;
-    global_variables[is_jumping] = 0.0f;
+    global_variables[GRAVITY] = 0.03f;
+    global_variables[SPEED] = 0.05f;
+    global_variables[JUMP_VELOCITY] = 0.03f;
     global_variables[glfw_time] = 0.0f;
-    global_variables[wb_x_pos] =  1.0f;
-    global_variables[wb_x_neg] = -1.0f;
-    global_variables[wb_y_pos] =  1.0f;
-    global_variables[wb_y_neg] = -1.0f;
 
     // Set initial flag values.
     set_flags(get_component(CONTROLLABLE), GRAVITY_ON);
@@ -59,6 +55,9 @@ void setup_globals(void)
 
     // Set up initial controllable.
     set_as_controlled(get_component(CONTROLLABLE));
+
+    // Set up timestep.
+    global_variables[TIMESTEP] = 0.0f;
 }
 
 void global_init(void)
@@ -73,4 +72,31 @@ void global_init(void)
         last_component[i] = NULL;
     }
     controlled_component = NULL;
+}
+
+
+void set_timestep(float new_value)
+{
+    //printf("Got value: %f\n", new_value);
+    global_variables[TIMESTEP] = new_value;
+}
+
+float timestep(void)
+{
+    return global_variables[TIMESTEP];
+}
+
+float gravity(void)
+{
+    return global_variables[GRAVITY]*timestep();
+}
+
+float speed(void)
+{
+    return global_variables[SPEED]*timestep();
+}
+
+float jump_velocity(void)
+{
+    return global_variables[JUMP_VELOCITY]*timestep();
 }

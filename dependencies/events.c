@@ -60,16 +60,30 @@ bool max_actions(GLuint key, uint32_t max) {
     return true;
 }
 
-float action_add_value(float input, float * modifier, void * data)
+float action_sub_value(float (*float_func)(void), float * modifier, void * data)
 {
     UNUSED(data);
-    return input+*modifier;
+    return *modifier-float_func();
+}
+
+void wrapper_action_sub_value(union submit_type * type)
+{
+    struct s_float * pointer = (struct s_float * )type;
+    *pointer->result = action_sub_value(pointer->float_func, pointer->modifier, pointer->data);
+    *pointer->signal_result = true;
+    *pointer->result_write_pos = pointer->modifier;
+}
+
+float action_add_value(float (*float_func)(void), float * modifier, void * data)
+{
+    UNUSED(data);
+    return *modifier+float_func();
 }
 
 void wrapper_action_add_value(union submit_type * type)
 {
     struct s_float * pointer = (struct s_float * )type;
-    *pointer->result = action_add_value(pointer->input, pointer->modifier, pointer->data);
+    *pointer->result = action_add_value(pointer->float_func, pointer->modifier, pointer->data);
     *pointer->signal_result = true;
     *pointer->result_write_pos = pointer->modifier;
 }
@@ -177,6 +191,12 @@ void create_command_packet(
             wrapper_function = wrapper_action_add_value;
             remove_function = free_s_float;
 
+        } else if (input->type.s_float.function == action_sub_value) {
+
+            command_type = float_type;
+            wrapper_function = wrapper_action_sub_value;
+            remove_function = free_s_float;
+
         }
     }
 
@@ -204,7 +224,7 @@ void create_command_packet(
         struct s_float * float_new = (struct s_float* )&new_command->type.s_float;
 
         float_new->function = float_input->function;
-        float_new->input = float_input->input;
+        float_new->float_func = float_input->float_func;
         float_new->modifier = float_input->modifier;
         lifetime = float_input->lifetime;
         action_type = float_input->action_type;
@@ -284,6 +304,7 @@ void process_keys(GLFWwindow * window)
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
 
+
     // Modify controlled_component with tab.
     if (check(GLFW_KEY_TAB) && max_actions(GLFW_KEY_TAB, 1)) {
         // Cycle through available components. If NULL return to head.
@@ -302,8 +323,8 @@ void process_keys(GLFWwindow * window)
     if (check(GLFW_KEY_LEFT)) {
         struct Command_Packet inputs[] = {
            {.type.s_float = {
-                    action_add_value,
-                    -global_variables[speed],
+                    action_sub_value,
+                    speed,
                     get_modifier(X, controlled_component),
                     1,
                     NULL,
@@ -318,7 +339,7 @@ void process_keys(GLFWwindow * window)
         struct Command_Packet inputs[] = {
            {.type.s_float = {
                     action_add_value,
-                    global_variables[speed],
+                    speed,
                     get_modifier(X, controlled_component),
                     1,
                     NULL,
@@ -343,7 +364,7 @@ void process_keys(GLFWwindow * window)
             },
             {.type.s_float = {
                     action_add_value,
-                    0.03f,
+                    jump_velocity,
                     get_modifier(Y, controlled_component),
                     20,
                     NULL,
@@ -379,8 +400,8 @@ void process_keys(GLFWwindow * window)
         // Add gravity to controlled object.
         struct Command_Packet grav_inputs[] = {
            {.type.s_float = {
-                    action_add_value,
-                    -global_variables[gravity],
+                    action_sub_value,
+                    gravity,
                     get_modifier(Y, controlled_component),
                     1,
                     NULL,
@@ -391,7 +412,6 @@ void process_keys(GLFWwindow * window)
         submit_command(grav_inputs, SIZE(grav_inputs), controlled_component);
     }
 
-    // Apply modifications to all controllable components.
     struct component * window_comp_pointer = get_component(SCENE_COMPONENTS);
     comp_pointer = get_component(CONTROLLABLE);
     while (comp_pointer != NULL) {
@@ -400,14 +420,12 @@ void process_keys(GLFWwindow * window)
         collision_check(comp_pointer, window_comp_pointer);
 
         // Check collisions with other objects.
-        struct component * other_controllable = get_component(CONTROLLABLE);
-        struct component * other_p = other_controllable;
+        struct component * other_p = get_component(CONTROLLABLE);
         for (other_p; other_p != NULL; other_p= other_p->next) {
-            other_controllable = other_p;
-            if (other_controllable == comp_pointer) {
+            if (other_p == comp_pointer) {
                 continue;
             }
-            collision_check(comp_pointer, other_controllable);
+            collision_check(comp_pointer, other_p);
         }
 
         // Iterate to next component.
@@ -570,6 +588,46 @@ int num_corners_inside(corners component, corners other)
     return inside;
 }
 
+void check_x_y_collisions(
+                          bool result[4],
+                          struct component * component,
+                          corners * component_corners,
+                          struct component * other,
+                          corners * other_corners,
+                          int curr_comp_in_other
+                         )
+{
+        corners corners_X = {0};
+        corners corners_Y = {0};
+
+        // Get individual corners for X.
+        get_corners_next(X, component, component_corners, &corners_X);
+        int num_x_corners = num_corners_inside(corners_X,
+                                               *other_corners);
+
+        // Get individual corners for Y.
+        get_corners_next(Y, component, component_corners, &corners_Y);
+        int num_y_corners = num_corners_inside(corners_Y,
+                                               *other_corners);
+
+        // Check if there is collision in only y and x.
+        bool no_x_collision = num_x_corners == curr_comp_in_other;
+        bool no_y_collision = num_y_corners == curr_comp_in_other;
+        if (no_x_collision && no_y_collision) {
+            // Only the combination results in a collision.
+            result[X] = true;
+            result[Y] = true;
+            return;
+        } else if (no_x_collision) {
+            result[Y] = true;
+        } else if (no_y_collision) {
+            result[X] = true;
+        } else {
+            result[X] = true;
+            result[Y] = true;
+        }
+}
+
 
 void intersecting(
                   struct component * component,
@@ -599,49 +657,45 @@ void intersecting(
     corners current_other_corners = {0};
     get_corners(other, &current_other_corners);
 
-    int current_corners_inside = num_corners_inside(current_component_corners,
-                                                    current_other_corners);
+    int curr_comp_in_other = num_corners_inside(current_component_corners,
+                                                current_other_corners);
+    int curr_other_in_comp = num_corners_inside(current_other_corners,
+                                                current_component_corners);
 
     // Check next component corners for each coordinate.
     corners next_component_corners[NUM_COORD] = {0};
 
-    corners * corners_X = &next_component_corners[0];
-    corners * corners_Y = &next_component_corners[1];
-    corners * corners_diag = &next_component_corners[2];
+    corners corners_diag = {0};
 
     // Get corners for diagonal result.
-    get_corners_next_diag(component, &current_component_corners, corners_diag);
+    get_corners_next_diag(component, &current_component_corners, &corners_diag);
 
-    int diagonal_corners = num_corners_inside(*corners_diag,
-                                              current_other_corners);
+    int diag_comp_in_other = num_corners_inside(corners_diag,
+                                                current_other_corners);
 
-    if (diagonal_corners != current_corners_inside) {
+    if (diag_comp_in_other != curr_comp_in_other) {
 
-        // Get individual corners for X.
-        get_corners_next(X, component, &current_component_corners, corners_X);
-        int num_x_corners = num_corners_inside(*corners_X,
-                                               current_other_corners);
+        check_x_y_collisions(result,
+                             component,
+                             current_component_corners,
+                             other,
+                             current_other_corners,
+                             curr_comp_in_other);
 
-        // Get individual corners for Y.
-        get_corners_next(Y, component, &current_component_corners, corners_Y);
-        int num_y_corners = num_corners_inside(*corners_Y,
-                                               current_other_corners);
+    } else { // Check if the is a collision based on the other component.
 
-        // Check if there is collision in only y and x.
-        bool no_x_collision = num_x_corners == current_corners_inside;
-        bool no_y_collision = num_y_corners == current_corners_inside;
-        if (no_x_collision && no_y_collision) {
-            // Only the combination results in a collision.
-            result[X] = true;
-            result[Y] = true;
-            return;
-        } else if (no_x_collision) {
-            result[Y] = true;
-        } else if (no_y_collision) {
-            result[X] = true;
-        } else {
-            result[X] = true;
-            result[Y] = true;
+        int diag_other_in_comp = num_corners_inside(current_other_corners,
+                                                    *corners_diag);
+
+        if (diag_other_in_comp != curr_other_in_comp) {
+            // Do the inverted check from above to see if other it colliding
+            // with component.
+            check_x_y_collisions(result,
+                                 other,
+                                 current_other_corners,
+                                 component,
+                                 current_component_corners,
+                                 curr_other_in_comp);
         }
     }
 }
@@ -732,7 +786,7 @@ void process_command_list(
         }
 
         // Decrease lifetime.
-        current_pointer->lifetime -= 1;
+        current_pointer->lifetime -= (1.0f * timestep());
 
         // Three types of unlink scenarios:
         //
@@ -787,7 +841,7 @@ void process_command_list(
         //          topmost-list.
         //
 
-        if (current_pointer->lifetime == 0) {
+        if (current_pointer->lifetime <= 1.0f) {
 
             // Update the sub-command variable, the processing of sub-commands
             // might have killed off all the previously defined sub-commands.

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
@@ -108,13 +109,21 @@ int main(void)
     struct component * second_component = create_component("Dietrich_2",
                                                            vao,
                                                            NULL);
+
+    // set up third component.
+    struct component * third_component = create_component("Dietrich_3",
+                                                           vao,
+                                                           NULL);
+
     // Scale the dimensions.
     scale_component(main_component, 0.4, 0.3, 0.3);
     scale_component(second_component, 0.4, 0.3, 0.3);
+    scale_component(third_component, 0.1, 0.2, 0.2);
 
     // Append controllable to corrct list.
     append_component(main_component, CONTROLLABLE);
     append_component(second_component, CONTROLLABLE);
+    append_component(third_component, CONTROLLABLE);
 
     // Create window component.
     struct component * window_component = create_component("window",
@@ -137,7 +146,15 @@ int main(void)
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    struct timespec start_time = {0};
+    struct timespec end_time = {0};
+
+    printf("\n");
+
+    glfwSwapInterval(0);
+
     while(!glfwWindowShouldClose(window)) {
+        clock_gettime(CLOCK_REALTIME, &start_time);
         global_variables[glfw_time] = (float)glfwGetTime();
         poll_events(window);
         // Clear screen.
@@ -155,6 +172,13 @@ int main(void)
                        controllable_shader_program,
                        texture);
         glfwSwapBuffers(window);
+        clock_gettime(CLOCK_REALTIME, &end_time);
+        double millis = 0;
+        millis += (end_time.tv_sec - start_time.tv_sec) * 1000;
+        millis += (end_time.tv_nsec - start_time.tv_nsec) / 1e6;
+        float time = (float)millis / (1000.0f / 60.0f);
+        set_timestep(time);
+        printf("\rFrames per second: %f", 1000.0f / millis);
     }
 
     glfwTerminate();

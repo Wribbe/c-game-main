@@ -426,54 +426,6 @@ void process_keys(GLFWwindow * window)
     }
 }
 
-void set_variable(
-                  enum coord type,
-                  struct component * component,
-                  float collision_modfifier_value,
-                  struct collision_bound_data * bound_data,
-                  size_t num_bounds
-                 )
-    /* Function handling the setting of y modifier and position for supplied
-     * y_write_pos. */
-{
-    float relevant_component_size = 0;
-    float relevant_scale = 0;
-
-    float * var_write_pos = get_write_location(type, component);
-    float * var_modifier = get_modifier(type, component);
-
-    float next_var = *var_write_pos + *var_modifier;
-
-    // Signed half component size depending on current direction.
-    float additional_to_next = 0;
-    float half_relevant = component->half_size[type];
-    // Determine direction.
-    bool neg_modifier = *var_modifier < 0;
-    if (neg_modifier) { // Going down/left.
-        additional_to_next -= half_relevant;
-    } else { // Going up/right.
-        additional_to_next += half_relevant;
-    }
-
-    // Add additional offset to the calculated next_var.
-    next_var += additional_to_next;
-
-    // Compare to bounds.
-    for(size_t i=0; i<num_bounds; i++) {
-        struct collision_bound_data * data = &bound_data[i];
-        if(logic_main(next_var, data->compare_type, data->bound)) {
-            *var_modifier = 0;
-            // Positive offset if negative modifier, else negative offset.
-            float offset = neg_modifier ? half_relevant : -half_relevant;
-            *var_write_pos = data->bound + offset;
-            if (data->flag_operation != NULL) {
-                data->flag_operation(component, data->flag);
-            }
-            break;
-        }
-    }
-}
-
 void collision_keep_outside_border(
                                    enum coord coord,
                                    struct component * component,

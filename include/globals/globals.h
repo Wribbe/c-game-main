@@ -62,6 +62,11 @@ typedef enum comparison_type {
     EQ,
 } comparison_type;
 
+enum sign {
+    NEG,
+    POS,
+};
+
 extern float EPSILON;
 
 // Global variables.

@@ -296,6 +296,34 @@ void submit_command(
     }
 }
 
+void add_velocity(
+                  enum coord coord,
+                  enum sign sign,
+                  float (*float_func)(void),
+                  struct component * component
+                 )
+    /* Add velocity to component based on coord and sign. */
+{
+    float (*mod_func)(void) = NULL;
+    if (sign == POS) {
+        mod_func = action_add_value;
+    } else {
+        mod_func = action_sub_value;
+    }
+    struct Command_Packet inputs[] = {
+       {.type.s_float = {
+                mod_func,
+                float_func,
+                get_modifier(coord, component),
+                1,
+                NULL,
+                PASSTHROUGH,
+            }
+       },
+    };
+    submit_command(inputs, SIZE(inputs), component);
+}
+
 
 void process_keys(GLFWwindow * window)
 {
@@ -321,33 +349,11 @@ void process_keys(GLFWwindow * window)
 
     // Modify positions along x-axis.
     if (check(GLFW_KEY_LEFT)) {
-        struct Command_Packet inputs[] = {
-           {.type.s_float = {
-                    action_sub_value,
-                    speed,
-                    get_modifier(X, controlled_component),
-                    1,
-                    NULL,
-                    PASSTHROUGH,
-                }
-           },
-        };
-        submit_command(inputs, SIZE(inputs), controlled_component);
+        add_velocity(X, NEG, speed, controlled_component);
     }
 
     if (check(GLFW_KEY_RIGHT)) {
-        struct Command_Packet inputs[] = {
-           {.type.s_float = {
-                    action_add_value,
-                    speed,
-                    get_modifier(X, controlled_component),
-                    1,
-                    NULL,
-                    PASSTHROUGH,
-                }
-           },
-        };
-        submit_command(inputs, SIZE(inputs), controlled_component);
+        add_velocity(X, POS, speed, controlled_component);
     }
 
     // Modify positions along y-axis.

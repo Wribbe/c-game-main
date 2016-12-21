@@ -60,64 +60,61 @@ bool max_actions(GLuint key, uint32_t max) {
     return true;
 }
 
-float action_sub_value(float (*float_func)(void), float * modifier, void * data)
+float action_sub_value(float (*float_func)(void), float * modifier)
 {
-    UNUSED(data);
     return *modifier-float_func();
 }
 
 void wrapper_action_sub_value(union submit_type * type)
 {
     struct s_float * pointer = (struct s_float * )type;
-    *pointer->result = action_sub_value(pointer->float_func, pointer->modifier, pointer->data);
+    *pointer->result = action_sub_value(pointer->float_func, pointer->modifier);
     *pointer->signal_result = true;
     *pointer->result_write_pos = pointer->modifier;
 }
 
-float action_add_value(float (*float_func)(void), float * modifier, void * data)
+float action_add_value(float (*float_func)(void), float * modifier)
 {
-    UNUSED(data);
     return *modifier+float_func();
 }
 
 void wrapper_action_add_value(union submit_type * type)
 {
     struct s_float * pointer = (struct s_float * )type;
-    *pointer->result = action_add_value(pointer->float_func, pointer->modifier, pointer->data);
+    *pointer->result = action_add_value(pointer->float_func, pointer->modifier);
     *pointer->signal_result = true;
     *pointer->result_write_pos = pointer->modifier;
 }
 
 float action_set_value(float input, float value, void * data)
 {
-    UNUSED(data);
     return input=value;
 }
 
-float action_logic_wrapper(float input, float value, void * input_data)
-{
-    // Unpack the data.
-    Action_Logic_Data * data = (Action_Logic_Data * )input_data;
-
-    // Compute the next return value from the regular_function.
-    float next_value = data->regular_function(input, value, NULL);
-
-    // Compare next value with comparison value through the provided logical
-    // function.
-    bool next_not_valid = data->logic_function(next_value,
-                                               data->comparison_type,
-                                               data->comparison_value);
-
-    // If next_value is invalid, replace next_value with the computation of the
-    // provided replacement_function.
-    if (next_not_valid) {
-        float new_value = data->replacement_value;
-        next_value = data->replacement_function(input, new_value, NULL);
-    }
-
-    // Return the next_value.
-    return next_value;
-}
+//float action_logic_wrapper(float input, float value, void * input_data)
+//{
+//    // Unpack the data.
+//    Action_Logic_Data * data = (Action_Logic_Data * )input_data;
+//
+//    // Compute the next return value from the regular_function.
+//    float next_value = data->regular_function(input, value);
+//
+//    // Compare next value with comparison value through the provided logical
+//    // function.
+//    bool next_not_valid = data->logic_function(next_value,
+//                                               data->comparison_type,
+//                                               data->comparison_value);
+//
+//    // If next_value is invalid, replace next_value with the computation of the
+//    // provided replacement_function.
+//    if (next_not_valid) {
+//        float new_value = data->replacement_value;
+//        next_value = data->replacement_function(input, new_value, NULL);
+//    }
+//
+//    // Return the next_value.
+//    return next_value;
+//}
 
 float action_print_value(float input, float value, void * input_data)
 {
@@ -156,7 +153,7 @@ void create_command_packet(
     void (*wrapper_function)(union submit_type * type) = NULL;
     void (*remove_function)(union submit_type * type) = NULL;
 
-    int lifetime = 0;
+    int goal_value = 0;
     enum event_action_type action_type = 0;
 
     enum {
@@ -215,7 +212,7 @@ void create_command_packet(
         flag_new->function = flag_input->function;
         flag_new->flag = flag_input->flag;
         flag_new->component = flag_input->component;
-        lifetime = flag_input->lifetime;
+        goal_value = 0; // Do once.
         action_type = flag_input->action_type;
 
     } else if (command_type == float_type) {
@@ -226,40 +223,21 @@ void create_command_packet(
         float_new->function = float_input->function;
         float_new->float_func = float_input->float_func;
         float_new->modifier = float_input->modifier;
-        lifetime = float_input->lifetime;
+        new_command->accumulated = 0.0f;
+        goal_value = float_input->goal_value;
         action_type = float_input->action_type;
         float_new->result = &new_command->result;
         float_new->signal_result = &new_command->got_result;
         float_new->result_write_pos = &new_command->modifier;
 
-        // Copy ove2 data to permanent malloc if it's present.
-        if (float_input->data != NULL) {
-            // Allocate memory.
-            Action_Logic_Data * data_pointer = malloc(sizeof(Action_Logic_Data));
-            Action_Logic_Data * input_data = (Action_Logic_Data * )float_input->data;
-
-            // Populate data pointer.
-            data_pointer->logic_function = input_data->logic_function;
-            data_pointer->comparison_value = input_data->comparison_value;
-            data_pointer->comparison_type = input_data->comparison_type;
-            data_pointer->regular_function = input_data->regular_function;
-            data_pointer->replacement_function = input_data->replacement_function;
-            data_pointer->replacement_value = input_data->replacement_value;
-
-            // Set data to populated data pointer.
-            float_new->data = data_pointer;
-
-            } else {
-                float_new->data = NULL;
-            }
     }
 
     // Set wrapper and remove function for new command.
     new_command->wrapper_function = wrapper_function;
     new_command->remove = remove_function;
 
-    // Set lifetime of command.
-    new_command->lifetime = lifetime;
+    // Set goal_value of command.
+    new_command->goal_value = goal_value;
 
     // Set action type.
     new_command->action_type = action_type;
@@ -299,6 +277,7 @@ void submit_command(
 void add_velocity(
                   enum coord coord,
                   enum sign sign,
+                  float goal_value,
                   float (*float_func)(void),
                   struct component * component
                  )
@@ -314,9 +293,8 @@ void add_velocity(
        {.type.s_float = {
                 mod_func,
                 float_func,
+                goal_value,
                 get_modifier(coord, component),
-                1,
-                NULL,
                 PASSTHROUGH,
             }
        },
@@ -349,11 +327,11 @@ void process_keys(GLFWwindow * window)
 
     // Modify positions along x-axis.
     if (check(GLFW_KEY_LEFT)) {
-        add_velocity(X, NEG, speed, controlled_component);
+        add_velocity(X, NEG, global_speed(), speed, controlled_component);
     }
 
     if (check(GLFW_KEY_RIGHT)) {
-        add_velocity(X, POS, speed, controlled_component);
+        add_velocity(X, POS, global_speed(), speed, controlled_component);
     }
 
     // Modify positions along y-axis.
@@ -361,29 +339,28 @@ void process_keys(GLFWwindow * window)
     bool not_airborn = controlled_flag_is_unset(AIRBORN);
     bool possible_to_jump = is_not_jumping && not_airborn;
 
-    if (check(GLFW_KEY_SPACE) && possible_to_jump) {
-        set_flag(controlled_component, IS_JUMPING);
-        struct Command_Packet inputs[] = {
-            {.type.s_flag = {
-                    set_flag, AIRBORN, controlled_component, 1, PASSTHROUGH
-                }
-            },
-            {.type.s_float = {
-                    action_add_value,
-                    jump_velocity,
-                    get_modifier(Y, controlled_component),
-                    20,
-                    NULL,
-                    BLOCKING
-                }
-            },
-            {.type.s_flag = {
-                    unset_flag, IS_JUMPING, controlled_component, 1, PASSTHROUGH
-                }
-            },
-        };
-        submit_command(inputs, SIZE(inputs), controlled_component);
-    }
+//    if (check(GLFW_KEY_SPACE) && possible_to_jump) {
+//        set_flag(controlled_component, IS_JUMPING);
+//        struct Command_Packet inputs[] = {
+//            {.type.s_flag = {
+//                    set_flag, AIRBORN, controlled_component, 1, PASSTHROUGH
+//                }
+//            },
+//            {.type.s_float = {
+//                    action_add_value,
+//                    jump_velocity,
+//                    get_modifier(Y, controlled_component),
+//                    0.5f,
+//                    BLOCKING
+//                }
+//            },
+//            {.type.s_flag = {
+//                    unset_flag, IS_JUMPING, controlled_component, 1, PASSTHROUGH
+//                }
+//            },
+//        };
+//        submit_command(inputs, SIZE(inputs), controlled_component);
+//    }
 
     // Process command list for each component.
     struct component * comp_pointer = get_component(CONTROLLABLE);
@@ -401,22 +378,22 @@ void process_keys(GLFWwindow * window)
         comp_pointer= comp_pointer->next;
     }
 
-    //if (controlled_flag_is_set(GRAVITY_ON) && controlled_flag_is_set(AIRBORN)) {
-    if (controlled_flag_is_set(GRAVITY_ON)) {
-        // Add gravity to controlled object.
-        struct Command_Packet grav_inputs[] = {
-           {.type.s_float = {
-                    action_sub_value,
-                    gravity,
-                    get_modifier(Y, controlled_component),
-                    1,
-                    NULL,
-                    PASSTHROUGH,
-                }
-           },
-        };
-        submit_command(grav_inputs, SIZE(grav_inputs), controlled_component);
-    }
+//    //if (controlled_flag_is_set(GRAVITY_ON) && controlled_flag_is_set(AIRBORN)) {
+//    if (controlled_flag_is_set(GRAVITY_ON)) {
+//        // Add gravity to controlled object.
+//        struct Command_Packet grav_inputs[] = {
+//           {.type.s_float = {
+//                    action_sub_value,
+//                    gravity,
+//                    get_modifier(Y, controlled_component),
+//                    1,
+//                    NULL,
+//                    PASSTHROUGH,
+//                }
+//           },
+//        };
+//        submit_command(grav_inputs, SIZE(grav_inputs), controlled_component);
+//    }
 
     struct component * window_comp_pointer = get_component(SCENE_COMPONENTS);
     comp_pointer = get_component(CONTROLLABLE);
@@ -778,8 +755,22 @@ void process_command_list(
 
         // Did we get any results?
         if (current_pointer->got_result) {
+
             float * modifier = current_pointer->modifier;
-            *current_pointer->modifier += current_pointer->result;
+            float goal_value = current_pointer->goal_value;
+            float result = current_pointer->result;
+            float accumulated = current_pointer->accumulated;
+
+            if (accumulated + result > goal_value) {
+                // Don't overshoot.
+                result = goal_value - accumulated;
+            }
+
+            // Add to accumulation.
+            current_pointer->accumulated += result;
+
+            // Add to modifier.
+            *current_pointer->modifier += result;
             current_pointer->got_result = false;
         }
 
@@ -790,9 +781,6 @@ void process_command_list(
                                  &current_pointer->last_sub,
                                  current_level+1);
         }
-
-        // Decrease lifetime.
-        current_pointer->lifetime -= (1.0f * timestep());
 
         // Three types of unlink scenarios:
         //
@@ -847,7 +835,8 @@ void process_command_list(
         //          topmost-list.
         //
 
-        if (current_pointer->lifetime <= 1.0f) {
+        // Fulfilled goal?
+        if (current_pointer->accumulated >= current_pointer->goal_value) {
 
             // Update the sub-command variable, the processing of sub-commands
             // might have killed off all the previously defined sub-commands.

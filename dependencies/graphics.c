@@ -168,7 +168,7 @@ void create_shader(GLuint * shader, const char * source_filename)
 {
     /* Create and return shader based on contents of file. */
 
-    const char * error_base = "[!] create_shader: ";
+    const char * error_base = "[!] grapics.c/create_shader: ";
 
     /* Determine the type based on the file extension. */
     GLuint type = 0;

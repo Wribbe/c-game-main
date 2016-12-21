@@ -100,3 +100,8 @@ float jump_velocity(void)
 {
     return global_variables[JUMP_VELOCITY]*timestep();
 }
+
+float global_speed(void)
+{
+    return global_variables[SPEED];
+}

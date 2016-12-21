@@ -52,11 +52,11 @@ void scale_component(struct component * component, float x, float y, float z);
 void set_collision_function(struct component * component, collision_function function);
 void get_current_coordinates(struct component * component, v3 * result);
 void get_corners(struct component * component, corners * corners);
-void get_corners_next(enum coord coord,
+void get_corners_prev(enum coord coord,
                       struct component * component,
                       corners * current_corners,
                       corners * return_pointer);
-void get_corners_next_diag(struct component * component,
+void get_corners_prev_diag(struct component * component,
                            corners * current_corners,
                            corners * return_pointer);
 #endif

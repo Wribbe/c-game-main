@@ -201,3 +201,36 @@ bool logic_main(float left_side, comparison_type comp, float right_side) {
              break;
     }
 }
+
+char * generic_src(const char * prefix, const char * filename)
+    /* Generic version of returning string concatenation from a prefix and a
+     * filename. Used internally to represent more specialized exposed
+     * functions. */
+{
+    size_t prefix_size = strlen(prefix);
+    size_t filename_size = strlen(filename);
+
+    size_t text_size = (prefix_size+filename_size+1)*sizeof(char);
+    char * buffer = malloc(text_size);
+    // Terminates string automatically.
+    snprintf(buffer, text_size, "%s%s", prefix, filename);
+    return buffer;
+}
+
+char * data_src(const char * filename)
+    /* Return data source path. */
+{
+    return generic_src(DATA_SRC, filename);
+}
+
+char * shader_src(const char * filename)
+    /* Return shader source path. */
+{
+    return generic_src(SHADER_SRC, filename);
+}
+
+char * texture_src(const char * filename)
+    /* Return texture source path. */
+{
+    return generic_src(TEXTURE_SRC, filename);
+}

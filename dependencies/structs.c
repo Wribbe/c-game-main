@@ -7,10 +7,6 @@ void free_s_flag(union submit_type * type)
 }
 
 void free_s_float(union submit_type * type)
-    /* Data might be allocated, check that first. */
+    /* No data allocated here either. */
 {
-    struct s_float * s_float = (struct s_float * )type;
-    if (s_float->data != NULL) {
-        free(s_float->data);
-    }
 }

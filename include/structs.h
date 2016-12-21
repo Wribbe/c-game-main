@@ -25,7 +25,7 @@ typedef struct Attrib_Pointer_Info {
     float * offset;
 } Attrib_Pointer_Info;
 
-typedef float (*mod_function)(float current, float input, void * data);
+typedef float (*mod_function)(float current, float input);
 
 typedef bool (*logic_function)(float left_side,
                                comparison_type comp,
@@ -91,18 +91,16 @@ struct s_flag {
     void (*function)(struct component * component, enum flag_type flag);
     enum flag_type flag;
     struct component * component;
-    float lifetime;
     enum event_action_type action_type;
     // End manual input.
 };
 
 struct s_float {
     // Begin manual input.
-    float (*function)(float input, float * value, void * data);
+    float (*function)(float input, float * value);
     float (*float_func)(void);
+    float goal_value;
     float * modifier;
-    float lifetime;
-    void * data;
     enum event_action_type action_type;
     // End manual input.
     float * result;
@@ -117,7 +115,8 @@ union submit_type {
 
 struct Command_Packet {
     // Standard variables for all command.s
-    float lifetime;
+    float accumulated;
+    float goal_value;
     enum event_action_type action_type;
     // Special flag and result store for float commands.
     bool got_result;

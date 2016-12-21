@@ -95,26 +95,8 @@ int main(void) {
 
     // Create standard shader_program.
     GLuint shader_program = create_shader_program("boing.vert", "boing.frag");
-
-    // Set up controllable shader variables.
-    GLuint controllable_vertex = 0;
-    GLuint controllable_fragment = 0;
-
-    // Create shaders from text source.
-    create_shader(&controllable_vertex, shader_src("controllable.vert"));
-    create_shader(&controllable_fragment, shader_src("controllable.frag"));
-
-    // Set up shader list.
-    GLuint controllable_shaders[] = {
-        controllable_vertex,
-        controllable_fragment,
-    };
-
-    // Create and link a new shader program.
-    GLuint controllable_shader_program = 0;
-    link_program(&controllable_shader_program,
-                 controllable_shaders,
-                 SIZE(controllable_shaders));
+    GLuint controllable_shader_program = create_shader_program("controllable.vert",
+                                                               "controllable.frag");
 
     // Set up filename.
     filename = data_src("test_rectangle_rainbow.txt");

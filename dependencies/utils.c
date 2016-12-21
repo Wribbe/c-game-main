@@ -104,11 +104,16 @@ size_t strip_comments(
 
 char * get_text_without_comments(const char * filename, Point_Data * info)
 {
+    const char * error_base = "[!] get_text_without_comments:";
+
     // Load point data.
     size_t data_size = 0;
     FILE * point_file = open_file(filename, &data_size);
 
-    const char * error_base = "[!] get_text_without_comments:";
+    if (point_file == NULL) {
+        fprintf(stderr, "%s no such file: %s\n", error_base, filename);
+        exit(1);
+    }
 
     // Allocate temporary buffer on the heap.
     char * temp_buffer = malloc(sizeof(char)*(data_size+1));

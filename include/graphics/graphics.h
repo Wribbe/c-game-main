@@ -37,6 +37,6 @@ void draw_component(struct component * component,
                     GLuint program,
                     GLuint texture);
 
-VAO * create_vao(Point_Data * point_data, GLuint draw_option, GLuint geometry);
+VAO * create_vao(const char * filename, GLuint draw_option, GLuint geometry);
 
 #endif

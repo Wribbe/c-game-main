@@ -166,10 +166,12 @@ void utils_load_data(Point_Data * info, float * buffer, char * temp_buffer)
     info->data = buffer;
 }
 
-Point_Data * load_data(const char * filename)
+Point_Data * load_data(const char * input_filename)
     /* External function for loading data from a text file to a float array.
      * Use old utils_load_data to load data into a heap buffer. */
 {
+    // Get string path by concatenation.
+    char * filename = data_src(input_filename);
     // Allocate point data on the heap.
     Point_Data * point_data = malloc(sizeof(Point_Data));
     // Strip the comments from the data file.
@@ -180,6 +182,8 @@ Point_Data * load_data(const char * filename)
     utils_load_data(point_data, vertex_buffer, temp_buffer);
     // Free temp buffer.
     free(temp_buffer);
+    // Free concatenated path.
+    free(filename);
     // Return pointer to point data.
     return point_data;
 }

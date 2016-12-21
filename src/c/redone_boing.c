@@ -3,6 +3,7 @@
 #include <math.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
@@ -15,14 +16,13 @@
 #include "components/components.h"
 #include "globals/globals.h"
 
-int main(void)
+GLFWwindow * play_init(void)
 {
-    GLFWwindow * window;
-    const char * filename;
 
     // Init GLFW.
     if (!glfwInit()) {
-        return EXIT_FAILURE;
+        fprintf(stderr, "Could not intialize GLFW, aborting.\n");
+        exit(1);
     }
 
     /* OpenGL window context hints. */
@@ -31,10 +31,10 @@ int main(void)
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    window = glfwCreateWindow(1000, 1000, "Recreated Boing", NULL, NULL);
+    GLFWwindow * window = glfwCreateWindow(1000, 1000, "Playground", NULL, NULL);
     if (!window) {
         fprintf(stderr, "[!] Could not create window, aborting.\n");
-        return EXIT_FAILURE;
+        exit(1);
     }
 
     glfwMakeContextCurrent(window);
@@ -46,12 +46,23 @@ int main(void)
     // Initialize values.
     global_init();
 
+    return window;
+}
+
+GLuint create_shader_program(
+                             const char * source_vertex,
+                             const char * source_fragment
+                            )
+{
     // Set up shaders.
     GLuint vertex_shader = 0;
     GLuint fragment_shader = 0;
 
-    create_shader(&vertex_shader, shader_src("boing.vert"));
-    create_shader(&fragment_shader, shader_src("boing.frag"));
+    const char * vert_path = texture_src(source_vertex);
+    const char * frag_path = texture_src(source_fragment);
+
+    create_shader(&vertex_shader, vert_path);
+    create_shader(&fragment_shader, frag_path);
 
     // Create and link program.
     GLuint shaders[] = {
@@ -63,38 +74,39 @@ int main(void)
     GLuint shader_program = 0;
     link_program(&shader_program, shaders, SIZE(shaders));
 
-    // Set up controllable shader variables.
-    GLuint controllable_vertex = 0;
-    GLuint controllable_fragment = 0;
+    // Delete shaders.
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
 
-    // Create shaders from text source.
-    create_shader(&controllable_vertex, shader_src("controllable.vert"));
-    create_shader(&controllable_fragment, shader_src("controllable.frag"));
+    // Free strings.
+    free(vert_path);
+    free(frag_path);
 
-    // Set up shader list.
-    GLuint controllable_shaders[] = {
-        controllable_vertex,
-        controllable_fragment,
-    };
+    // Return program GLuint.
+    return shader_program;
+}
 
-    // Create and link a new shader program.
-    GLuint controllable_shader_program = 0;
-    link_program(&controllable_shader_program,
-                 controllable_shaders,
-                 SIZE(controllable_shaders));
+int main(void) {
 
-    // Set up filename.
-    filename = data_src("test_rectangle_rainbow.txt");
-    // Load data to point data.
-    Point_Data * point_data = load_data(filename);
+    const char * filename;
+
+    // Initialize everything.
+    GLFWwindow * window = play_init();
+
+    // Create standard shader_program.
+    GLuint shader_program = create_shader_program("boing.vert", "boing.frag");
+    GLuint controllable_shader_program = create_shader_program("controllable.vert",
+                                                               "controllable.frag");
 
     // Create vao based on point_data.
-    VAO * vao = create_vao(point_data, GL_DYNAMIC_DRAW, GL_TRIANGLES);
+    VAO * vao = create_vao("test_rectangle_rainbow.txt",
+                           GL_DYNAMIC_DRAW,
+                           GL_TRIANGLES);
 
     // Create window vao.
-    filename = data_src("window_component_data.txt");
-    Point_Data * window_points = load_data(filename);
-    VAO * window_vao = create_vao(window_points, GL_STATIC_DRAW, GL_TRIANGLES);
+    VAO * window_vao = create_vao("window_component_data",
+                                  GL_STATIC_DRAW,
+                                  GL_TRIANGLES);
 
 
     // Get texture file source.
@@ -182,8 +194,6 @@ int main(void)
     }
 
     glfwTerminate();
-    free_point_data(point_data);
-    free_point_data(window_points);
     free_component(main_component);
     free_component(second_component);
     free_vao(vao);

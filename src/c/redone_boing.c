@@ -58,8 +58,8 @@ GLuint create_shader_program(
     GLuint vertex_shader = 0;
     GLuint fragment_shader = 0;
 
-    const char * vert_path = texture_src(source_vertex);
-    const char * frag_path = texture_src(source_fragment);
+    char * vert_path = shader_src(source_vertex);
+    char * frag_path = shader_src(source_fragment);
 
     create_shader(&vertex_shader, vert_path);
     create_shader(&fragment_shader, frag_path);
@@ -104,7 +104,7 @@ int main(void) {
                            GL_TRIANGLES);
 
     // Create window vao.
-    VAO * window_vao = create_vao("window_component_data",
+    VAO * window_vao = create_vao("window_component_data.txt",
                                   GL_STATIC_DRAW,
                                   GL_TRIANGLES);
 

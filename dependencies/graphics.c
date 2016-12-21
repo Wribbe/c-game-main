@@ -303,11 +303,14 @@ void write_data_to_uniform(
     }
 }
 
-VAO * create_vao(Point_Data * point_data, GLuint draw_option, GLuint geometry)
+VAO * create_vao(const char * filename, GLuint draw_option, GLuint geometry)
     /* Take Point_Data pointer GLuint options and return a pointer to allocated
      * and populated VAO object. Automatically creates vao that conforms to the
      * vertex | color | texture-coord data format. */
 {
+    // Read and store filename data as Point_Data.
+    Point_Data * point_data = load_data(data_src(filename));
+
     // Define VAO and VBO for vao and vbo.
     VAO * vao = malloc(sizeof(VAO));
     VBO * vbo = malloc(sizeof(VBO));
@@ -355,6 +358,9 @@ VAO * create_vao(Point_Data * point_data, GLuint draw_option, GLuint geometry)
     vao->start = 0;
     // Set count.
     vao->count = vao->vbo->point_data->rows;
+
+    // Free point data.
+    free_point_data(point_data);
 
     return vao;
 }

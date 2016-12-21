@@ -21,10 +21,13 @@
 FILE * open_file(const char * filename, size_t * filesize);
 size_t read_file(char * data_buffer, size_t filesize, FILE * file_handle);
 
-Point_Data * load_data(const char * filename);
 bool logic_main(float left_side, comparison_type comp, float right_side);
 
 char * data_src(const char * filename);
 char * shader_src(const char * filename);
 char * texture_src(const char * filename);
+
+GLFWwindow * window_init(int widht, int height, const char * name);
+GLuint create_shader_program(const char * source_vertex,
+                             const char * source_fragment);
 #endif

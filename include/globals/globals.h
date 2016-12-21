@@ -5,6 +5,9 @@
 
 #define NUM_KEYS 512
 
+extern struct timespec start_time;
+extern struct timespec end_time;
+
 enum coord {
     X,
     Y,
@@ -18,6 +21,7 @@ typedef enum global_index {
     glfw_time,
     TIMESTEP,
     JUMP_VELOCITY,
+    PRINT_FPS,
     // Keep this one as last element.
     num_globals,
 } global_index;

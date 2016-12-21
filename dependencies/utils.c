@@ -2,8 +2,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
+#include "glad/glad.h"
+#include "GLFW/glfw3.h"
 #include "utils/utils.h"
+#include "graphics/graphics.h"
+#include "events/events.h"
 
 FILE * open_file(const char * filename, size_t * filesize)
 {
@@ -104,11 +109,16 @@ size_t strip_comments(
 
 char * get_text_without_comments(const char * filename, Point_Data * info)
 {
+    const char * error_base = "[!] get_text_without_comments:";
+
     // Load point data.
     size_t data_size = 0;
     FILE * point_file = open_file(filename, &data_size);
 
-    const char * error_base = "[!] get_text_without_comments:";
+    if (point_file == NULL) {
+        fprintf(stderr, "%s no such file: %s\n", error_base, filename);
+        exit(1);
+    }
 
     // Allocate temporary buffer on the heap.
     char * temp_buffer = malloc(sizeof(char)*(data_size+1));
@@ -166,7 +176,7 @@ void utils_load_data(Point_Data * info, float * buffer, char * temp_buffer)
     info->data = buffer;
 }
 
-Point_Data * load_data(const char * filename)
+Point_Data * load_data(char * filename)
     /* External function for loading data from a text file to a float array.
      * Use old utils_load_data to load data into a heap buffer. */
 {
@@ -180,6 +190,8 @@ Point_Data * load_data(const char * filename)
     utils_load_data(point_data, vertex_buffer, temp_buffer);
     // Free temp buffer.
     free(temp_buffer);
+    // Free filename.
+    free(filename);
     // Return pointer to point data.
     return point_data;
 }
@@ -233,4 +245,103 @@ char * texture_src(const char * filename)
     /* Return texture source path. */
 {
     return generic_src(TEXTURE_SRC, filename);
+}
+
+GLuint create_texture(const char * input_filename)
+{
+    GLuint texture;
+    glGenTextures(1, &texture);
+    char * filename = texture_src(input_filename);
+    load_to_texture(&texture, filename);
+    free(filename);
+    return texture;
+}
+
+void frame_start(void)
+{
+    clock_gettime(CLOCK_REALTIME, &start_time);
+    global_variables[glfw_time] = (float)glfwGetTime();
+}
+
+void frame_stop(void)
+{
+    clock_gettime(CLOCK_REALTIME, &end_time);
+    double millis = 0;
+    millis += (end_time.tv_sec - start_time.tv_sec) * 1000;
+    millis += (end_time.tv_nsec - start_time.tv_nsec) / 1e6;
+    float time = (float)millis / (1000.0f / 60.0f);
+    set_timestep(time);
+    if (global_variables[PRINT_FPS]) {
+        printf("\rFrames per second: %f", 1000.0f / millis);
+    }
+}
+
+GLFWwindow * window_init(int widht, int height, const char * name)
+{
+
+    // Init GLFW.
+    if (!glfwInit()) {
+        fprintf(stderr, "Could not intialize GLFW, aborting.\n");
+        exit(1);
+    }
+
+    /* OpenGL window context hints. */
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    GLFWwindow * window = glfwCreateWindow(widht, height, name, NULL, NULL);
+    if (!window) {
+        fprintf(stderr, "[!] Could not create window, aborting.\n");
+        exit(1);
+    }
+
+    glfwMakeContextCurrent(window);
+    gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+
+    // Set key callback function for window.
+    glfwSetKeyCallback(window, callback_key);
+
+    // Initialize values.
+    global_init();
+
+    return window;
+}
+
+GLuint create_shader_program(
+                             const char * source_vertex,
+                             const char * source_fragment
+                            )
+{
+    // Set up shaders.
+    GLuint vertex_shader = 0;
+    GLuint fragment_shader = 0;
+
+    char * vert_path = shader_src(source_vertex);
+    char * frag_path = shader_src(source_fragment);
+
+    create_shader(&vertex_shader, vert_path);
+    create_shader(&fragment_shader, frag_path);
+
+    // Create and link program.
+    GLuint shaders[] = {
+        vertex_shader,
+        fragment_shader,
+    };
+
+    // Set up and link shader program.
+    GLuint shader_program = 0;
+    link_program(&shader_program, shaders, SIZE(shaders));
+
+    // Delete shaders.
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
+
+    // Free strings.
+    free(vert_path);
+    free(frag_path);
+
+    // Return program GLuint.
+    return shader_program;
 }

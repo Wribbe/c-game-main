@@ -10,6 +10,9 @@ float EPSILON = 1e-5;
 struct uniform_data controlled_uniforms[controlled_size];
 struct uniform_data standard_uniforms[standard_size];
 
+struct timespec start_time = {0};
+struct timespec end_time = {0};
+
 void set_flags(struct component * component, enum flag_type flag)
     /* Set flag for the whole list of component. */
 {
@@ -28,6 +31,7 @@ void setup_globals(void)
     global_variables[GRAVITY] = 0.03f;
     global_variables[SPEED] = 0.05f;
     global_variables[JUMP_VELOCITY] = 0.03f;
+    global_variables[PRINT_FPS] = 0.0f;
     global_variables[glfw_time] = 0.0f;
 
     // Set initial flag values.

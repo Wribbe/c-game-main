@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <math.h>
 #include <pthread.h>
-#include <unistd.h>
 #include <string.h>
 
 #include "glad/glad.h"
@@ -109,9 +108,6 @@ int main(void) {
                                   GL_TRIANGLES);
 
 
-    // Get texture file source.
-    filename = texture_src("Dietrich.jpg");
-
     // Set up main component.
     struct component * main_component = create_component("Dietrich_1",
                                                          vao,
@@ -147,9 +143,7 @@ int main(void) {
     set_collision_function(window_component, collision_keep_inside_border);
 
     // Generate texture and load image data.
-    GLuint texture;
-    glGenTextures(1, &texture);
-    load_to_texture(&texture, filename);
+    GLuint texture = create_texture("Dietrich.jpg");
 
     // Setup environment variables.
     setup_globals();
@@ -158,16 +152,10 @@ int main(void) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    struct timespec start_time = {0};
-    struct timespec end_time = {0};
-
-    printf("\n");
-
     glfwSwapInterval(0);
 
     while(!glfwWindowShouldClose(window)) {
-        clock_gettime(CLOCK_REALTIME, &start_time);
-        global_variables[glfw_time] = (float)glfwGetTime();
+        frame_start();
         poll_events(window);
         // Clear screen.
         glClear(GL_COLOR_BUFFER_BIT);
@@ -184,13 +172,7 @@ int main(void) {
                        controllable_shader_program,
                        texture);
         glfwSwapBuffers(window);
-        clock_gettime(CLOCK_REALTIME, &end_time);
-        double millis = 0;
-        millis += (end_time.tv_sec - start_time.tv_sec) * 1000;
-        millis += (end_time.tv_nsec - start_time.tv_nsec) / 1e6;
-        float time = (float)millis / (1000.0f / 60.0f);
-        set_timestep(time);
-        printf("\rFrames per second: %f", 1000.0f / millis);
+        frame_stop();
     }
 
     glfwTerminate();

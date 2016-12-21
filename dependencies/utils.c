@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "utils/utils.h"
+#include "graphics/graphics.h"
 
 FILE * open_file(const char * filename, size_t * filesize)
 {
@@ -240,4 +242,33 @@ char * texture_src(const char * filename)
     /* Return texture source path. */
 {
     return generic_src(TEXTURE_SRC, filename);
+}
+
+GLuint create_texture(const char * input_filename)
+{
+    GLuint texture;
+    glGenTextures(1, &texture);
+    char * filename = texture_src(input_filename);
+    load_to_texture(&texture, filename);
+    free(filename);
+    return texture;
+}
+
+void frame_start(void)
+{
+    clock_gettime(CLOCK_REALTIME, &start_time);
+    global_variables[glfw_time] = (float)glfwGetTime();
+}
+
+void frame_stop(void)
+{
+    clock_gettime(CLOCK_REALTIME, &end_time);
+    double millis = 0;
+    millis += (end_time.tv_sec - start_time.tv_sec) * 1000;
+    millis += (end_time.tv_nsec - start_time.tv_nsec) / 1e6;
+    float time = (float)millis / (1000.0f / 60.0f);
+    set_timestep(time);
+    if (global_variables[PRINT_FPS]) {
+        printf("\rFrames per second: %f", 1000.0f / millis);
+    }
 }

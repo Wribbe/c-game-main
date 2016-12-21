@@ -11,7 +11,8 @@
 
 int main(void) {
 
-    const char * filename;
+    const char * controllable_data = "test_rectangle_rainbow.txt";
+    const char * window_data = "window_component_data.txt";
 
     // Initialize everything.
     GLFWwindow * window = window_init(1000, 1000, "Refactoring Playground.");
@@ -22,30 +23,15 @@ int main(void) {
                                                                "controllable.frag");
 
     // Create vao based on point_data.
-    VAO * vao = create_vao("test_rectangle_rainbow.txt",
-                           GL_DYNAMIC_DRAW,
-                           GL_TRIANGLES);
+    VAO * vao = create_vao(controllable_data, GL_DYNAMIC_DRAW, GL_TRIANGLES);
 
     // Create window vao.
-    VAO * window_vao = create_vao("window_component_data.txt",
-                                  GL_STATIC_DRAW,
-                                  GL_TRIANGLES);
+    VAO * window_vao = create_vao(window_data, GL_STATIC_DRAW, GL_TRIANGLES);
 
-
-    // Set up main component.
-    struct component * main_component = create_component("Dietrich_1",
-                                                         vao,
-                                                         NULL);
-
-    // set up second component.
-    struct component * second_component = create_component("Dietrich_2",
-                                                           vao,
-                                                           NULL);
-
-    // set up third component.
-    struct component * third_component = create_component("Dietrich_3",
-                                                           vao,
-                                                           NULL);
+    // Set up components.
+    struct component * main_component = create_component("Dietrich_1", vao);
+    struct component * second_component = create_component("Dietrich_2", vao);
+    struct component * third_component = create_component("Dietrich_3", vao);
 
     // Scale the dimensions.
     scale_component(main_component, 0.4, 0.3, 0.3);
@@ -58,12 +44,8 @@ int main(void) {
     append_component(third_component, CONTROLLABLE);
 
     // Create window component.
-    struct component * window_component = create_component("window",
-                                                           window_vao,
-                                                           NULL);
-    // Append to correct list.
+    struct component * window_component = create_component("window", window_vao);
     append_component(window_component, SCENE_COMPONENTS);
-    // Add specific collision function to window.
     set_collision_function(window_component, collision_keep_inside_border);
 
     // Generate texture and load image data.

@@ -4,11 +4,7 @@
 #include "structs.h"
 #include "globals/globals.h"
 
-struct component * create_component(
-                                    const char * id,
-                                    VAO * vao,
-                                    struct component * next
-                                   );
+struct component * create_component(const char * id, VAO * vao);
 
 void free_component(struct component * component);
 

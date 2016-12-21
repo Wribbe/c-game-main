@@ -9,11 +9,7 @@
 void update_size(struct component * component);
 void set_collision_function(struct component * component, collision_function function);
 
-struct component * create_component(
-                                    const char * id,
-                                    VAO * vao,
-                                    struct component * next
-                                   )
+struct component * create_component(const char * id, VAO * vao)
     /* Create component on heap and set default values for internal struct
      * variables.
      */
@@ -40,10 +36,10 @@ struct component * create_component(
     return_component->vao = vao;
     return_component->command_list = NULL;
     return_component->last_command = NULL;
-    return_component->next = next;
     return_component->modifiers[0] = 0;
     return_component->modifiers[1] = 0;
     return_component->modifiers[2] = 0;
+    return_component->next = NULL;
     return_component->flags = 0;
     return_component->uniform_data = &standard_uniforms;
     return_component->uniform_size = standard_size;

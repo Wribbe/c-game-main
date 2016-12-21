@@ -84,6 +84,8 @@ int main(void) {
     glfwTerminate();
     free_component(main_component);
     free_component(second_component);
+    free_component(third_component);
+    free_component(window_component);
     free_vao(vao);
     free_vao(window_vao);
 }

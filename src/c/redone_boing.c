@@ -1,96 +1,20 @@
-#include <stdlib.h>
-#include <stdio.h>
 #include <math.h>
 #include <pthread.h>
-#include <string.h>
 
-#include "glad/glad.h"
-#include "GLFW/glfw3.h"
-#include "linmath.h"
-
+#include "utils/utils.h"
 #include "events/events.h"
 #include "graphics/graphics.h"
-#include "utils/utils.h"
 #include "SOIL/SOIL.h"
 #include "components/components.h"
 #include "globals/globals.h"
-
-GLFWwindow * play_init(int widht, int height, const char * name)
-{
-
-    // Init GLFW.
-    if (!glfwInit()) {
-        fprintf(stderr, "Could not intialize GLFW, aborting.\n");
-        exit(1);
-    }
-
-    /* OpenGL window context hints. */
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-    GLFWwindow * window = glfwCreateWindow(widht, height, name, NULL, NULL);
-    if (!window) {
-        fprintf(stderr, "[!] Could not create window, aborting.\n");
-        exit(1);
-    }
-
-    glfwMakeContextCurrent(window);
-    gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
-
-    // Set key callback function for window.
-    glfwSetKeyCallback(window, callback_key);
-
-    // Initialize values.
-    global_init();
-
-    return window;
-}
-
-GLuint create_shader_program(
-                             const char * source_vertex,
-                             const char * source_fragment
-                            )
-{
-    // Set up shaders.
-    GLuint vertex_shader = 0;
-    GLuint fragment_shader = 0;
-
-    char * vert_path = shader_src(source_vertex);
-    char * frag_path = shader_src(source_fragment);
-
-    create_shader(&vertex_shader, vert_path);
-    create_shader(&fragment_shader, frag_path);
-
-    // Create and link program.
-    GLuint shaders[] = {
-        vertex_shader,
-        fragment_shader,
-    };
-
-    // Set up and link shader program.
-    GLuint shader_program = 0;
-    link_program(&shader_program, shaders, SIZE(shaders));
-
-    // Delete shaders.
-    glDeleteShader(vertex_shader);
-    glDeleteShader(fragment_shader);
-
-    // Free strings.
-    free(vert_path);
-    free(frag_path);
-
-    // Return program GLuint.
-    return shader_program;
-}
+#include "linmath.h"
 
 int main(void) {
 
     const char * filename;
 
     // Initialize everything.
-    GLFWwindow * window = play_init(1000, 1000, "Refactoring Playground.");
+    GLFWwindow * window = window_init(1000, 1000, "Refactoring Playground.");
 
     // Create standard shader_program.
     GLuint shader_program = create_shader_program("boing.vert", "boing.frag");

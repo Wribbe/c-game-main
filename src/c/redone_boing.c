@@ -16,7 +16,7 @@
 #include "components/components.h"
 #include "globals/globals.h"
 
-GLFWwindow * play_init(void)
+GLFWwindow * play_init(int widht, int height, const char * name)
 {
 
     // Init GLFW.
@@ -31,7 +31,7 @@ GLFWwindow * play_init(void)
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow * window = glfwCreateWindow(1000, 1000, "Playground", NULL, NULL);
+    GLFWwindow * window = glfwCreateWindow(widht, height, name, NULL, NULL);
     if (!window) {
         fprintf(stderr, "[!] Could not create window, aborting.\n");
         exit(1);
@@ -91,7 +91,7 @@ int main(void) {
     const char * filename;
 
     // Initialize everything.
-    GLFWwindow * window = play_init();
+    GLFWwindow * window = play_init(1000, 1000, "Refactoring Playground.");
 
     // Create standard shader_program.
     GLuint shader_program = create_shader_program("boing.vert", "boing.frag");

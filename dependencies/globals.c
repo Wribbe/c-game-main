@@ -13,17 +13,17 @@ struct uniform_data standard_uniforms[standard_size];
 struct timespec start_time = {0};
 struct timespec end_time = {0};
 
-void set_flags(struct component * component, enum flag_type flag)
-    /* Set flag for the whole list of component. */
-{
-    // Set initial flag values for all entries.
-    struct component * component_pointer = component;
-    while (component_pointer != NULL) {
-        set_flag(component_pointer, flag);
-        // Advance pointer.
-        component_pointer = component_pointer->next;
-    }
-}
+//void set_flags(struct component * component, enum flag_type flag)
+//    /* Set flag for the whole list of component. */
+//{
+//    // Set initial flag values for all entries.
+//    struct component * component_pointer = component;
+//    while (component_pointer != NULL) {
+//        set_flag(component_pointer, flag);
+//        // Advance pointer.
+//        component_pointer = component_pointer->next;
+//    }
+//}
 
 void setup_globals(void)
 {
@@ -35,9 +35,9 @@ void setup_globals(void)
     global_variables[glfw_time] = 0.0f;
 
     // Set initial flag values.
-    set_flags(get_component(CONTROLLABLE), GRAVITY_ON);
-    set_flags(get_component(NON_CONTROLLABLE), GRAVITY_ON);
-    set_flags(get_component(CONTROLLABLE), AIRBORN);
+//    set_flags(get_component(CONTROLLABLE), GRAVITY_ON);
+//    set_flags(get_component(NON_CONTROLLABLE), GRAVITY_ON);
+//    set_flags(get_component(CONTROLLABLE), AIRBORN);
 
     // Set up uniform collections.
     controlled_uniforms[0] = (struct uniform_data){
@@ -58,7 +58,7 @@ void setup_globals(void)
                            };
 
     // Set up initial controllable.
-    set_as_controlled(get_component(CONTROLLABLE));
+//    set_as_controlled(get_component(CONTROLLABLE));
 
     // Set up timestep.
     global_variables[TIMESTEP] = 0.0f;

@@ -26,11 +26,6 @@ typedef enum global_index {
     num_globals,
 } global_index;
 
-enum event_action_type {
-    PASSTHROUGH,
-    BLOCKING,
-} event_action_type;
-
 enum uniform_type {
     /* Strip the gl part of the glUniform* functions used. */
     UniformMatrix4fv,
@@ -51,27 +46,6 @@ enum component_list_type {
     SCENE_COMPONENTS,
     NUM_COMPONENT_TYPES,
 };
-
-enum bound_order {
-    MIN,
-    MAX,
-    NUM_BOUND_ORDER,
-};
-
-typedef enum comparison_type {
-    GT,
-    GTEQ,
-    LT,
-    LTEQ,
-    EQ,
-} comparison_type;
-
-enum sign {
-    NEG,
-    POS,
-};
-
-extern float EPSILON;
 
 // Global variables.
 extern float global_variables[];

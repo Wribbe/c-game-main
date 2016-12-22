@@ -10,9 +10,9 @@
 #define SIZE(x) sizeof(x)/sizeof(x[0])
 #define UNUSED(x) (void)x
 
-#define data_src(x) "data/"x
-#define shader_src(x) "src/glsl/"x
-#define texture_src(x) "data/textures/"x
+#define DATA_SRC "data/"
+#define SHADER_SRC "src/glsl/"
+#define TEXTURE_SRC "data/textures/"
 
 #define VERTEX_ENDING ".vert"
 #define FRAGMENT_ENDING ".frag"
@@ -21,6 +21,13 @@
 FILE * open_file(const char * filename, size_t * filesize);
 size_t read_file(char * data_buffer, size_t filesize, FILE * file_handle);
 
-void load_data(Point_Data * info, float * buffer, const char *  filename);
 bool logic_main(float left_side, comparison_type comp, float right_side);
+
+char * data_src(const char * filename);
+char * shader_src(const char * filename);
+char * texture_src(const char * filename);
+
+GLFWwindow * window_init(int widht, int height, const char * name);
+GLuint create_shader_program(const char * source_vertex,
+                             const char * source_fragment);
 #endif

@@ -29,10 +29,14 @@ void write_data_to_uniform(struct uniform_data * uniform,
                            GLuint location,
                            void * data);
 
+void draw_components(struct component * component,
+                     GLuint program,
+                     GLuint texture);
+
 void draw_component(struct component * component,
                     GLuint program,
-                    GLuint texture,
-                    struct uniform_data * uniforms,
-                    size_t num_uniforms);
+                    GLuint texture);
+
+VAO * create_vao(const char * filename, GLuint draw_option, GLuint geometry);
 
 #endif

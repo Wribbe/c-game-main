@@ -3,6 +3,7 @@
 
 // Declare matrix type.
 typedef float m4[4][4];
+typedef float v3[3];
 
 extern m4 m4_identity;
 

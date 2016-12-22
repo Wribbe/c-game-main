@@ -5,12 +5,7 @@
 
 #include "maths/math_utils.h"
 #include "utils/utils.h"
-
-#define X 0
-#define Y 1
-#define Z 2
-
-#define NUM_KEYS 512
+#include "globals/globals.h"
 
 extern bool keymap[NUM_KEYS];
 extern bool release[NUM_KEYS];
@@ -24,6 +19,11 @@ void callback_key(
                  );
 
 void poll_events(GLFWwindow * window);
-void setup_globals();
-
+void collision_keep_outside_border(enum coord coord,
+                                   struct component * component,
+                                   struct component * other,
+                                   enum bound_order bound_order);
+void collision_keep_inside_border(enum coord coord,
+                                  struct component * component,
+                                  struct component * other);
 #endif

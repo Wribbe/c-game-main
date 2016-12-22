@@ -7,6 +7,7 @@
 
 #include "utils/utils.h"
 #include "globals/globals.h"
+#include "structs.h"
 
 void gen_buffers(
                  GLuint num_buffers,
@@ -94,7 +95,8 @@ void gen_vertex_arrays(
     GLfloat min_z = 0;
 
     GLfloat * point_data = vbo_binds[0]->point_data->data;
-    for(size_t i=0; i<vbo_binds[0]->point_data->elements; i += items_per_row) {
+    size_t i=0;
+    for(i=0; i<vbo_binds[0]->point_data->elements; i += items_per_row) {
 
         GLfloat x = point_data[i];
         GLfloat y = point_data[i+1];
@@ -135,7 +137,7 @@ void gen_vertex_arrays(
     // ( remember that the z-axis is inverted in OpenGL, negative z are closer
     //   to the "front". )
 
-    float * bounds = vao->bounds;
+    v3 * bounds = vao->bounds;
     float order[] = {
         // Front plane.
         min_x, max_y, min_z, // top front left.
@@ -149,11 +151,13 @@ void gen_vertex_arrays(
         min_x, min_y, max_z, // bottom back left.
     };
 
-    // Use pointer arithmetic to write to the bounds array.
+    // Use pointer arithmetic to write to the bounds vector array.
     for(size_t i=0; i<SIZE(order); i+=3) { // One row at the time.
-        *(bounds++) = order[i];
-        *(bounds++) = order[i+1];
-        *(bounds++) = order[i+2];
+        float * current_x = &order[i];
+        float * current_vector = bounds[i/3];
+        *current_vector = *current_x;
+        *(current_vector+1) = *(current_x+1);
+        *(current_vector+2) = *(current_x+2);
     }
 
     // Unbind the vertex array buffer.
@@ -164,7 +168,7 @@ void create_shader(GLuint * shader, const char * source_filename)
 {
     /* Create and return shader based on contents of file. */
 
-    const char * error_base = "[!] create_shader: ";
+    const char * error_base = "[!] grapics.c/create_shader: ";
 
     /* Determine the type based on the file extension. */
     GLuint type = 0;
@@ -299,14 +303,74 @@ void write_data_to_uniform(
     }
 }
 
+VAO * create_vao(const char * filename, GLuint draw_option, GLuint geometry)
+    /* Take Point_Data pointer GLuint options and return a pointer to allocated
+     * and populated VAO object. Automatically creates vao that conforms to the
+     * vertex | color | texture-coord data format. */
+{
+    // Read and store filename data as Point_Data.
+    Point_Data * point_data = load_data(data_src(filename));
+
+    // Define VAO and VBO for vao and vbo.
+    VAO * vao = malloc(sizeof(VAO));
+    VBO * vbo = malloc(sizeof(VBO));
+
+    // Generate buffers.
+    gen_buffers(1, vbo, point_data, draw_option);
+
+    // Set render type for vbo.
+    vbo->render_geometry = geometry;
+
+    // Set up attribute pointer information.
+    Attrib_Pointer_Info attribs[] = {
+        (Attrib_Pointer_Info){ // Vertex data.
+            .index = 0,
+            .size = 3,
+        },
+        (Attrib_Pointer_Info){ // Color data.
+            .index = 1,
+            .size = 3,
+        },
+        (Attrib_Pointer_Info){ // Texture coord data.
+            .index = 2,
+            .size = 2,
+        },
+    };
+
+    // Set up the vbos that should be bound to the vao.
+    VBO * vbo_binds[] = {
+        vbo,
+    };
+
+    // Generate vertex array buffer.
+    gen_vertex_arrays(
+                      1,
+                      vao,
+                      vbo_binds,
+                      SIZE(vbo_binds),
+                      attribs,
+                      SIZE(attribs)
+                     );
+
+    // Set vbo as vao.vbo.
+    vao->vbo = vbo;
+    // Set start.
+    vao->start = 0;
+    // Set count.
+    vao->count = vao->vbo->point_data->rows;
+
+    // Free point data.
+    free_point_data(point_data);
+
+    return vao;
+}
+
 /* #### Component related functionality. */
 
 void draw_component(
                     struct component * component,
                     GLuint program,
-                    GLuint texture,
-                    struct uniform_data * uniforms,
-                    size_t num_uniforms
+                    GLuint texture
                    )
     /* Function that binds component vao and draws stored geometry with
      * supplied texture and shader program. */
@@ -317,6 +381,10 @@ void draw_component(
 
     // Bind texture.
     glBindTexture(GL_TEXTURE_2D, texture);
+
+    // Get component internal uniform data.
+    size_t num_uniforms = component->uniform_size;
+    struct uniform_data * uniforms = component->uniform_data;
 
     struct uniform_data * current_uniform = NULL;
     // Iterate over and bind all uniforms.
@@ -334,5 +402,34 @@ void draw_component(
     VAO * vao = component->vao;
     glBindVertexArray(vao->vao);
     // Draw elements.
-    glDrawArrays(vao->vbo.render_geometry, vao->start, vao->count);
+    glDrawArrays(vao->vbo->render_geometry, vao->start, vao->count);
+}
+
+void draw_components(
+                    struct component * component,
+                    GLuint program,
+                    GLuint texture
+                   )
+    /* Draw the supplied component and continue through the linked component
+     * until the end is reached. If the ignore component is set, don't draw
+     * that component. */
+{
+    struct component * compp = component;
+    for (compp; compp != NULL; compp = compp->next) {
+        draw_component(compp, program, texture);
+    }
+}
+
+void free_vao(VAO * vao)
+    /* Free the resources allocated in a vao. */
+{
+    free(vao->vbo);
+    free(vao);
+}
+
+void free_point_data(Point_Data * point_data)
+    /* Free the data allocated by point data. */
+{
+    free(point_data->data);
+    free(point_data);
 }

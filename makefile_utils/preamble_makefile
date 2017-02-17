@@ -98,14 +98,14 @@ dirs_keep := $(dir_sources) $(dir_includes) $(dir_lib) $(dir_inputs)
 dirs_all := $(dirs_remove) $(dirs_keep)
 
 # Set vpaths (vpath is for source only):
-vpath %.cc $(dir_sources)
-vpath %.cc $(dir_lib)
+vpath %.$(source_extension) $(dir_sources)
+vpath %.$(source_extension) $(dir_lib)
 vpath %.txt $(dir_txt)
 vpath %.d $(dir_deps)
 
 # File_lists:
 CC_sources = $(foreach path,\
-			 	$(wildcard $(dir_sources)/*.cc),\
+				$(wildcard $(dir_sources)/*.$(source_extension)),\
 				$(patsubst $(dir_sources)/%,%,$(path))\
 			  )
 
@@ -117,7 +117,7 @@ helper_paths := $(foreach name,$(helpers),$(dir_helpers)/$(name))
 # Add helpers to path.
 export PATH := $(shell pwd)/$(dir_helpers):$(PATH)
 # Link global lib folder libs to local lib folder.
-linked_libs := $(foreach path,$(wildcard ../lib/*.cc),$(patsubst ../%,%,$(path)))
+linked_libs := $(foreach path,$(wildcard ../lib/*.$(source_extension)),$(patsubst ../%,%,$(path)))
 linked_headers := $(foreach path,$(wildcard ../includes/*.h),$(patsubst ../%,%,$(path)))
 
 # Phony targets.

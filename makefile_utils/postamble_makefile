@@ -1,9 +1,9 @@
 # General compilation recipes:
 
-$(dir_objects)/%.o : %.cc
+$(dir_objects)/%.o : %.$(source_extension)
 	$(o_from_cc)
 
-$(dir_objects_fpic)/%.o : %.cc
+$(dir_objects_fpic)/%.o : %.$(source_extension)
 	$(o_from_cc) -fPIC
 
 $(dir_exec)/% : $(dir_objects)/%.o
@@ -95,7 +95,7 @@ $(helper_paths):
 
 # *d-file inclusion.
 # ------------------
-D_FILES := $(foreach source,$(CC_sources),$(dir_deps)/$(source:.cc=.d))
+D_FILES := $(foreach source,$(CC_sources),$(dir_deps)/$(source:.$(source_extension)=.d))
 -include $(D_FILES)
 
 # Unset git global vars if they are set.

@@ -1,7 +1,8 @@
 # Makefile for C++ laboratory session 02.
 # ---------------------------------------
 
-dir_make_utils = ../makefile_utils
+source_extension := c
+dir_make_utils := ../makefile_utils
 include $(dir_make_utils)/preamble_makefile
 
 # Output control:
@@ -19,18 +20,25 @@ SUPPRESS_GIT_OUTPUT := $(True)
 
 # Compiler options:
 # -----------------
-CPPFLAGS += -g -std=c++11 -Wall -Wextra -pedantic-errors -Wold-style-cast
+CFLAGS += -g -std=c11 -Wall -Wextra -pedantic -Wwrite-strings
 INCLUDE_FLAGS = -I$(dir_includes)
-CPPFLAGS += $(INCLUDE_FLAGS)
+CFLAGS += $(INCLUDE_FLAGS)
 DEPFLAGS = -MT $@ -MMD -MP -MF $(dir_deps)/$*.d
 CXXFLAGS += $(DEPFLAGS)
-CXX = g++
+CXX = gcc
 LDFLAGS += -L./$(dir_static_lib)
 DYNAMIC_LDFLAGS += -L./$(dir_dynamic_lib)
 
+GENERAL_LIBRARIES := -lm -lpthread
+AUDIO_FLAGS := -lportaudio -lasound -ljack
+GRAPHICS_FLAGS := -lGLEW -lglfw3 -lGL -lX11 -lXrandr -lXi -lXxf86vm \
+				  -ldl -lXinerama -lXcursor -lrt
+
+CFLAGS +=  $(GENERAL_LIBRARIES) $(AUDIO_FLAGS) $(GRAPHICS_FLAGS)
+
 # Compilation commands:
-o_from_cc = $(CXX) -c $< $(CPPFLAGS) $(CXXFLAGS) -o $@
-exec_from_o = $(CXX) -o $@ $(call get_obj,$^) $(CPPFLAGS) $(call get_slibs,$^) \
+o_from_cc = $(CXX) -c $< $(CFLAGS) $(CXXFLAGS) -o $@
+exec_from_o = $(CXX) -o $@ $(call get_obj,$^) $(CFLAGS) $(call get_slibs,$^) \
 			  $(call get_dlibs,$^)
 a_from_os = ar crv $@ $^
 so_from_os = $(CXX) -shared -Wl,-soname,$(call soname,$(notdir $@)) -o $@ $^
@@ -42,14 +50,14 @@ include $(dir_make_utils)/suppression_makefile
 
 # Library dependencies.
 
-# Exercise creation and running.
+execs := $(call execs,\
+	windowing_basic\
+	)
 
-extxt = $(foreach exercise,${1},ex${exercise}.txt)
-exercises = $(call extxt, A1)
+$(execs) : $(call objs,glad.o)
 
-all: $(exercises) | setup
 
-$(call execs,nstest nstime): $(call objs,vns.o mns.o umns.o hns.o nameserverinterface.o)
+all: $(execs) | setup
 
 undescore := =======================
 
@@ -64,9 +72,6 @@ define generate_sh_runnner =
 						 >> $(2);)
 	chmod +x $(2)
 endef
-
-$(dir_txt)/exA1.txt: $(call execs,nstest nstime)
-	@$(call generate_sh_runnner,$^,$@)
 
 
 include $(dir_make_utils)/postamble_makefile

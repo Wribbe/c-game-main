@@ -37,8 +37,8 @@ typedef struct VAO {
 
 struct component {
     m4 transformation;
-    size_t uniform_size;
     VAO * vao;
+    size_t uniform_size;
     struct uniform_data * uniform_data;
     struct component * next;
 };

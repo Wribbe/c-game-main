@@ -1,6 +1,6 @@
 # Ignore executables and object folders.
-executables/
-objects/
+**/executables/
+**/objects/
 
 # Ignore vim swap files.
 *.sw*

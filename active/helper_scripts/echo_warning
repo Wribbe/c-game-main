@@ -1,0 +1,5 @@
+#!/bin/sh
+if [ "$OUT_WARNING" = "True" ] ; then
+   echo [!]: $1;
+fi
+

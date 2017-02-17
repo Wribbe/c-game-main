@@ -1,6 +1,9 @@
 # Ignore executables and object folders.
 **/executables/
 **/objects/
+**/bin
+**/output
+**/text
 
 # Ignore vim swap files.
 *.sw*

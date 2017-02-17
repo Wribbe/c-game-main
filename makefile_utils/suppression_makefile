@@ -1,0 +1,46 @@
+# Suppress compilation output if $(OUT_COMPILATION) == $(False).
+ifeq ($(OUT_COMPILATION), $(False))
+$(eval o_from_cc = @$(value o_from_cc))
+$(eval exec_from_o = @$(value exec_from_o))
+endif
+# Suppress library creation output if $(OUTPUT_LIB) == $(False).
+ifeq ($(OUTPUT_LIB), $(False))
+$(eval a_from_os = @$(value a_from_os) > /dev/null)
+$(eval exec_with_lib = @$(value exec_with_lib))
+endif
+# Suppress dynamic library output if $(OUTPUT_DYN_LIB) == $(False).
+ifeq ($(OUTPUT_DYN_LIB), $(False))
+$(eval so_from_os = @$(value so_from_os))
+endif
+
+# Functions that enable switching git-context.
+unstaged_changes = $(if $(strip $(shell git status -s)),$(True),$(False))
+ifeq ($(unstaged_changes), $(True))
+git_start = git stash $(supress_output) && git checkout $(1) $(supress_output) &&$(2)
+git_end = && git checkout $(supress_output) $(1) && git stash pop $(supress_output)
+else
+git_start = git checkout $(1) $(supress_output) &&$(2)
+git_end = && git checkout $(supress_output) $(1)
+endif
+
+#commands = o_from_cc exec_from_o a_from_os exec_with_lib so_from_os
+commands = o_from_cc a_from_os so_from_os
+# Enable git-instruction targets if $(GIT_TARGETS) == $(True).
+ifeq ($(GIT_TARGETS), $(True))
+ifdef GIT_CHANGE_FROM
+ifdef GIT_CHANGE_TO
+$(foreach command,$(commands),\
+	$(eval $(command) = $$(call git_start,$(GIT_CHANGE_TO)) $(value $(command)) \
+		$$(call git_end,$(GIT_CHANGE_FROM))) \
+)
+endif
+endif
+endif
+
+# Suppress output from commands on the command line.
+ifeq ($(SUPPRESS_GIT_OUTPUT), $(True))
+supress_output = 1>/dev/null 2>&1
+else
+supress_output =
+endif
+

@@ -31,19 +31,23 @@ void glfw_set_context(void)
 const GLchar * source_vert_basic = \
     "#version 330 core\n"
     "layout (location=0) in vec3 position;\n"
+    "layout (location=1) in vec3 color_input;\n"
+    "\n"
+    "out vec4 vertex_color;\n"
     "\n"
     "void main() {\n"
     "   gl_Position = vec4(position, 1.0f);\n"
+    "   vertex_color = vec4(color_input, 1.0f);\n"
     "}\n";
 
 
 const GLchar * source_frag_basic = \
     "#version 330 core\n"
-    "layout (location=1) in vec3 input_color;\n"
+    "in vec4 vertex_color;\n"
     "out vec4 color;\n"
     "\n"
     "void main() {\n"
-    "   color = vec4(input_color, 1.0f);\n"
+    "   color = vertex_color;\n"
     "}\n";
 
 
@@ -107,7 +111,7 @@ int main(void)
                           (GLvoid*)0);
     glEnableVertexAttribArray(0);
     /* Enable input_color vertex array. */
-    size_t color_offset = 3;
+    size_t color_offset = 3*sizeof(GLfloat);
     glVertexAttribPointer(1,
                           3,
                           GL_FLOAT,
@@ -173,7 +177,6 @@ int main(void)
     /* Delete shaders. */
     glDeleteShader(sh_vert_basic);
     glDeleteShader(sh_frag_basic);
-
 
     // ========================================
     // == Display loop

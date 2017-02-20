@@ -53,6 +53,7 @@ include $(dir_make_utils)/suppression_makefile
 execs := $(call execs,\
 	01_windowing_basic \
 	02_basic_shaders \
+	03_expanded_vertex_attributes \
 	)
 
 all: $(execs) | setup

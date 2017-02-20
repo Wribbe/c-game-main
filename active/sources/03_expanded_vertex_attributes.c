@@ -39,10 +39,11 @@ const GLchar * source_vert_basic = \
 
 const GLchar * source_frag_basic = \
     "#version 330 core\n"
+    "layout (location=1) in vec3 input_color;\n"
     "out vec4 color;\n"
     "\n"
     "void main() {\n"
-    "   color = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
+    "   color = vec4(input_color, 1.0f);\n"
     "}\n";
 
 
@@ -97,13 +98,23 @@ int main(void)
                  vertex_data_triangle,
                  draw_type);
     /* Set and enable vert attribute pointer 0 for position. */
+    size_t stride_attrib = 6*sizeof(GLfloat);
     glVertexAttribPointer(0,
                           3,
                           GL_FLOAT,
                           GL_FALSE,
-                          3*sizeof(GLfloat),
+                          stride_attrib,
                           (GLvoid*)0);
     glEnableVertexAttribArray(0);
+    /* Enable input_color vertex array. */
+    size_t color_offset = 3;
+    glVertexAttribPointer(1,
+                          3,
+                          GL_FLOAT,
+                          GL_FALSE,
+                          stride_attrib,
+                          (GLvoid*)color_offset);
+    glEnableVertexAttribArray(1);
     /* Unbind buffer objects. */
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);

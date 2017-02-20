@@ -51,11 +51,9 @@ include $(dir_make_utils)/suppression_makefile
 # Library dependencies.
 
 execs := $(call execs,\
-	windowing_basic\
+	01_windowing_basic \
+	02_basic_shaders \
 	)
-
-$(execs) : $(call objs,glad.o)
-
 
 all: $(execs) | setup
 
@@ -73,5 +71,6 @@ define generate_sh_runnner =
 	chmod +x $(2)
 endef
 
+$(execs) : $(call objs,glad.o)
 
 include $(dir_make_utils)/postamble_makefile

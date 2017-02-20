@@ -4,6 +4,7 @@
 **/bin
 **/output
 **/text
+**/deps
 
 # Ignore vim swap files.
 *.sw*

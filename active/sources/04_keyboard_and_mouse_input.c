@@ -4,6 +4,8 @@
 #include "glad.h"
 #include <GLFW/glfw3.h>
 
+#define UNUSED(x) (void)x;
+
 
 void prefixed_output(FILE * output,
                      const char * tag,
@@ -59,6 +61,19 @@ GLfloat vertex_data_triangle[] = \
     };
 
 
+void callback_simple_keyboard(GLFWwindow * window,
+                              int key,
+                              int scancode,
+                              int action,
+                              int mods)
+    /* Simple callback function for keyboard input. */
+{
+    UNUSED(scancode);
+    UNUSED(mods);
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+    }
+}
 
 int main(void)
 {
@@ -76,6 +91,9 @@ int main(void)
 
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+
+    /* Set window callback function. */
+    glfwSetKeyCallback(window, callback_simple_keyboard);
 
     // ========================================
     // == Buffers

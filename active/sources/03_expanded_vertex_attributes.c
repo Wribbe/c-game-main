@@ -48,9 +48,9 @@ const GLchar * source_frag_basic = \
 
 GLfloat vertex_data_triangle[] = \
     {
-        0.0f,  1.0f,  0.0f,
-       -1.0f, -1.0f,  0.0f,
-        1.0f, -1.0f,  0.0f,
+        0.0f,  1.0f,  0.0f, 1.0f, 0.0f, 0.0f,
+       -1.0f, -1.0f,  0.0f, 0.0f, 1.0f, 0.0f,
+        1.0f, -1.0f,  0.0f, 0.0f, 0.0f, 1.0f,
     };
 
 

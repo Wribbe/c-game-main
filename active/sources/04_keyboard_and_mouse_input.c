@@ -75,6 +75,31 @@ void callback_simple_keyboard(GLFWwindow * window,
     }
 }
 
+void callback_simple_mouse(GLFWwindow * window,
+                           int button,
+                           int action,
+                           int mods)
+    /* Simple callback function for mouse input. */
+{
+    UNUSED(mods);
+    UNUSED(window);
+    if (action == GLFW_PRESS) {
+        const char * button_pressed = "";
+        switch(button) {
+            case GLFW_MOUSE_BUTTON_LEFT:
+                button_pressed = "LEFT";
+                break;
+            case GLFW_MOUSE_BUTTON_RIGHT:
+                button_pressed = "RIGHT";
+                break;
+            default:
+                button_pressed = "UNKNOWN";
+                break;
+        }
+        printf("Mouse button <%s> pressed.\n", button_pressed);
+    }
+}
+
 int main(void)
 {
     if (!glfwInit()) {
@@ -94,6 +119,7 @@ int main(void)
 
     /* Set window callback function. */
     glfwSetKeyCallback(window, callback_simple_keyboard);
+    glfwSetMouseButtonCallback(window, callback_simple_mouse);
 
     // ========================================
     // == Buffers

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "glad.h"
 #include <GLFW/glfw3.h>
@@ -110,17 +111,41 @@ void callback_simple_mouse(GLFWwindow * window,
     printf("Mouse button <%s> %s.\n", button_pressed, button_action);
 }
 
-int main(void)
+int main(int argc, char ** argv)
 {
     if (!glfwInit()) {
         error_and_exit("Could not initialize GLFW, aborting.\n");
     }
 
+    UNUSED(argc);
+
     glfw_set_context();
+
+    /* Extract the window title from the input arguments. */
+    char * filename = argv[0];
+    size_t filename_length = strlen(filename);
+    size_t title_max_len = filename_length + 1;
+    char window_title[title_max_len];
+
+    size_t i=0;
+    char * end = filename+filename_length;
+    char * start = NULL;
+    for (i=filename_length; i>0; i--) {
+        char current = filename[i];
+        if (current == '/' && start == NULL) {
+            start = filename+i+1;
+        }
+    }
+    char * pointer = NULL;
+    char * window_pointer = window_title;
+    for (pointer = start; pointer != end; pointer++, window_pointer++) {
+        *window_pointer = *pointer;
+    }
+    *window_pointer = '\0';
 
     GLFWwindow * window = glfwCreateWindow(800,
                                            600,
-                                           "windowing_basic",
+                                           window_title,
                                            NULL,
                                            NULL);
 

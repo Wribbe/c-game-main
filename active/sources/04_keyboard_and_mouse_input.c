@@ -83,21 +83,31 @@ void callback_simple_mouse(GLFWwindow * window,
 {
     UNUSED(mods);
     UNUSED(window);
-    if (action == GLFW_PRESS) {
-        const char * button_pressed = "";
-        switch(button) {
-            case GLFW_MOUSE_BUTTON_LEFT:
-                button_pressed = "LEFT";
-                break;
-            case GLFW_MOUSE_BUTTON_RIGHT:
-                button_pressed = "RIGHT";
-                break;
-            default:
-                button_pressed = "UNKNOWN";
-                break;
-        }
-        printf("Mouse button <%s> pressed.\n", button_pressed);
+    const char * button_pressed = "";
+    const char * button_action = "";
+    switch (action) {
+        case GLFW_PRESS:
+            button_action = "pressed";
+            break;
+        case GLFW_RELEASE:
+            button_action = "released";
+            break;
+        default:
+            button_action = "UNKNOWN STATE.";
+            break;
     }
+    switch(button) {
+        case GLFW_MOUSE_BUTTON_LEFT:
+            button_pressed = "LEFT";
+            break;
+        case GLFW_MOUSE_BUTTON_RIGHT:
+            button_pressed = "RIGHT";
+            break;
+        default:
+            button_pressed = "UNKNOWN";
+            break;
+    }
+    printf("Mouse button <%s> %s.\n", button_pressed, button_action);
 }
 
 int main(void)

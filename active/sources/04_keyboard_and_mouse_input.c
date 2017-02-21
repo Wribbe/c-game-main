@@ -7,6 +7,13 @@
 
 #define UNUSED(x) (void)x;
 
+/* Global variables. */
+#define WIDTH 800
+#define HEIGHT 600
+
+/* Global storage. */
+double m_xpos = 0;
+double m_ypos = 0;
 
 void prefixed_output(FILE * output,
                      const char * tag,
@@ -61,7 +68,6 @@ GLfloat vertex_data_triangle[] = \
         1.0f, -1.0f,  0.0f, 0.0f, 0.0f, 1.0f,
     };
 
-
 void callback_simple_keyboard(GLFWwindow * window,
                               int key,
                               int scancode,
@@ -108,7 +114,16 @@ void callback_simple_mouse(GLFWwindow * window,
             button_pressed = "UNKNOWN";
             break;
     }
-    printf("Mouse button <%s> %s.\n", button_pressed, button_action);
+    const char * fmt_msg = "Mouse button <%s> %s @ (%.2f, %.2f).\n";
+    printf(fmt_msg, button_pressed, button_action, m_xpos, m_ypos);
+}
+
+void callback_simple_cursor_pos(GLFWwindow * window, double xpos, double ypos)
+    /* Simple callback function for mouse position. */
+{
+    UNUSED(window);
+    m_xpos = xpos/WIDTH;
+    m_ypos = ypos/HEIGHT;
 }
 
 int main(int argc, char ** argv)
@@ -143,8 +158,8 @@ int main(int argc, char ** argv)
     }
     *window_pointer = '\0';
 
-    GLFWwindow * window = glfwCreateWindow(800,
-                                           600,
+    GLFWwindow * window = glfwCreateWindow(WIDTH,
+                                           HEIGHT,
                                            window_title,
                                            NULL,
                                            NULL);
@@ -155,6 +170,7 @@ int main(int argc, char ** argv)
     /* Set window callback function. */
     glfwSetKeyCallback(window, callback_simple_keyboard);
     glfwSetMouseButtonCallback(window, callback_simple_mouse);
+    glfwSetCursorPosCallback(window, callback_simple_cursor_pos);
 
     // ========================================
     // == Buffers

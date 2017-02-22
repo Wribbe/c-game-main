@@ -68,6 +68,88 @@ GLfloat vertex_data_triangle[] = \
         1.0f, -1.0f,  0.0f, 0.0f, 0.0f, 1.0f,
     };
 
+const char * get_key_name(int key, int scancode)
+    /* Name and return additional keys. */
+{
+    const char * key_name = glfwGetKeyName(key, scancode);
+    if (key_name != NULL) {
+        return key_name;
+    }
+    switch(key) {
+        case(GLFW_KEY_SPACE): return "space"; break;
+        case(GLFW_KEY_ESCAPE): return "escape"; break;
+        case(GLFW_KEY_ENTER): return "enter"; break;
+        case(GLFW_KEY_TAB): return "tab"; break;
+        case(GLFW_KEY_BACKSPACE): return "backspace"; break;
+        case(GLFW_KEY_INSERT): return "insert"; break;
+        case(GLFW_KEY_DELETE): return "delete"; break;
+        case(GLFW_KEY_RIGHT): return "right"; break;
+        case(GLFW_KEY_LEFT): return "left"; break;
+        case(GLFW_KEY_DOWN): return "down"; break;
+        case(GLFW_KEY_UP): return "up"; break;
+        case(GLFW_KEY_PAGE_UP): return "page up"; break;
+        case(GLFW_KEY_PAGE_DOWN): return "page down"; break;
+        case(GLFW_KEY_HOME): return "home"; break;
+        case(GLFW_KEY_END): return "end"; break;
+        case(GLFW_KEY_CAPS_LOCK): return "caps lock"; break;
+        case(GLFW_KEY_SCROLL_LOCK): return "scroll lock"; break;
+        case(GLFW_KEY_NUM_LOCK): return "num lock"; break;
+        case(GLFW_KEY_PRINT_SCREEN): return "print screen"; break;
+        case(GLFW_KEY_PAUSE): return "pause"; break;
+        case(GLFW_KEY_F1): return "F1"; break;
+        case(GLFW_KEY_F2): return "F2"; break;
+        case(GLFW_KEY_F3): return "F3"; break;
+        case(GLFW_KEY_F4): return "F4"; break;
+        case(GLFW_KEY_F5): return "F5"; break;
+        case(GLFW_KEY_F6): return "F6"; break;
+        case(GLFW_KEY_F7): return "F7"; break;
+        case(GLFW_KEY_F8): return "F8"; break;
+        case(GLFW_KEY_F9): return "F9"; break;
+        case(GLFW_KEY_F10): return "F10"; break;
+        case(GLFW_KEY_F11): return "F11"; break;
+        case(GLFW_KEY_F12): return "F12"; break;
+        case(GLFW_KEY_F13): return "F13"; break;
+        case(GLFW_KEY_F14): return "F14"; break;
+        case(GLFW_KEY_F15): return "F15"; break;
+        case(GLFW_KEY_F16): return "F16"; break;
+        case(GLFW_KEY_F17): return "F17"; break;
+        case(GLFW_KEY_F18): return "F18"; break;
+        case(GLFW_KEY_F19): return "F19"; break;
+        case(GLFW_KEY_F20): return "F20"; break;
+        case(GLFW_KEY_F21): return "F21"; break;
+        case(GLFW_KEY_F22): return "F22"; break;
+        case(GLFW_KEY_F23): return "F23"; break;
+        case(GLFW_KEY_F24): return "F24"; break;
+        case(GLFW_KEY_F25): return "F25"; break;
+        case(GLFW_KEY_KP_0): return "Key-pad 0"; break;
+        case(GLFW_KEY_KP_1): return "Key-pad 1"; break;
+        case(GLFW_KEY_KP_2): return "Key-pad 2"; break;
+        case(GLFW_KEY_KP_3): return "Key-pad 3"; break;
+        case(GLFW_KEY_KP_4): return "Key-pad 4"; break;
+        case(GLFW_KEY_KP_5): return "Key-pad 5"; break;
+        case(GLFW_KEY_KP_6): return "Key-pad 6"; break;
+        case(GLFW_KEY_KP_7): return "Key-pad 7"; break;
+        case(GLFW_KEY_KP_8): return "Key-pad 8"; break;
+        case(GLFW_KEY_KP_9): return "Key-pad 9"; break;
+        case(GLFW_KEY_KP_DECIMAL): return "Key-pad decimal"; break;
+        case(GLFW_KEY_KP_DIVIDE): return "Key-pad divide"; break;
+        case(GLFW_KEY_KP_MULTIPLY): return "Key-pad multiply"; break;
+        case(GLFW_KEY_KP_SUBTRACT): return "Key-pad subtract"; break;
+        case(GLFW_KEY_KP_ADD): return "Key-pad add"; break;
+        case(GLFW_KEY_KP_ENTER): return "Key-pad enter"; break;
+        case(GLFW_KEY_KP_EQUAL): return "Key-pad equal"; break;
+        case(GLFW_KEY_LEFT_SHIFT): return "left shift"; break;
+        case(GLFW_KEY_LEFT_CONTROL): return "left control"; break;
+        case(GLFW_KEY_LEFT_ALT): return "left alt"; break;
+        case(GLFW_KEY_LEFT_SUPER): return "left super"; break;
+        case(GLFW_KEY_RIGHT_SHIFT): return "right shift"; break;
+        case(GLFW_KEY_RIGHT_CONTROL): return "right control"; break;
+        case(GLFW_KEY_RIGHT_ALT): return "right alt"; break;
+        case(GLFW_KEY_RIGHT_SUPER): return "right super"; break;
+    }
+    return key_name;
+}
+
 void callback_simple_keyboard(GLFWwindow * window,
                               int key,
                               int scancode,
@@ -75,10 +157,24 @@ void callback_simple_keyboard(GLFWwindow * window,
                               int mods)
     /* Simple callback function for keyboard input. */
 {
-    UNUSED(scancode);
     UNUSED(mods);
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-        glfwSetWindowShouldClose(window, GLFW_TRUE);
+    const char * key_name = get_key_name(key, scancode);
+    const char * string_action = NULL;
+    if (action == GLFW_PRESS) {
+        switch(key) {
+            case(GLFW_KEY_ESCAPE):
+                glfwSetWindowShouldClose(window, GLFW_TRUE);
+                break;
+            default:
+                string_action = "pressed";
+                break;
+        }
+    }
+    if (action == GLFW_RELEASE) {
+        string_action = "released";
+    }
+    if (string_action) {
+        printf("Key '%s' was %s.\n", key_name, string_action);
     }
 }
 

@@ -222,6 +222,15 @@ void callback_simple_cursor_pos(GLFWwindow * window, double xpos, double ypos)
     m_ypos = ypos/HEIGHT;
 }
 
+void callback_simple_scroll(GLFWwindow * window,
+                            double xoffset,
+                            double yoffset)
+    /* Simple callback function for the mouse-wheel. */
+{
+    UNUSED(window);
+    printf("Scroll, x: %f, y: %f\n", xoffset, yoffset);
+}
+
 int main(int argc, char ** argv)
 {
     if (!glfwInit()) {
@@ -267,6 +276,7 @@ int main(int argc, char ** argv)
     glfwSetKeyCallback(window, callback_simple_keyboard);
     glfwSetMouseButtonCallback(window, callback_simple_mouse);
     glfwSetCursorPosCallback(window, callback_simple_cursor_pos);
+    glfwSetScrollCallback(window, callback_simple_scroll);
 
     // ========================================
     // == Buffers

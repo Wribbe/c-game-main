@@ -249,7 +249,11 @@ bool release(int action)
 double held_down_for(int key)
     /* Return the time a key was held down for. */
 {
-    return keymap[0][key] - keymap[1][key];
+    double time = keymap[GLFW_RELEASE][key] - keymap[GLFW_PRESS][key];
+    if (time < 0) {
+        return 0;
+    }
+    return time;
 }
 
 void event_action(int key, int action)

@@ -8,6 +8,7 @@
 #include <GLFW/glfw3.h>
 
 #define UNUSED(x) (void)x;
+#define SIZE(x) sizeof(x)/sizeof(x[0]);
 
 /* Global variables. */
 #define WIDTH 800
@@ -16,15 +17,15 @@
 /* Global storage. */
 double m_xpos = 0;
 double m_ypos = 0;
-#define KEY_SIZE 512
+#define KEY_SIZE 256
 #define QUEUE_SIZE 1024
 enum key_layers {
     TIME_PRESS,
     TIME_RELEASE,
-    STATUS_HELD,
     NUM_LAYERS,
 };
 double keymap[NUM_LAYERS][KEY_SIZE];
+bool held_status[KEY_SIZE] = {false};
 int command_queue[QUEUE_SIZE];
 int * command_queue_end = command_queue;
 /* Global states. */
@@ -32,7 +33,15 @@ struct state {
     GLFWwindow * window;
 };
 struct state STATE;
-size_t held_keys = 0;
+/* Hash structure for command bindings. */
+#define COMMAND_HASH_SIZE 400
+struct mapping_node {
+    int key;
+    int modifier_sum;
+    void (*action_function)(void * data);
+    struct mapping_node * next;
+};
+struct mapping_node * command_bindings[COMMAND_HASH_SIZE] = {0};
 
 
 void prefixed_output(FILE * output,
@@ -170,7 +179,17 @@ const char * get_key_name(int key)
     return key_name;
 }
 
+struct held_node {
+    bool in_use;
+    int key;
+    struct held_node * next;
+};
+struct held_node * held_keys = NULL;
+#define NUM_HELD 80
+struct held_node held_arena[NUM_HELD];
+
 bool press(int action); // Forward declare for later function.
+bool release(int action); // Forward declare for later function.
 void callback_simple_keyboard(GLFWwindow * window,
                               int key,
                               int scancode,
@@ -185,8 +204,43 @@ void callback_simple_keyboard(GLFWwindow * window,
     if (command_queue_end - command_queue == QUEUE_SIZE) {
         error_and_exit("Command queue full!");
     }
-    keymap[STATUS_HELD][key] = press(action) ? true : false;
-    held_keys += press(action) ? 1 : -1;
+    bool * key_held = &held_status[key];
+    if(!(*key_held) && press(action)) {
+        *key_held = true;
+        struct held_node * current_node = NULL;
+        for (size_t i=0; i<NUM_HELD; i++) {
+            struct held_node * temp = &held_arena[i];
+            if (!(temp->in_use)) {
+                current_node = temp;
+                current_node->in_use = true;
+                break;
+            }
+        }
+        if (current_node != NULL) {
+            current_node->key = key;
+            if (held_keys == NULL) {
+                current_node->next = NULL;
+            } else {
+                current_node->next = held_keys;
+            }
+            held_keys = current_node;
+        }
+    } else if (*key_held && release(action)) {
+        *key_held = false;
+        struct held_node * pointer = held_keys;
+        struct held_node * prev = NULL;
+        for(; pointer != NULL; prev=pointer, pointer=pointer->next) {
+            if (pointer->key == key) {
+                if(prev == NULL) {
+                    held_keys = pointer->next;
+                } else {
+                    prev->next = pointer->next;
+                }
+                pointer->in_use = false;
+                break;
+            }
+        }
+    }
     keymap[action][key] = glfwGetTime();
     *command_queue_end++ = key;
     *command_queue_end++ = action;
@@ -257,7 +311,7 @@ bool release(int action)
 
 bool held(int key)
 {
-    return keymap[STATUS_HELD][key];
+    return held_status[key];
 }
 
 double held_down_for(int key)
@@ -270,6 +324,36 @@ double held_down_for(int key)
     return time;
 }
 
+int MOD_KEYS[] = {
+    GLFW_KEY_RIGHT_CONTROL,
+    GLFW_KEY_RIGHT_SHIFT,
+    GLFW_KEY_RIGHT_ALT,
+};
+size_t NUM_MOD_KEYS = sizeof(MOD_KEYS)/sizeof(MOD_KEYS[0]);
+size_t command_variations = 0;
+
+void space(void * data) {
+    UNUSED(data);
+    printf("SPAAAACE!\n");
+}
+
+void mod_space(void * data) {
+    UNUSED(data);
+    printf("MOD SPAAAACE!\n");
+}
+
+size_t hash(int number)
+    /* Hash function for numbers. */
+{
+    size_t hash = 0;
+    while (number) {
+        int lowest = number % 10;
+        hash = ((hash << 5) + hash) + lowest;
+        number = (number - lowest) / 10;
+    }
+    return hash%COMMAND_HASH_SIZE;
+}
+
 void event_action(int key, int action)
     /* React to events in event queue. */
 {
@@ -280,26 +364,47 @@ void event_action(int key, int action)
         const char * key_name = get_key_name(key);
         printf("Key %s was held for %f seconds.\n", key_name, held_down_for(key));
     }
-    if (held(GLFW_KEY_SPACE)) {
-        printf("SPAAAACE!\n");
+    struct mapping_node * mapping = command_bindings[hash(key)];
+    if (mapping == NULL) {
+        printf("No bound command for: %s.\n", get_key_name(key));
     }
 }
 
 void process_events(void)
     /* Process the event queue. */
 {
+    if (held_keys != NULL) {
+        struct held_node * pointer = held_keys;
+        for(; pointer != NULL; pointer = pointer->next) {
+            event_action(pointer->key, GLFW_PRESS);
+        }
+    }
     int * ptr_queue = command_queue;
     for (; ptr_queue != command_queue_end; ptr_queue += 2) {
         int key = *ptr_queue;
+        if(held_status[key]) {
+            continue;
+        }
         int action = *(ptr_queue+1);
         const char * str_action = action ? "pressed" : "released";
         printf("Key %s was %s.\n", get_key_name(key), str_action);
         event_action(key, action);
     }
-    if (ptr_queue == command_queue_end && held_keys > 0) {
-        event_action(GLFW_KEY_LAST, GLFW_REPEAT);
-    }
     command_queue_end = command_queue;
+}
+
+struct mapping_node local_mappings[] = {
+    {GLFW_KEY_SPACE, 0, space, NULL},
+};
+
+void setup(void)
+    /* Do necessary setup. */
+{
+    size_t size_mappings = SIZE(local_mappings);
+    for (size_t i=0; i<size_mappings; i++) {
+        struct mapping_node current_mapping = local_mappings[i];
+        command_bindings[hash(current_mapping.key)] = &current_mapping;
+    }
 }
 
 int main(int argc, char ** argv)
@@ -308,7 +413,12 @@ int main(int argc, char ** argv)
         error_and_exit("Could not initialize GLFW, aborting.\n");
     }
 
+    for (int i=0; i<1000; i++) {
+        printf("i: %d hash: %zu\n", i, hash(i)%COMMAND_HASH_SIZE);
+    }
+
     UNUSED(argc);
+    setup();
 
     glfw_set_context();
 
@@ -340,6 +450,9 @@ int main(int argc, char ** argv)
                                            NULL,
                                            NULL);
     STATE.window = window;
+    for (size_t i=1; i<=NUM_MOD_KEYS; i++) {
+        command_variations *= i;
+    }
 
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);

@@ -21,6 +21,11 @@ double m_ypos = 0;
 double keymap[2][KEY_SIZE];
 int command_queue[QUEUE_SIZE];
 int * command_queue_end = command_queue;
+/* Global states. */
+struct state {
+    GLFWwindow * window;
+};
+struct state STATE;
 
 
 void prefixed_output(FILE * output,
@@ -76,10 +81,10 @@ GLfloat vertex_data_triangle[] = \
         1.0f, -1.0f,  0.0f, 0.0f, 0.0f, 1.0f,
     };
 
-const char * get_key_name(int key, int scancode)
+const char * get_key_name(int key)
     /* Name and return additional keys. */
 {
-    const char * key_name = glfwGetKeyName(key, scancode);
+    const char * key_name = glfwGetKeyName(key, 0);
     if (key_name != NULL) {
         return key_name;
     }
@@ -165,6 +170,9 @@ void callback_simple_keyboard(GLFWwindow * window,
                               int mods)
     /* Simple callback function for keyboard input. */
 {
+    if (action == GLFW_REPEAT) {
+        return;
+    }
     UNUSED(mods);
     keymap[action][key] = glfwGetTime();
     if (command_queue_end - command_queue == QUEUE_SIZE) {
@@ -227,6 +235,49 @@ void callback_simple_scroll(GLFWwindow * window,
     printf("Scroll, x: %f, y: %f\n", xoffset, yoffset);
 }
 
+bool press(int action)
+{
+    return action == GLFW_PRESS;
+}
+
+bool release(int action)
+{
+    return action == GLFW_RELEASE;
+}
+
+
+double held_down_for(int key)
+    /* Return the time a key was held down for. */
+{
+    return keymap[0][key] - keymap[1][key];
+}
+
+void event_action(int key, int action)
+    /* React to events in event queue. */
+{
+    if (key == GLFW_KEY_ESCAPE && press(action)) {
+        glfwSetWindowShouldClose(STATE.window, GLFW_TRUE);
+    }
+    if (release(action)) {
+        const char * key_name = get_key_name(key);
+        printf("Key %s was held for %f seconds.\n", key_name, held_down_for(key));
+    }
+}
+
+void process_events(void)
+    /* Process the event queue. */
+{
+    int * ptr_queue = command_queue;
+    for (; ptr_queue != command_queue_end; ptr_queue += 2) {
+        int key = *ptr_queue;
+        int action = *(ptr_queue+1);
+        const char * str_action = action ? "pressed" : "released";
+        printf("Key %s was %s.\n", get_key_name(key), str_action);
+        event_action(key, action);
+    }
+    command_queue_end = command_queue;
+}
+
 int main(int argc, char ** argv)
 {
     if (!glfwInit()) {
@@ -264,6 +315,7 @@ int main(int argc, char ** argv)
                                            window_title,
                                            NULL,
                                            NULL);
+    STATE.window = window;
 
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
@@ -385,6 +437,7 @@ int main(int argc, char ** argv)
         glClear(GL_COLOR_BUFFER_BIT);
 
         glfwPollEvents();
+        process_events();
 
         glUseProgram(shp_basic_shaders);
         glBindVertexArray(VAO);

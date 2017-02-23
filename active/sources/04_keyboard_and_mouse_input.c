@@ -18,7 +18,13 @@ double m_xpos = 0;
 double m_ypos = 0;
 #define KEY_SIZE 512
 #define QUEUE_SIZE 1024
-double keymap[2][KEY_SIZE];
+enum key_layers {
+    TIME_PRESS,
+    TIME_RELEASE,
+    STATUS_HELD,
+    NUM_LAYERS,
+};
+double keymap[NUM_LAYERS][KEY_SIZE];
 int command_queue[QUEUE_SIZE];
 int * command_queue_end = command_queue;
 /* Global states. */
@@ -26,6 +32,7 @@ struct state {
     GLFWwindow * window;
 };
 struct state STATE;
+size_t held_keys = 0;
 
 
 void prefixed_output(FILE * output,
@@ -163,6 +170,7 @@ const char * get_key_name(int key)
     return key_name;
 }
 
+bool press(int action); // Forward declare for later function.
 void callback_simple_keyboard(GLFWwindow * window,
                               int key,
                               int scancode,
@@ -174,10 +182,12 @@ void callback_simple_keyboard(GLFWwindow * window,
         return;
     }
     UNUSED(mods);
-    keymap[action][key] = glfwGetTime();
     if (command_queue_end - command_queue == QUEUE_SIZE) {
         error_and_exit("Command queue full!");
     }
+    keymap[STATUS_HELD][key] = press(action) ? true : false;
+    held_keys += press(action) ? 1 : -1;
+    keymap[action][key] = glfwGetTime();
     *command_queue_end++ = key;
     *command_queue_end++ = action;
 }
@@ -245,6 +255,10 @@ bool release(int action)
     return action == GLFW_RELEASE;
 }
 
+bool held(int key)
+{
+    return keymap[STATUS_HELD][key];
+}
 
 double held_down_for(int key)
     /* Return the time a key was held down for. */
@@ -266,6 +280,9 @@ void event_action(int key, int action)
         const char * key_name = get_key_name(key);
         printf("Key %s was held for %f seconds.\n", key_name, held_down_for(key));
     }
+    if (held(GLFW_KEY_SPACE)) {
+        printf("SPAAAACE!\n");
+    }
 }
 
 void process_events(void)
@@ -278,6 +295,9 @@ void process_events(void)
         const char * str_action = action ? "pressed" : "released";
         printf("Key %s was %s.\n", get_key_name(key), str_action);
         event_action(key, action);
+    }
+    if (ptr_queue == command_queue_end && held_keys > 0) {
+        event_action(GLFW_KEY_LAST, GLFW_REPEAT);
     }
     command_queue_end = command_queue;
 }

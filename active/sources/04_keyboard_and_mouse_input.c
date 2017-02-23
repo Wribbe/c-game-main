@@ -1,5 +1,7 @@
+#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 
 #include "glad.h"
@@ -14,6 +16,12 @@
 /* Global storage. */
 double m_xpos = 0;
 double m_ypos = 0;
+#define KEY_SIZE 512
+#define QUEUE_SIZE 1024
+double keymap[2][KEY_SIZE];
+int command_queue[QUEUE_SIZE];
+int * command_queue_end = command_queue;
+
 
 void prefixed_output(FILE * output,
                      const char * tag,
@@ -158,24 +166,12 @@ void callback_simple_keyboard(GLFWwindow * window,
     /* Simple callback function for keyboard input. */
 {
     UNUSED(mods);
-    const char * key_name = get_key_name(key, scancode);
-    const char * string_action = NULL;
-    if (action == GLFW_PRESS) {
-        switch(key) {
-            case(GLFW_KEY_ESCAPE):
-                glfwSetWindowShouldClose(window, GLFW_TRUE);
-                break;
-            default:
-                string_action = "pressed";
-                break;
-        }
+    keymap[action][key] = glfwGetTime();
+    if (command_queue_end - command_queue == QUEUE_SIZE) {
+        error_and_exit("Command queue full!");
     }
-    if (action == GLFW_RELEASE) {
-        string_action = "released";
-    }
-    if (string_action) {
-        printf("Key '%s' was %s.\n", key_name, string_action);
-    }
+    *command_queue_end++ = key;
+    *command_queue_end++ = action;
 }
 
 void callback_simple_mouse(GLFWwindow * window,

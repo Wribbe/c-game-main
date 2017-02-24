@@ -1,6 +1,6 @@
 # Ignore executables and object folders.
-**/executables/
-**/objects/
+**/executables
+**/objects
 **/bin
 **/output
 **/text
@@ -11,3 +11,6 @@
 
 # Ignore vgcore files.
 vgcore.*
+
+# Ignore *.d files.
+*.d

@@ -43,7 +43,11 @@ remove: # Thorough clean of all non-permanent files.
 	$(call remove_dirs,$(dirs_remove))
 
 # Create helpers, dirs and symlinks.
-setup: $(helper_paths) $(dirs_all) $(symlinks)
+setup: $(helper_paths) $(dirs_all) $(dir_portaudio_source) $(symlinks)
+
+# Clone portaudio.
+$(dir_lib)/PortAudio:
+	git clone git://git.assembla.com/portaudio.git $@
 
 $(dirs_all): # Create all directories.
 	$(call create_dirs,$(dirs_all))

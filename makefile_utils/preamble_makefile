@@ -120,6 +120,7 @@ export PATH := $(shell pwd)/$(dir_helpers):$(PATH)
 # Link global lib folder libs to local lib folder.
 linked_libs := $(foreach path,$(wildcard ../lib/*.$(source_extension)),$(patsubst ../%,%,$(path)))
 linked_headers := $(foreach path,$(wildcard ../includes/*.h),$(patsubst ../%,%,$(path)))
+lib_portAudio := $(dir_static_lib)/libportaudio_static.a
 
 # Phony targets.
 # --------------

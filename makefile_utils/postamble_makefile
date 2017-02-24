@@ -42,12 +42,13 @@ clean: # Remove most dirs, keep some.
 remove: # Thorough clean of all non-permanent files.
 	$(call remove_dirs,$(dirs_remove))
 
-# Create helpers, dirs and symlinks.
-setup: $(helper_paths) $(dirs_all) $(dir_portaudio_source) $(symlinks)
-
 # Clone portaudio.
 $(dir_lib)/PortAudio:
 	git clone git://git.assembla.com/portaudio.git $@
+
+$(dir_portaudio_source)/libportaudio_static.a :
+	@rm -f $(dir_static_lib)/libportaudio_static.a
+	@cd $(dir_portaudio_source) && cmake . && make
 
 $(dirs_all): # Create all directories.
 	$(call create_dirs,$(dirs_all))
@@ -68,8 +69,14 @@ $(linked_headers):
 		$(shell ln -s $(abspath ../$(file)) $(abspath $(file))) \
 	)
 
-$(symlinks): $(linked_libs) $(linked_headers)
+# Link external libraries to static library folder.
+$(lib_portAudio) : $(dir_portaudio_source)/libportaudio_static.a
+	$(shell ln -s $(abspath $^) $(abspath $@))
 
+symlinks := $(linked_libs) $(linked_headers) $(lib_portAudio)
+
+# Create helpers, dirs and symlinks.
+setup: $(helper_paths) $(dirs_all) $(dir_portaudio_source) $(symlinks)
 
 # Creating and writing helper scripts.
 

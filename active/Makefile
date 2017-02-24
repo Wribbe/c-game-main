@@ -1,5 +1,5 @@
-# Makefile for C++ laboratory session 02.
-# ---------------------------------------
+# Makefile for C game project.
+# ----------------------------
 
 source_extension := c
 dir_make_utils := ../makefile_utils
@@ -21,7 +21,7 @@ SUPPRESS_GIT_OUTPUT := $(True)
 # Compiler options:
 # -----------------
 CFLAGS += -g -std=c11 -Wall -Wextra -pedantic -Wwrite-strings
-INCLUDE_FLAGS = -I$(dir_includes)
+INCLUDE_FLAGS = -I$(dir_includes) -I$(dir_portaudio_source)/include
 CFLAGS += $(INCLUDE_FLAGS)
 DEPFLAGS = -MT $@ -MMD -MP -MF $(dir_deps)/$*.d
 CXXFLAGS += $(DEPFLAGS)

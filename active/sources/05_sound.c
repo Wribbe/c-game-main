@@ -6,6 +6,7 @@
 
 #include "glad.h"
 #include <GLFW/glfw3.h>
+#include "portaudio.h"
 
 #define UNUSED(x) (void)x;
 #define SIZE(x) sizeof(x)/sizeof(x[0]);
@@ -471,6 +472,25 @@ void setup(void)
             }
         }
     }
+}
+
+#define TABLE_SIZE 200
+struct paTestData {
+    float sine[TABLE_SIZE];
+    int left_pahse;
+    int right_pahse;
+    char message[20];
+};
+
+void play_sine(void)
+    /* Use PortAudio to play a constructed sine wave. */
+{
+    /* Set up variables. */
+    PaStreamParameters outputParameters = {0};
+    PaStream * stream = NULL;
+    PaError err = 0;
+    struct paTestData data = {0};
+    int i = 0;
 }
 
 int main(int argc, char ** argv)

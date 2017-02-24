@@ -5,11 +5,11 @@ source_extension := c
 dir_make_utils := ../makefile_utils
 include $(dir_make_utils)/preamble_makefile
 
-# Output control:
-export OUT_INFO := $(True)
-export OUT_WARNING := $(True)
-OUT_COMPILATION:=$(True)
-#OUT_COMPILATION := $(False)
+# Suppression control:
+OUT_INFO := $(True)
+OUT_WARNING := $(True)
+#OUT_COMPILATION:=$(True)
+OUT_COMPILATION := $(True)
 OUTPUT_DYN_LIB := $(False)
 OUTPUT_LIB := $(False)
 

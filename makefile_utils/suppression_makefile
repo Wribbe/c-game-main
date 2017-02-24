@@ -13,6 +13,20 @@ ifeq ($(OUTPUT_DYN_LIB), $(False))
 $(eval so_from_os = @$(value so_from_os))
 endif
 
+# Suppress WARNING output if $(OUT_WARNING) == $(False).
+ifeq ($(OUT_WARNING), $(False))
+$(eval o_from_cc = $(value o_from_cc) > /dev/null 2>&1)
+$(eval exec_from_o = $(value exec_from_o) > /dev/null 2>&1)
+endif
+# Suppress INFO output if $(OUT_INFO) == $(False).
+ifeq ($(OUT_INFO), $(False))
+ifneq ($(OUT_WARNING), $(False))
+$(eval o_from_cc = $(value o_from_cc) >/dev/null)
+$(eval exec_from_o = $(value exec_from_o) >/dev/null)
+endif
+endif
+
+
 # Functions that enable switching git-context.
 unstaged_changes = $(if $(strip $(shell git status -s)),$(True),$(False))
 ifeq ($(unstaged_changes), $(True))

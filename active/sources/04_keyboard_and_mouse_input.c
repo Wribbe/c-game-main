@@ -33,8 +33,6 @@ struct state {
     GLFWwindow * window;
 };
 struct state STATE;
-/* Hash structure for command bindings. */
-#define COMMAND_HASH_SIZE 400
 struct mapping_node {
     int key;
     int modifier_sum;
@@ -357,18 +355,6 @@ void mod3_space(void * data) {
     printf("MOD 3 SPAAAAAAAAAAAAAAAAAAAACE!\n");
 }
 
-size_t hash(int number)
-    /* Hash function for numbers. */
-{
-    size_t hash = 0;
-    while (number) {
-        int lowest = number % 10;
-        hash = ((hash << 5) + hash) + lowest;
-        number = (number - lowest) / 10;
-    }
-    return hash%COMMAND_HASH_SIZE;
-}
-
 int get_mod_sum(void) {
     int sum = 0;
     for (size_t i=0; i<NUM_MOD_KEYS; i++) {
@@ -391,7 +377,6 @@ void event_action(int key, int action)
         const char * key_name = get_key_name(key);
         printf("Key %s was held for %f seconds.\n", key_name, held_down_for(key));
     }
-    //struct mapping_node * mapping = command_bindings[hash(key)];
     struct mapping_node * mapping = command_bindings[key];
     if (mapping == NULL) {
         printf("No bound command for: %s.\n", get_key_name(key));
@@ -488,10 +473,6 @@ int main(int argc, char ** argv)
 {
     if (!glfwInit()) {
         error_and_exit("Could not initialize GLFW, aborting.\n");
-    }
-
-    for (int i=0; i<1000; i++) {
-        printf("i: %d hash: %zu\n", i, hash(i)%COMMAND_HASH_SIZE);
     }
 
     UNUSED(argc);

@@ -32,11 +32,12 @@ int * command_queue_end = command_queue;
 struct state {
     GLFWwindow * window;
 };
-struct state STATE;
+struct state STATE = {0};
 struct mapping_node {
     int key;
     int modifier_sum;
-    void (*action_function)(void * data);
+    void (*action_function)(int key, int action, void * data);
+    void * data;
     struct mapping_node * next;
 };
 struct mapping_node * command_bindings[KEY_SIZE] = {0};
@@ -335,24 +336,46 @@ int MOD_KEYS[] = {
 };
 size_t NUM_MOD_KEYS = sizeof(MOD_KEYS)/sizeof(MOD_KEYS[0]);
 
-void space(void * data) {
+void space(int key, int action, void * data)
+{
     UNUSED(data);
+    UNUSED(key);
+    UNUSED(action);
     printf("SPAAAACE!\n");
 }
 
-void mod_space(void * data) {
+void mod_space(int key, int action, void * data)
+{
     UNUSED(data);
+    UNUSED(key);
+    UNUSED(action);
     printf("MOD SPAAAACE!\n");
 }
 
-void mod2_space(void * data) {
+void mod2_space(int key, int action, void * data)
+{
     UNUSED(data);
+    UNUSED(key);
+    UNUSED(action);
     printf("MOD 2 SPAAAAAAAAAAAAAAAAAAAACE!\n");
 }
 
-void mod3_space(void * data) {
+void mod3_space(int key, int action, void * data)
+{
     UNUSED(data);
-    printf("MOD 3 SPAAAAAAAAAAAAAAAAAAAACE!\n");
+    if (release(action)) {
+        printf("MOD 3 SPAAAAAAAAAAAAAAAAAAAACE!\n");
+        printf("Was held or %f seconds.\n", held_down_for(key));
+    }
+}
+
+void close_window(int key, int action, void * data)
+    /* Get reference to window address, close on release. */
+{
+    if (release(action)) {
+        GLFWwindow ** window = (GLFWwindow **)data;
+        glfwSetWindowShouldClose(*window, GLFW_TRUE);
+    }
 }
 
 int get_mod_sum(void) {
@@ -369,27 +392,15 @@ int get_mod_sum(void) {
 void event_action(int key, int action)
     /* React to events in event queue. */
 {
-    if (key == GLFW_KEY_ESCAPE && press(action)) {
-        glfwSetWindowShouldClose(STATE.window, GLFW_TRUE);
-        return;
-    }
-    if (release(action)) {
-        const char * key_name = get_key_name(key);
-        printf("Key %s was held for %f seconds.\n", key_name, held_down_for(key));
-    }
     struct mapping_node * mapping = command_bindings[key];
-    if (mapping == NULL) {
-        printf("No bound command for: %s.\n", get_key_name(key));
-    } else {
+    if (mapping != NULL) {
         struct mapping_node * pointer = mapping;
         int mod_sum = get_mod_sum();
-        int loops = 0;
         for(;pointer!=NULL;pointer = pointer->next) {
             if (pointer->modifier_sum == mod_sum) {
-                pointer->action_function(NULL);
+                pointer->action_function(key, action, pointer->data);
                 break;
             }
-            loops++;
         }
     }
 }
@@ -422,10 +433,11 @@ void setup(void)
     /* Do necessary setup. */
 {
     struct mapping_node local_mappings[] = {
-        {GLFW_KEY_SPACE, 0, space, NULL},
-        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1]+MOD_KEYS[2], mod3_space, NULL},
-        {GLFW_KEY_SPACE, MOD_KEYS[0], mod_space, NULL},
-        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], mod2_space, NULL},
+        {GLFW_KEY_SPACE, 0, space, NULL, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1]+MOD_KEYS[2], mod3_space, NULL, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0], mod_space, NULL, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], mod2_space, NULL, NULL},
+        {GLFW_KEY_ESCAPE, 0, close_window, (void *)&STATE.window, NULL},
     };
     num_mappings = SIZE(local_mappings);
     mappings = malloc(num_mappings * sizeof(struct mapping_node));

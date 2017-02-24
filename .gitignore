@@ -5,6 +5,7 @@
 **/output
 **/text
 **/deps
+**/lib/PortAudio
 
 # Ignore vim swap files.
 *.sw*

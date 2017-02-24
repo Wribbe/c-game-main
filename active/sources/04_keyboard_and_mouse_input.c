@@ -385,13 +385,11 @@ void event_action(int key, int action)
         int mod_sum = get_mod_sum();
         int loops = 0;
         for(;pointer!=NULL;pointer = pointer->next) {
-            printf("Pointer modifier sum: %d\n", pointer->modifier_sum);
             if (pointer->modifier_sum == mod_sum) {
                 pointer->action_function(NULL);
                 break;
             }
             loops++;
-            printf("No modification_sum match found for %d after %d loops.\n", mod_sum, loops);
         }
     }
 }
@@ -412,8 +410,6 @@ void process_events(void)
             continue;
         }
         int action = *(ptr_queue+1);
-        const char * str_action = action ? "pressed" : "released";
-        printf("Key %s was %s.\n", get_key_name(key), str_action);
         event_action(key, action);
     }
     command_queue_end = command_queue;
@@ -432,34 +428,27 @@ void setup(void)
         {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], mod2_space, NULL},
     };
     num_mappings = SIZE(local_mappings);
-    printf("Num mappings: %zu\n", num_mappings);
     mappings = malloc(num_mappings * sizeof(struct mapping_node));
     for (size_t i=0; i<num_mappings; i++) {
         mappings[i] = local_mappings[i];
         struct mapping_node * current = &mappings[i];
         struct mapping_node ** bound = &command_bindings[current->key];
         if (*bound == NULL) { // Empty list.
-            printf("There was nothing bound.\n");
             *bound = current;
         } else { // Sort so that the largest mod-sum comes first.
-            printf("There was something bound.\n");
             struct mapping_node * pointer = *bound;
             struct mapping_node * prev = NULL;
             for(;;prev=pointer,pointer=pointer->next) {
                 if (current->modifier_sum > pointer->modifier_sum) {
-                    printf("My sum was larger.\n");
                     if(prev == NULL) { // First in list.
-                        printf("First in list.\n");
                         current->next = pointer;
                         *bound = current;
                     } else { // Not first in list.
-                        printf("Not first in list.\n");
                         current->next = pointer;
                         prev->next = current;
                     }
                     break; // No more to be done.
                 } else if (pointer->next == NULL) {  // No more elements.
-                    printf("Last?\n");
                     pointer->next = current;
                     pointer->next->next = NULL;
                     break;

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <math.h>
 
 #include "glad.h"
 #include <GLFW/glfw3.h>
@@ -14,6 +15,12 @@
 /* Global variables. */
 #define WIDTH 800
 #define HEIGHT 600
+#define NUM_SECONDS   (5)
+#define SAMPLE_RATE   (44100)
+#define FRAMES_PER_BUFFER  (64)
+#ifndef M_PI
+#define M_PI           3.14159265358979323846
+#endif
 
 /* Global storage. */
 double m_xpos = 0;
@@ -433,6 +440,7 @@ void process_events(void)
 struct mapping_node * mappings;
 size_t num_mappings = 0;
 
+void play_sine(int key, int action, void * user_data);
 void setup(void)
     /* Do necessary setup. */
 {
@@ -442,6 +450,7 @@ void setup(void)
         {GLFW_KEY_SPACE, MOD_KEYS[0], mod_space, NULL, NULL},
         {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], mod2_space, NULL, NULL},
         {GLFW_KEY_ESCAPE, 0, close_window, (void *)&STATE.window, NULL},
+        {GLFW_KEY_R, 0, play_sine, NULL, NULL},
     };
     num_mappings = SIZE(local_mappings);
     mappings = malloc(num_mappings * sizeof(struct mapping_node));
@@ -477,20 +486,100 @@ void setup(void)
 #define TABLE_SIZE 200
 struct paTestData {
     float sine[TABLE_SIZE];
-    int left_pahse;
-    int right_pahse;
+    int left_phase;
+    int right_phase;
     char message[20];
 };
 
-void play_sine(void)
+static int patestCallback(const void * inputBuffer,
+                          void * outputBuffer,
+                          unsigned long framesPerBuffer,
+                          const PaStreamCallbackTimeInfo * timeinfo,
+                          PaStreamCallbackFlags statusFlags,
+                          void * userData)
+{
+    struct paTestData * data = (struct paTestData *)userData;
+    float * out = (float *)outputBuffer;
+
+    UNUSED(timeinfo);
+    UNUSED(statusFlags);
+    UNUSED(inputBuffer);
+
+    for (size_t i=0; i<framesPerBuffer; i++) {
+        *out++ = data->sine[data->left_phase];
+        *out++ = data->sine[data->right_phase];
+        data->left_phase += 1;
+        if (data->left_phase >=TABLE_SIZE) {
+            data->left_phase -= TABLE_SIZE;
+        }
+        data->right_phase += 3;
+        if (data->right_phase >=TABLE_SIZE) {
+            data->right_phase -= TABLE_SIZE;
+        }
+    }
+    return paContinue;
+}
+
+void play_sine(int key, int action, void * user_data)
     /* Use PortAudio to play a constructed sine wave. */
 {
+    if (release(action)) {
+        return;
+    }
+    printf("Inside play_sine.\n");
     /* Set up variables. */
     PaStreamParameters outputParameters = {0};
     PaStream * stream = NULL;
     PaError err = 0;
     struct paTestData data = {0};
-    int i = 0;
+
+    /* Create sine-data. */
+    for (int i=0; i<TABLE_SIZE; i++) {
+        data.sine[i] = (float)sin(((double)i/(double)TABLE_SIZE) * M_PI * 2.0f);
+    }
+    data.left_phase = 0;
+    data.right_phase = 0;
+
+    err = Pa_Initialize();
+    if(err != paNoError) {
+        error_and_exit("Could not initialize PortAudio.");
+    }
+
+    outputParameters.device = Pa_GetDefaultOutputDevice();
+    if (outputParameters.device == paNoDevice) {
+        error_and_exit("Could not find a default audio device.");
+    }
+
+    outputParameters.channelCount = 2; // Stereo.
+    outputParameters.sampleFormat = paFloat32;
+    outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->\
+                                        defaultLowOutputLatency;
+    outputParameters.hostApiSpecificStreamInfo = NULL;
+
+    err = Pa_OpenStream(
+                        &stream,
+                        NULL, // No input.
+                        &outputParameters,
+                        SAMPLE_RATE,
+                        FRAMES_PER_BUFFER,
+                        paClipOff, // Not overshooting range, don't bother clipping.
+                        patestCallback,
+                        &data
+                       );
+    err = Pa_StartStream(stream);
+    if (err != paNoError) {
+        error_and_exit("Error when playing PA stream.");
+    }
+    printf("Play for %d seconds.\n", NUM_SECONDS);
+    Pa_Sleep(NUM_SECONDS * 1000);
+    err = Pa_StopStream(stream);
+    if (err != paNoError) {
+        error_and_exit("Error when stopping stream.");
+    }
+    err = Pa_CloseStream(stream);
+    if (err != paNoError) {
+        error_and_exit("Error when closing stream.");
+    }
 }
 
 int main(int argc, char ** argv)
@@ -665,4 +754,5 @@ int main(int argc, char ** argv)
     }
     glfwTerminate();
     free(mappings);
+    Pa_Terminate();
 }

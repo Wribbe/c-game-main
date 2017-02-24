@@ -408,16 +408,15 @@ void event_action(int key, int action)
     struct mapping_node * mapping = command_bindings[key];
     if (mapping != NULL) {
         struct mapping_node * pointer = mapping;
-        struct function_guard * guard = mapping->function_guard;
-        if (guard->atomic && guard->been_run) {
-            return;
-        }
         int mod_sum = get_mod_sum();
         for(;pointer!=NULL;pointer = pointer->next) {
             if (pointer->modifier_sum == mod_sum) {
-                printf("Calling action for %d, with action %d\n", key, action);
-                pointer->function_guard->been_run = true;
-                pointer->function_guard->action_function(key, action, pointer->data);
+                struct function_guard * guard = pointer->function_guard;
+                if (guard->atomic && guard->been_run && press(action)) {
+                    return;
+                }
+                guard->been_run = press(action) ? true : false;
+                guard->action_function(key, action, pointer->data);
                 break;
             }
         }
@@ -807,10 +806,6 @@ int main(int argc, char ** argv)
         glBindVertexArray(0);
 
         glfwSwapBuffers(window);
-        /* Reset function guards. */
-        for (size_t i=0; i<SIZE(guards); i++) {
-            guards[i]->been_run = false;
-        }
     }
     glfwTerminate();
     free(mappings);

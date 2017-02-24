@@ -17,7 +17,7 @@
 /* Global storage. */
 double m_xpos = 0;
 double m_ypos = 0;
-#define KEY_SIZE 256
+#define KEY_SIZE GLFW_KEY_LAST
 #define QUEUE_SIZE 1024
 enum key_layers {
     TIME_PRESS,
@@ -41,7 +41,7 @@ struct mapping_node {
     void (*action_function)(void * data);
     struct mapping_node * next;
 };
-struct mapping_node * command_bindings[COMMAND_HASH_SIZE] = {0};
+struct mapping_node * command_bindings[KEY_SIZE] = {0};
 
 
 void prefixed_output(FILE * output,
@@ -182,9 +182,10 @@ const char * get_key_name(int key)
 struct held_node {
     bool in_use;
     int key;
-    struct held_node * next;
+    int next;
 };
-struct held_node * held_keys = NULL;
+#define HELD_NULL -1
+int held_keys = HELD_NULL;
 #define NUM_HELD 80
 struct held_node held_arena[NUM_HELD];
 
@@ -208,28 +209,33 @@ void callback_simple_keyboard(GLFWwindow * window,
     if(!(*key_held) && press(action)) {
         *key_held = true;
         struct held_node * current_node = NULL;
+        size_t current_index = 0;
         for (size_t i=0; i<NUM_HELD; i++) {
             struct held_node * temp = &held_arena[i];
             if (!(temp->in_use)) {
                 current_node = temp;
                 current_node->in_use = true;
+                current_index = i;
                 break;
             }
         }
         if (current_node != NULL) {
             current_node->key = key;
-            if (held_keys == NULL) {
-                current_node->next = NULL;
+            if (held_keys == HELD_NULL) {
+                current_node->next = HELD_NULL;
             } else {
                 current_node->next = held_keys;
             }
-            held_keys = current_node;
+            held_keys = current_index;
         }
     } else if (*key_held && release(action)) {
         *key_held = false;
-        struct held_node * pointer = held_keys;
+        struct held_node * pointer = NULL;
+        if (held_keys != HELD_NULL) {
+            pointer = &held_arena[held_keys];
+        }
         struct held_node * prev = NULL;
-        for(; pointer != NULL; prev=pointer, pointer=pointer->next) {
+        for(;pointer != NULL; prev=pointer,pointer=&held_arena[pointer->next]){
             if (pointer->key == key) {
                 if(prev == NULL) {
                     held_keys = pointer->next;
@@ -330,7 +336,6 @@ int MOD_KEYS[] = {
     GLFW_KEY_RIGHT_ALT,
 };
 size_t NUM_MOD_KEYS = sizeof(MOD_KEYS)/sizeof(MOD_KEYS[0]);
-size_t command_variations = 0;
 
 void space(void * data) {
     UNUSED(data);
@@ -340,6 +345,16 @@ void space(void * data) {
 void mod_space(void * data) {
     UNUSED(data);
     printf("MOD SPAAAACE!\n");
+}
+
+void mod2_space(void * data) {
+    UNUSED(data);
+    printf("MOD 2 SPAAAAAAAAAAAAAAAAAAAACE!\n");
+}
+
+void mod3_space(void * data) {
+    UNUSED(data);
+    printf("MOD 3 SPAAAAAAAAAAAAAAAAAAAACE!\n");
 }
 
 size_t hash(int number)
@@ -354,29 +369,55 @@ size_t hash(int number)
     return hash%COMMAND_HASH_SIZE;
 }
 
+int get_mod_sum(void) {
+    int sum = 0;
+    for (size_t i=0; i<NUM_MOD_KEYS; i++) {
+        int key = MOD_KEYS[i];
+        if (held_status[key]) {
+            sum += key;
+        }
+    }
+    return sum;
+}
+
 void event_action(int key, int action)
     /* React to events in event queue. */
 {
     if (key == GLFW_KEY_ESCAPE && press(action)) {
         glfwSetWindowShouldClose(STATE.window, GLFW_TRUE);
+        return;
     }
     if (release(action)) {
         const char * key_name = get_key_name(key);
         printf("Key %s was held for %f seconds.\n", key_name, held_down_for(key));
     }
-    struct mapping_node * mapping = command_bindings[hash(key)];
+    //struct mapping_node * mapping = command_bindings[hash(key)];
+    struct mapping_node * mapping = command_bindings[key];
     if (mapping == NULL) {
         printf("No bound command for: %s.\n", get_key_name(key));
+    } else {
+        struct mapping_node * pointer = mapping;
+        int mod_sum = get_mod_sum();
+        int loops = 0;
+        for(;pointer!=NULL;pointer = pointer->next) {
+            printf("Pointer modifier sum: %d\n", pointer->modifier_sum);
+            if (pointer->modifier_sum == mod_sum) {
+                pointer->action_function(NULL);
+                break;
+            }
+            loops++;
+            printf("No modification_sum match found for %d after %d loops.\n", mod_sum, loops);
+        }
     }
 }
 
 void process_events(void)
     /* Process the event queue. */
 {
-    if (held_keys != NULL) {
-        struct held_node * pointer = held_keys;
-        for(; pointer != NULL; pointer = pointer->next) {
-            event_action(pointer->key, GLFW_PRESS);
+    if (held_keys != HELD_NULL) {
+        int index = held_keys;
+        for(;index != HELD_NULL; index=held_arena[index].next) {
+            event_action(held_arena[index].key, GLFW_PRESS);
         }
     }
     int * ptr_queue = command_queue;
@@ -393,17 +434,53 @@ void process_events(void)
     command_queue_end = command_queue;
 }
 
-struct mapping_node local_mappings[] = {
-    {GLFW_KEY_SPACE, 0, space, NULL},
-};
+struct mapping_node * mappings;
+size_t num_mappings = 0;
 
 void setup(void)
     /* Do necessary setup. */
 {
-    size_t size_mappings = SIZE(local_mappings);
-    for (size_t i=0; i<size_mappings; i++) {
-        struct mapping_node current_mapping = local_mappings[i];
-        command_bindings[hash(current_mapping.key)] = &current_mapping;
+    struct mapping_node local_mappings[] = {
+        {GLFW_KEY_SPACE, 0, space, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1]+MOD_KEYS[2], mod3_space, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0], mod_space, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], mod2_space, NULL},
+    };
+    num_mappings = SIZE(local_mappings);
+    printf("Num mappings: %zu\n", num_mappings);
+    mappings = malloc(num_mappings * sizeof(struct mapping_node));
+    for (size_t i=0; i<num_mappings; i++) {
+        mappings[i] = local_mappings[i];
+        struct mapping_node * current = &mappings[i];
+        struct mapping_node ** bound = &command_bindings[current->key];
+        if (*bound == NULL) { // Empty list.
+            printf("There was nothing bound.\n");
+            *bound = current;
+        } else { // Sort so that the largest mod-sum comes first.
+            printf("There was something bound.\n");
+            struct mapping_node * pointer = *bound;
+            struct mapping_node * prev = NULL;
+            for(;;prev=pointer,pointer=pointer->next) {
+                if (current->modifier_sum > pointer->modifier_sum) {
+                    printf("My sum was larger.\n");
+                    if(prev == NULL) { // First in list.
+                        printf("First in list.\n");
+                        current->next = pointer;
+                        *bound = current;
+                    } else { // Not first in list.
+                        printf("Not first in list.\n");
+                        current->next = pointer;
+                        prev->next = current;
+                    }
+                    break; // No more to be done.
+                } else if (pointer->next == NULL) {  // No more elements.
+                    printf("Last?\n");
+                    pointer->next = current;
+                    pointer->next->next = NULL;
+                    break;
+                }
+            }
+        }
     }
 }
 
@@ -450,9 +527,6 @@ int main(int argc, char ** argv)
                                            NULL,
                                            NULL);
     STATE.window = window;
-    for (size_t i=1; i<=NUM_MOD_KEYS; i++) {
-        command_variations *= i;
-    }
 
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
@@ -584,4 +658,6 @@ int main(int argc, char ** argv)
 
         glfwSwapBuffers(window);
     }
+    glfwTerminate();
+    free(mappings);
 }

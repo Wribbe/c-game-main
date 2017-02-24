@@ -30,8 +30,8 @@ remove_dirs = \
 objs = $(foreach obj,$(1),$(dir_objects)/$(obj))
 fobjs = $(foreach obj,$(1),$(dir_objects_fpic)/$(obj))
 execs = $(foreach exec,$(1),$(dir_exec)/$(exec))
-slibs = $(foreach lib,$(1),$(dir_static_lib)/$(exec))
-dlibs = $(foreach lib,$(1),$(dir_dynamic_lib)/$(exec))
+slibs = $(foreach lib,$(1),$(dir_static_lib)/$(lib))
+dlibs = $(foreach lib,$(1),$(dir_dynamic_lib)/$(lib))
 
 # Return the base name without any suffixes.
 strip_suffixes = $(firstword $(subst ., ,$(1)))

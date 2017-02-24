@@ -200,53 +200,12 @@ void callback_simple_keyboard(GLFWwindow * window,
     if (action == GLFW_REPEAT) {
         return;
     }
+    double current_time = glfwGetTime();
+    keymap[action][key] = current_time;
     UNUSED(mods);
     if (command_queue_end - command_queue == QUEUE_SIZE) {
         error_and_exit("Command queue full!");
     }
-    bool * key_held = &held_status[key];
-    if(!(*key_held) && press(action)) {
-        *key_held = true;
-        struct held_node * current_node = NULL;
-        size_t current_index = 0;
-        for (size_t i=0; i<NUM_HELD; i++) {
-            struct held_node * temp = &held_arena[i];
-            if (!(temp->in_use)) {
-                current_node = temp;
-                current_node->in_use = true;
-                current_index = i;
-                break;
-            }
-        }
-        if (current_node != NULL) {
-            current_node->key = key;
-            if (held_keys == HELD_NULL) {
-                current_node->next = HELD_NULL;
-            } else {
-                current_node->next = held_keys;
-            }
-            held_keys = current_index;
-        }
-    } else if (*key_held && release(action)) {
-        *key_held = false;
-        struct held_node * pointer = NULL;
-        if (held_keys != HELD_NULL) {
-            pointer = &held_arena[held_keys];
-        }
-        struct held_node * prev = NULL;
-        for(;pointer != NULL; prev=pointer,pointer=&held_arena[pointer->next]){
-            if (pointer->key == key) {
-                if(prev == NULL) {
-                    held_keys = pointer->next;
-                } else {
-                    prev->next = pointer->next;
-                }
-                pointer->in_use = false;
-                break;
-            }
-        }
-    }
-    keymap[action][key] = glfwGetTime();
     *command_queue_end++ = key;
     *command_queue_end++ = action;
 }
@@ -417,11 +376,55 @@ void process_events(void)
     int * ptr_queue = command_queue;
     for (; ptr_queue != command_queue_end; ptr_queue += 2) {
         int key = *ptr_queue;
-        if(held_status[key]) {
+        int action = *(ptr_queue+1);
+        if(held_status[key] && press(action)) {
             continue;
         }
-        int action = *(ptr_queue+1);
+
         event_action(key, action);
+
+        bool * key_held = &held_status[key];
+        if(!(*key_held) && press(action)) {
+            *key_held = true;
+            struct held_node * current_node = NULL;
+            size_t current_index = 0;
+            for (size_t i=0; i<NUM_HELD; i++) {
+                struct held_node * temp = &held_arena[i];
+                if (!(temp->in_use)) {
+                    current_node = temp;
+                    current_node->in_use = true;
+                    current_index = i;
+                    break;
+                }
+            }
+            if (current_node != NULL) {
+                current_node->key = key;
+                if (held_keys == HELD_NULL) {
+                    current_node->next = HELD_NULL;
+                } else {
+                    current_node->next = held_keys;
+                }
+                held_keys = current_index;
+            }
+        } else if (*key_held && release(action)) {
+            *key_held = false;
+            struct held_node * pointer = NULL;
+            if (held_keys != HELD_NULL) {
+                pointer = &held_arena[held_keys];
+            }
+            struct held_node * prev = NULL;
+            for(;pointer != NULL; prev=pointer,pointer=&held_arena[pointer->next]){
+                if (pointer->key == key) {
+                    if(prev == NULL) {
+                        held_keys = pointer->next;
+                    } else {
+                        prev->next = pointer->next;
+                    }
+                    pointer->in_use = false;
+                    break;
+                }
+            }
+        }
     }
     command_queue_end = command_queue;
 }

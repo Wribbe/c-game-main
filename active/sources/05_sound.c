@@ -9,8 +9,8 @@
 #include <GLFW/glfw3.h>
 #include "portaudio.h"
 
-#define UNUSED(x) (void)x;
-#define SIZE(x) sizeof(x)/sizeof(x[0]);
+#define UNUSED(x) (void)x
+#define SIZE(x) sizeof(x)/sizeof(x[0])
 
 /* Global variables. */
 #define WIDTH 800
@@ -44,11 +44,16 @@ struct state STATE = {0};
 struct mapping_node {
     int key;
     int modifier_sum;
-    void (*action_function)(int key, int action, void * data);
+    struct function_guard * function_guard;
     void * data;
     struct mapping_node * next;
 };
 struct mapping_node * command_bindings[KEY_SIZE] = {0};
+struct function_guard  {
+    bool atomic;
+    bool been_run;
+    void (*action_function)(int key, int action, void * data);
+};
 
 
 void prefixed_output(FILE * output,
@@ -310,6 +315,11 @@ void space(int key, int action, void * data)
     UNUSED(action);
     printf("SPAAAACE!\n");
 }
+struct function_guard g_space = {
+    false,
+    false,
+    space,
+};
 
 void mod_space(int key, int action, void * data)
 {
@@ -318,6 +328,11 @@ void mod_space(int key, int action, void * data)
     UNUSED(action);
     printf("MOD SPAAAACE!\n");
 }
+struct function_guard g_mod_space = {
+    false,
+    false,
+    mod_space,
+};
 
 void mod2_space(int key, int action, void * data)
 {
@@ -326,6 +341,11 @@ void mod2_space(int key, int action, void * data)
     UNUSED(action);
     printf("MOD 2 SPAAAAAAAAAAAAAAAAAAAACE!\n");
 }
+struct function_guard g_mod2_space = {
+    false,
+    false,
+    mod2_space,
+};
 
 void mod3_space(int key, int action, void * data)
 {
@@ -335,6 +355,11 @@ void mod3_space(int key, int action, void * data)
         printf("Was held or %f seconds.\n", held_down_for(key));
     }
 }
+struct function_guard g_mod3_space = {
+    false,
+    false,
+    mod3_space,
+};
 
 void close_window(int key, int action, void * data)
     /* Get reference to window address, close on release. */
@@ -344,6 +369,18 @@ void close_window(int key, int action, void * data)
         glfwSetWindowShouldClose(*window, GLFW_TRUE);
     }
 }
+struct function_guard g_close_window = {
+    false,
+    false,
+    close_window,
+};
+
+void play_sine(int key, int action, void * user_data);
+struct function_guard g_play_sine = {
+    true,
+    false,
+    play_sine,
+};
 
 int get_mod_sum(void) {
     int sum = 0;
@@ -356,16 +393,31 @@ int get_mod_sum(void) {
     return sum;
 }
 
+struct function_guard * guards[] = {
+    &g_space,
+    &g_mod_space,
+    &g_mod2_space,
+    &g_mod3_space,
+    &g_close_window,
+    &g_play_sine,
+};
+
 void event_action(int key, int action)
     /* React to events in event queue. */
 {
     struct mapping_node * mapping = command_bindings[key];
     if (mapping != NULL) {
         struct mapping_node * pointer = mapping;
+        struct function_guard * guard = mapping->function_guard;
+        if (guard->atomic && guard->been_run) {
+            return;
+        }
         int mod_sum = get_mod_sum();
         for(;pointer!=NULL;pointer = pointer->next) {
             if (pointer->modifier_sum == mod_sum) {
-                pointer->action_function(key, action, pointer->data);
+                printf("Calling action for %d, with action %d\n", key, action);
+                pointer->function_guard->been_run = true;
+                pointer->function_guard->action_function(key, action, pointer->data);
                 break;
             }
         }
@@ -378,7 +430,8 @@ void process_events(void)
     if (held_keys != HELD_NULL) {
         int index = held_keys;
         for(;index != HELD_NULL; index=held_arena[index].next) {
-            event_action(held_arena[index].key, GLFW_PRESS);
+            int key = held_arena[index].key;
+            event_action(key, GLFW_PRESS);
         }
     }
     int * ptr_queue = command_queue;
@@ -440,17 +493,20 @@ void process_events(void)
 struct mapping_node * mappings;
 size_t num_mappings = 0;
 
-void play_sine(int key, int action, void * user_data);
+void (*atomic_functions[])(int key, int action, void * data) = {
+    play_sine,
+};
+
 void setup(void)
     /* Do necessary setup. */
 {
     struct mapping_node local_mappings[] = {
-        {GLFW_KEY_SPACE, 0, space, NULL, NULL},
-        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1]+MOD_KEYS[2], mod3_space, NULL, NULL},
-        {GLFW_KEY_SPACE, MOD_KEYS[0], mod_space, NULL, NULL},
-        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], mod2_space, NULL, NULL},
-        {GLFW_KEY_ESCAPE, 0, close_window, (void *)&STATE.window, NULL},
-        {GLFW_KEY_R, 0, play_sine, NULL, NULL},
+        {GLFW_KEY_SPACE, 0, &g_space, NULL, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1]+MOD_KEYS[2], &g_mod3_space, NULL, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0], &g_mod_space, NULL, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], &g_mod2_space, NULL, NULL},
+        {GLFW_KEY_ESCAPE, 0, &g_close_window, (void *)&STATE.window, NULL},
+        {GLFW_KEY_R, 0, &g_play_sine, NULL, NULL},
     };
     num_mappings = SIZE(local_mappings);
     mappings = malloc(num_mappings * sizeof(struct mapping_node));
@@ -751,6 +807,10 @@ int main(int argc, char ** argv)
         glBindVertexArray(0);
 
         glfwSwapBuffers(window);
+        /* Reset function guards. */
+        for (size_t i=0; i<SIZE(guards); i++) {
+            guards[i]->been_run = false;
+        }
     }
     glfwTerminate();
     free(mappings);

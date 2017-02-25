@@ -391,15 +391,6 @@ int get_mod_sum(void) {
     return sum;
 }
 
-struct function_guard * guards[] = {
-    &g_space,
-    &g_mod_space,
-    &g_mod2_space,
-    &g_mod3_space,
-    &g_close_window,
-    &g_play_sine,
-};
-
 void event_action(int key, int action)
     /* React to events in event queue. */
 {

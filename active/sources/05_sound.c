@@ -46,11 +46,12 @@ struct mapping_node {
     void * data;
     struct mapping_node * next;
 };
+typedef void (*action_function_type)(int key, int action, void * data);
 struct mapping_node * command_bindings[KEY_SIZE] = {0};
 struct function_guard  {
     bool atomic;
     bool been_run;
-    void (*action_function)(int key, int action, void * data);
+    action_function_type action_function;
 };
 
 
@@ -306,6 +307,10 @@ int MOD_KEYS[] = {
 };
 size_t NUM_MOD_KEYS = sizeof(MOD_KEYS)/sizeof(MOD_KEYS[0]);
 
+struct work_node;
+void add_work_node(struct work_node * node);
+struct work_node * get_work_node(void);
+
 void space(int key, int action, void * data)
 {
     UNUSED(data);
@@ -481,6 +486,8 @@ void process_events(void)
 struct mapping_node * mappings;
 size_t num_mappings = 0;
 
+struct function_guard g_add_space;
+
 void setup(void)
     /* Do necessary setup. */
 {
@@ -491,6 +498,7 @@ void setup(void)
         {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], &g_mod2_space, NULL, NULL},
         {GLFW_KEY_ESCAPE, 0, &g_close_window, (void *)&STATE.window, NULL},
         {GLFW_KEY_R, 0, &g_play_sine, NULL, NULL},
+        {GLFW_KEY_M, 0, &g_add_space, NULL, NULL},
     };
     num_mappings = SIZE(local_mappings);
     mappings = malloc(num_mappings * sizeof(struct mapping_node));
@@ -564,14 +572,17 @@ static int patestCallback(const void * inputBuffer,
 }
 
 pthread_cond_t sig_work = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t lock_work_sig = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t lock_work_queue = PTHREAD_MUTEX_INITIALIZER;
 
 void play_sine(int key, int action, void * user_data)
     /* Use PortAudio to play a constructed sine wave. */
 {
     pthread_mutex_lock(&lock_work_queue);
-    pthread_cond_signal(&sig_work);
     pthread_mutex_unlock(&lock_work_queue);
+    pthread_mutex_lock(&lock_work_sig);
+    pthread_cond_signal(&sig_work);
+    pthread_mutex_unlock(&lock_work_sig);
     return;
     if (release(action)) {
         return;
@@ -636,18 +647,64 @@ void play_sine(int key, int action, void * user_data)
 pthread_t thread_pool[NUM_THREADS];
 bool kill_threads = false;
 
+struct work_node {
+    action_function_type action_function;
+    int key;
+    int action;
+    void * data;
+    struct work_node * next;
+};
+struct work_node * work_queue = NULL;
+struct work_node * work_last = NULL;
+
+void add_work_node(struct work_node * node)
+    /* Function for adding node to work queue. */
+{
+    pthread_mutex_lock(&lock_work_queue);
+    if (work_queue == NULL) {
+        work_queue = node;
+    } else {
+        work_last->next = node;
+    }
+    work_last = node;
+    pthread_mutex_unlock(&lock_work_queue);
+    // Signal worker threads.
+    pthread_mutex_lock(&lock_work_sig);
+    pthread_cond_signal(&sig_work);
+    pthread_mutex_unlock(&lock_work_sig);
+}
+
+struct work_node * get_work_node(void)
+    /* Unlink a work node and return. */
+{
+    pthread_mutex_lock(&lock_work_queue);
+    if (work_queue == NULL) {
+        pthread_mutex_unlock(&lock_work_queue);
+        return NULL;
+    }
+    struct work_node * first_element = work_queue;
+    work_queue = work_queue->next;
+    pthread_mutex_unlock(&lock_work_queue);
+    return first_element;
+}
+
+
 void * thread_setup(void * data)
 {
     printf("Waiting for lock.\n");
-    pthread_mutex_lock(&lock_work_queue);
+    pthread_mutex_lock(&lock_work_sig);
     for(;;) {
         printf("Waiting on sig_work.\n");
-        pthread_cond_wait(&sig_work, &lock_work_queue);
+        pthread_cond_wait(&sig_work, &lock_work_sig);
 
         if (kill_threads) {
+            pthread_mutex_unlock(&lock_work_sig);
             return NULL;
         }
-        printf("Got signal that there is something to do?\n");
+        struct work_node * node = get_work_node();
+        if (node != NULL) {
+            node->action_function(node->key, node->action, node->data);
+        }
     }
 }
 
@@ -658,6 +715,27 @@ void setup_thread_pool(void)
         pthread_create(&thread_pool[i], NULL, thread_setup, NULL);
     }
 }
+
+void add_space(int key, int action, void * data)
+{
+    UNUSED(key);
+    UNUSED(action);
+    UNUSED(data);
+    struct work_node * new_node = malloc(sizeof(struct work_node));
+    new_node->key = 0;
+    new_node->action = 0;
+    new_node->data = NULL;
+    new_node->next = NULL;
+    new_node->action_function = space;
+    add_work_node(new_node);
+}
+
+struct function_guard g_add_space = {
+    false,
+    false,
+    add_space,
+};
+
 
 int main(int argc, char ** argv)
 {

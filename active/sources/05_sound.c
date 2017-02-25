@@ -15,9 +15,6 @@
 /* Global variables. */
 #define WIDTH 800
 #define HEIGHT 600
-#define NUM_SECONDS   (5)
-#define SAMPLE_RATE   (44100)
-#define FRAMES_PER_BUFFER  (64)
 #ifndef M_PI
 #define M_PI           3.14159265358979323846
 #endif
@@ -538,6 +535,9 @@ void setup(void)
     }
 }
 
+#define NUM_SECONDS   (5)
+#define SAMPLE_RATE   (44100)
+#define FRAMES_PER_BUFFER  (64)
 #define TABLE_SIZE 200
 struct paTestData {
     float sine[TABLE_SIZE];

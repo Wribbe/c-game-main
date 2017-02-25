@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <math.h>
+#include <pthread.h>
 
 #include "glad.h"
 #include <GLFW/glfw3.h>
@@ -489,10 +490,6 @@ void process_events(void)
 struct mapping_node * mappings;
 size_t num_mappings = 0;
 
-void (*atomic_functions[])(int key, int action, void * data) = {
-    play_sine,
-};
-
 void setup(void)
     /* Do necessary setup. */
 {
@@ -575,9 +572,16 @@ static int patestCallback(const void * inputBuffer,
     return paContinue;
 }
 
+pthread_cond_t sig_work = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t lock_work_queue = PTHREAD_MUTEX_INITIALIZER;
+
 void play_sine(int key, int action, void * user_data)
     /* Use PortAudio to play a constructed sine wave. */
 {
+    pthread_mutex_lock(&lock_work_queue);
+    pthread_cond_signal(&sig_work);
+    pthread_mutex_unlock(&lock_work_queue);
+    return;
     if (release(action)) {
         return;
     }
@@ -637,6 +641,33 @@ void play_sine(int key, int action, void * user_data)
     }
 }
 
+#define NUM_THREADS 10
+pthread_t thread_pool[NUM_THREADS];
+bool kill_threads = false;
+
+void * thread_setup(void * data)
+{
+    printf("Waiting for lock.\n");
+    pthread_mutex_lock(&lock_work_queue);
+    for(;;) {
+        printf("Waiting on sig_work.\n");
+        pthread_cond_wait(&sig_work, &lock_work_queue);
+
+        if (kill_threads) {
+            return NULL;
+        }
+        printf("Got signal that there is something to do?\n");
+    }
+}
+
+void setup_thread_pool(void)
+    /* Set up thread pool. */
+{
+    for (size_t i=0; i<NUM_THREADS; i++) {
+        pthread_create(&thread_pool[i], NULL, thread_setup, NULL);
+    }
+}
+
 int main(int argc, char ** argv)
 {
     if (!glfwInit()) {
@@ -645,6 +676,7 @@ int main(int argc, char ** argv)
 
     UNUSED(argc);
     setup();
+    setup_thread_pool();
 
     glfw_set_context();
 

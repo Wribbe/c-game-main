@@ -51,8 +51,23 @@ struct mapping_node * command_bindings[KEY_SIZE] = {0};
 struct function_guard  {
     bool atomic;
     bool been_run;
+    bool threaded;
     action_function_type action_function;
 };
+
+struct work_node {
+    action_function_type action_function;
+    int key;
+    int action;
+    void * data;
+    struct work_node * next;
+};
+
+PaStreamParameters outputParameters = {0};
+#define NUM_SECONDS   (5)
+#define SAMPLE_RATE   (44100)
+#define FRAMES_PER_BUFFER  (64)
+#define TABLE_SIZE 200
 
 
 void prefixed_output(FILE * output,
@@ -321,6 +336,7 @@ void space(int key, int action, void * data)
 struct function_guard g_space = {
     false,
     false,
+    false,
     space,
 };
 
@@ -334,6 +350,7 @@ void mod_space(int key, int action, void * data)
 struct function_guard g_mod_space = {
     false,
     false,
+    false,
     mod_space,
 };
 
@@ -345,6 +362,7 @@ void mod2_space(int key, int action, void * data)
     printf("MOD 2 SPAAAAAAAAAAAAAAAAAAAACE!\n");
 }
 struct function_guard g_mod2_space = {
+    false,
     false,
     false,
     mod2_space,
@@ -361,6 +379,7 @@ void mod3_space(int key, int action, void * data)
 struct function_guard g_mod3_space = {
     false,
     false,
+    false,
     mod3_space,
 };
 
@@ -375,14 +394,18 @@ void close_window(int key, int action, void * data)
 struct function_guard g_close_window = {
     false,
     false,
+    false,
     close_window,
 };
 
 void play_sine(int key, int action, void * user_data);
+struct work_node * get_new_worknode(void);
+
 struct function_guard g_play_sine = {
-    true,
-    false,
-    play_sine,
+    .atomic = true,
+    .been_run = false,
+    .threaded = true,
+    .action_function = play_sine,
 };
 
 int get_mod_sum(void) {
@@ -410,7 +433,14 @@ void event_action(int key, int action)
                     return;
                 }
                 guard->been_run = press(action) ? true : false;
-                guard->action_function(key, action, pointer->data);
+                if (guard->threaded) {
+                    printf("It's threaded. \n");
+                    struct work_node * node = get_new_worknode();
+                    node->action_function = guard->action_function;
+                    add_work_node(node);
+                } else { // Non threaded functionality.
+                    guard->action_function(key, action, pointer->data);
+                }
                 break;
             }
         }
@@ -488,6 +518,44 @@ size_t num_mappings = 0;
 
 struct function_guard g_add_space;
 
+struct paTestData {
+    float sine[TABLE_SIZE];
+    int left_phase;
+    int right_phase;
+    char message[20];
+};
+
+static int patestCallback(const void * inputBuffer,
+                          void * outputBuffer,
+                          unsigned long framesPerBuffer,
+                          const PaStreamCallbackTimeInfo * timeinfo,
+                          PaStreamCallbackFlags statusFlags,
+                          void * userData)
+{
+    struct paTestData * data = (struct paTestData *)userData;
+    float * out = (float *)outputBuffer;
+
+    UNUSED(timeinfo);
+    UNUSED(statusFlags);
+    UNUSED(inputBuffer);
+
+    for (size_t i=0; i<framesPerBuffer; i++) {
+        *out++ = data->sine[data->left_phase];
+        *out++ = data->sine[data->right_phase];
+        data->left_phase += 1;
+        if (data->left_phase >=TABLE_SIZE) {
+            data->left_phase -= TABLE_SIZE;
+        }
+        data->right_phase += 3;
+        if (data->right_phase >=TABLE_SIZE) {
+            data->right_phase -= TABLE_SIZE;
+        }
+    }
+    return paContinue;
+}
+
+struct paTestData data = {0};
+PaStream * stream = NULL;
 void setup(void)
     /* Do necessary setup. */
 {
@@ -529,79 +597,8 @@ void setup(void)
             }
         }
     }
-}
-
-#define NUM_SECONDS   (5)
-#define SAMPLE_RATE   (44100)
-#define FRAMES_PER_BUFFER  (64)
-#define TABLE_SIZE 200
-struct paTestData {
-    float sine[TABLE_SIZE];
-    int left_phase;
-    int right_phase;
-    char message[20];
-};
-
-static int patestCallback(const void * inputBuffer,
-                          void * outputBuffer,
-                          unsigned long framesPerBuffer,
-                          const PaStreamCallbackTimeInfo * timeinfo,
-                          PaStreamCallbackFlags statusFlags,
-                          void * userData)
-{
-    struct paTestData * data = (struct paTestData *)userData;
-    float * out = (float *)outputBuffer;
-
-    UNUSED(timeinfo);
-    UNUSED(statusFlags);
-    UNUSED(inputBuffer);
-
-    for (size_t i=0; i<framesPerBuffer; i++) {
-        *out++ = data->sine[data->left_phase];
-        *out++ = data->sine[data->right_phase];
-        data->left_phase += 1;
-        if (data->left_phase >=TABLE_SIZE) {
-            data->left_phase -= TABLE_SIZE;
-        }
-        data->right_phase += 3;
-        if (data->right_phase >=TABLE_SIZE) {
-            data->right_phase -= TABLE_SIZE;
-        }
-    }
-    return paContinue;
-}
-
-pthread_cond_t sig_work = PTHREAD_COND_INITIALIZER;
-pthread_mutex_t lock_work_sig = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t lock_work_queue = PTHREAD_MUTEX_INITIALIZER;
-
-void play_sine(int key, int action, void * user_data)
-    /* Use PortAudio to play a constructed sine wave. */
-{
-    pthread_mutex_lock(&lock_work_queue);
-    pthread_mutex_unlock(&lock_work_queue);
-    pthread_mutex_lock(&lock_work_sig);
-    pthread_cond_signal(&sig_work);
-    pthread_mutex_unlock(&lock_work_sig);
-    return;
-    if (release(action)) {
-        return;
-    }
-    printf("Inside play_sine.\n");
-    /* Set up variables. */
-    PaStreamParameters outputParameters = {0};
-    PaStream * stream = NULL;
-    PaError err = 0;
-    struct paTestData data = {0};
-
-    /* Create sine-data. */
-    for (int i=0; i<TABLE_SIZE; i++) {
-        data.sine[i] = (float)sin(((double)i/(double)TABLE_SIZE) * M_PI * 2.0f);
-    }
-    data.left_phase = 0;
-    data.right_phase = 0;
-
-    err = Pa_Initialize();
+    /* Do PortAudio stuff. */
+    PaError err = Pa_Initialize();
     if(err != paNoError) {
         error_and_exit("Could not initialize PortAudio.");
     }
@@ -617,6 +614,14 @@ void play_sine(int key, int action, void * user_data)
                                         defaultLowOutputLatency;
     outputParameters.hostApiSpecificStreamInfo = NULL;
 
+
+    /* Create sine-data. */
+    for (int i=0; i<TABLE_SIZE; i++) {
+        data.sine[i] = (float)sin(((double)i/(double)TABLE_SIZE) * M_PI * 2.0f);
+    }
+    data.left_phase = 0;
+    data.right_phase = 0;
+
     err = Pa_OpenStream(
                         &stream,
                         NULL, // No input.
@@ -627,6 +632,21 @@ void play_sine(int key, int action, void * user_data)
                         patestCallback,
                         &data
                        );
+
+}
+
+
+pthread_cond_t sig_work = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t lock_work_sig = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t lock_work_queue = PTHREAD_MUTEX_INITIALIZER;
+
+void play_sine(int key, int action, void * user_data)
+    /* Use PortAudio to play a constructed sine wave. */
+{
+    printf("Inside play_sine.\n");
+    /* Set up variables. */
+    PaError err = 0;
+
     err = Pa_StartStream(stream);
     if (err != paNoError) {
         error_and_exit("Error when playing PA stream.");
@@ -637,23 +657,12 @@ void play_sine(int key, int action, void * user_data)
     if (err != paNoError) {
         error_and_exit("Error when stopping stream.");
     }
-    err = Pa_CloseStream(stream);
-    if (err != paNoError) {
-        error_and_exit("Error when closing stream.");
-    }
 }
 
 #define NUM_THREADS 10
 pthread_t thread_pool[NUM_THREADS];
 bool kill_threads = false;
 
-struct work_node {
-    action_function_type action_function;
-    int key;
-    int action;
-    void * data;
-    struct work_node * next;
-};
 struct work_node * work_queue = NULL;
 struct work_node * work_last = NULL;
 
@@ -704,6 +713,7 @@ void * thread_setup(void * data)
         struct work_node * node = get_work_node();
         if (node != NULL) {
             node->action_function(node->key, node->action, node->data);
+            free(node);
         }
     }
 }
@@ -716,23 +726,32 @@ void setup_thread_pool(void)
     }
 }
 
-void add_space(int key, int action, void * data)
+struct work_node * get_new_worknode(void)
+    /* Get empty work node. */
 {
-    UNUSED(key);
-    UNUSED(action);
-    UNUSED(data);
     struct work_node * new_node = malloc(sizeof(struct work_node));
     new_node->key = 0;
     new_node->action = 0;
     new_node->data = NULL;
     new_node->next = NULL;
+    new_node->action_function = NULL;
+    return new_node;
+}
+
+void add_space(int key, int action, void * data)
+{
+    UNUSED(key);
+    UNUSED(action);
+    UNUSED(data);
+    struct work_node * new_node = get_new_worknode();
     new_node->action_function = space;
     add_work_node(new_node);
 }
 
 struct function_guard g_add_space = {
-    false,
-    false,
+    .atomic = false,
+    .been_run = false,
+    .threaded = false,
     add_space,
 };
 
@@ -910,5 +929,9 @@ int main(int argc, char ** argv)
     }
     glfwTerminate();
     free(mappings);
+    PaError err = Pa_CloseStream(stream);
+    if (err != paNoError) {
+        error_and_exit("Error when closing stream.");
+    }
     Pa_Terminate();
 }

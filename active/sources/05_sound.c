@@ -9,6 +9,9 @@
 #include <GLFW/glfw3.h>
 #include "portaudio.h"
 
+#define DR_WAV_IMPLEMENTATION
+#include "dr_wav.h"
+
 #define UNUSED(x) (void)x
 #define SIZE(x) sizeof(x)/sizeof(x[0])
 

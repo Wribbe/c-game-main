@@ -557,12 +557,20 @@ PaStreamParameters pa_default_params(size_t channels)
     return params;
 }
 
+enum sound_types {
+    OGG,
+    WAV,
+    FLAC,
+};
+
 struct sound_data {
     const char * name;
-    size_t data_size;
-    size_t channels;
+    size_t size;
+    uint32_t rate;
+    uint32_t channels;
     bool * abort;
     int16_t * data;
+    void (*free)(void * data);
 };
 
 struct sound_pointers {
@@ -571,7 +579,7 @@ struct sound_pointers {
 };
 
 
-const char * filetype(const char * filename)
+const char * get_filetype(const char * filename)
     /* Return string containing file ending, including the dot. */
 {
     size_t len = strlen(filename);
@@ -584,9 +592,47 @@ const char * filetype(const char * filename)
     return char_pointer;
 }
 
+void read_sound(struct sound_data * data,
+                enum sound_types type,
+                const char * filepath)
+    /* Read the sound from disk to sound_data struct.
+     * If no data was read, set data pointer to NULL. */
+{
+    switch(type) {
+        case WAV:
+            data->data = (int16_t*)drwav_open_and_read_file_s16(filepath,
+                                                                &data->channels,
+                                                                &data->rate,
+                                                                &data->size);
+            data->free = drwav_free;
+            break;
+        case OGG:
+            break;
+        case FLAC:
+            break;
+        default:
+            fprintf(stderr, "Got wrong sound_type in read_sound function.\n");
+            break;
+    }
+}
+
 struct sound_data load_sound(const char * filepath)
 {
-    printf("Got %s, file_extension: %s\n", filepath, filetype(filepath));
+    struct sound_data data = {0};
+    const char * filetype =  get_filetype(filepath);
+    if (strcmp(filetype, ".ogg") == 0) {
+        printf("Found ogg file.\n");
+        read_sound(&data, OGG, filepath);
+    } else if (strcmp(filetype, ".wav") == 0) {
+        printf("Found wav file.\n");
+        read_sound(&data, WAV, filepath);
+    } else if (strcmp(filetype, ".flac") == 0) {
+        printf("Found flac file.\n");
+        read_sound(&data, FLAC, filepath);
+    } else {
+        fprintf(stderr, "Non supported file extension in file: %s\n", filepath);
+    }
+    return data;
 }
 
 int main(int argc, char ** argv)
@@ -595,10 +641,37 @@ int main(int argc, char ** argv)
         error_and_exit("Could not initialize GLFW, aborting.\n");
     }
 
-    load_sound("Test.txt");
-    load_sound("Test.gif");
-    load_sound("Test.vaw");
-    load_sound("Test");
+    struct sound_data sound_data = {0};
+    const char * path = "";
+
+    path = "input/voice_16.wav";
+    sound_data = load_sound(path);
+    if (sound_data.data == NULL) {
+        printf("Got no data from: %s\n", path);
+    } else {
+        printf("Got data from: %s\n", path);
+    }
+    path = "input/voice_16bit.flac";
+    sound_data = load_sound(path);
+    if (sound_data.data == NULL) {
+        printf("Got no data from: %s\n", path);
+    } else {
+        printf("Got data from: %s\n", path);
+    }
+    path = "input/voice.ogg";
+    sound_data = load_sound(path);
+    if (sound_data.data == NULL) {
+        printf("Got no data from: %s\n", path);
+    } else {
+        printf("Got data from: %s\n", path);
+    }
+    path = "input/voice.txt";
+    sound_data = load_sound(path);
+    if (sound_data.data == NULL) {
+        printf("Got no data from: %s\n", path);
+    } else {
+        printf("Got data from: %s\n", path);
+    }
 
     UNUSED(argc);
     setup();

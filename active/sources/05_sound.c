@@ -564,11 +564,35 @@ struct sound_pointers {
     int16_t * stop;
 };
 
+
+const char * filetype(const char * filename)
+    /* Return string containing file ending, including the dot. */
+{
+    size_t len = strlen(filename);
+    const char * char_pointer = filename+len-1;
+    for(;*char_pointer != '.'; char_pointer--) {
+        if (char_pointer == filename) {
+            return filename;
+        }
+    }
+    return char_pointer;
+}
+
+struct sound_data load_sound(const char * filepath)
+{
+    printf("Got %s, file_extension: %s\n", filepath, filetype(filepath));
+}
+
 int main(int argc, char ** argv)
 {
     if (!glfwInit()) {
         error_and_exit("Could not initialize GLFW, aborting.\n");
     }
+
+    load_sound("Test.txt");
+    load_sound("Test.gif");
+    load_sound("Test.vaw");
+    load_sound("Test");
 
     UNUSED(argc);
     setup();

@@ -11,6 +11,8 @@
 
 #define DR_WAV_IMPLEMENTATION
 #include "dr_wav.h"
+#include "vorbis/codec.h"
+#include "vorbisfile.h"
 
 #define UNUSED(x) (void)x
 #define SIZE(x) sizeof(x)/sizeof(x[0])
@@ -558,7 +560,7 @@ PaStreamParameters pa_default_params(size_t channels)
 }
 
 enum sound_types {
-    OGG,
+    VORBIS,
     WAV,
     FLAC,
 };
@@ -598,6 +600,7 @@ void read_sound(struct sound_data * data,
     /* Read the sound from disk to sound_data struct.
      * If no data was read, set data pointer to NULL. */
 {
+    OggVorbis_File vf = {0};
     switch(type) {
         case WAV:
             data->data = (int16_t*)drwav_open_and_read_file_s16(filepath,
@@ -606,7 +609,36 @@ void read_sound(struct sound_data * data,
                                                                 &data->size);
             data->free = drwav_free;
             break;
-        case OGG:
+        case VORBIS:
+            ov_fopen(filepath, &vf);
+            vorbis_info * vi = ov_info(&vf, -1);
+            data->rate = vi->rate;
+            data->channels = vi->channels;
+            int little_endian = 0;
+            int sample_16_bit = 2;
+            int sample_signed = 1;
+            data->size = (long)ov_pcm_total(&vf, -1)*sample_16_bit*vi->channels;
+            data->data = calloc(data->size, sizeof(int16_t));
+            if (data->data == NULL) {
+                error_and_exit("Could not allocate enough memory for VORBIS data.\n");
+            }
+            char buffer[4095];
+            int current_section = 0;
+            int eof = 0;
+            long ret = 1;
+            int16_t * buffer_pointer = data->data;
+            while(!(eof = (ret == 0))) {
+                ret = ov_read(&vf,
+                              buffer,
+                              sizeof(buffer),
+                              little_endian,
+                              sample_16_bit,
+                              sample_signed,
+                              &current_section);
+                memcpy(buffer_pointer, buffer, ret);
+                buffer_pointer += ret/sample_16_bit;
+            }
+            ov_clear(&vf);
             break;
         case FLAC:
             break;
@@ -622,7 +654,7 @@ struct sound_data load_sound(const char * filepath)
     const char * filetype =  get_filetype(filepath);
     if (strcmp(filetype, ".ogg") == 0) {
         printf("Found ogg file.\n");
-        read_sound(&data, OGG, filepath);
+        read_sound(&data, VORBIS, filepath);
     } else if (strcmp(filetype, ".wav") == 0) {
         printf("Found wav file.\n");
         read_sound(&data, WAV, filepath);

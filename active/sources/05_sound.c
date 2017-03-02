@@ -13,6 +13,7 @@
 #include "dr_wav.h"
 #include "vorbis/codec.h"
 #include "vorbisfile.h"
+#include "FLAC/stream_decoder.h"
 
 #define UNUSED(x) (void)x
 #define SIZE(x) sizeof(x)/sizeof(x[0])
@@ -594,6 +595,55 @@ const char * get_filetype(const char * filename)
     return char_pointer;
 }
 
+void flac_m_callback(const FLAC__StreamDecoder * decoder,
+                     const FLAC__StreamMetadata * metadata,
+                     void * client_data)
+{
+    UNUSED(decoder);
+
+    struct sound_data * data = (struct sound_data *)client_data;
+
+    size_t num_samples = metadata->data.stream_info.total_samples;
+    size_t rate = metadata->data.stream_info.sample_rate;
+    size_t channels = metadata->data.stream_info.channels;
+    size_t bps = metadata->data.stream_info.bits_per_sample;
+
+    data->channels = channels;
+    data->rate = rate;
+    data->size = num_samples*channels*(bps/8);
+}
+
+void flac_err_callback(const FLAC__StreamDecoder * decoder,
+                       FLAC__StreamDecoderErrorStatus status,
+                       void * client_data)
+{
+    UNUSED(status);
+    UNUSED(decoder);
+    UNUSED(client_data);
+    error_and_exit("FLAC got error on callback.\n");
+}
+
+
+FLAC__int16 * flac_write_loc = NULL;
+FLAC__StreamDecoderWriteStatus
+flac_w_callback(const FLAC__StreamDecoder * decoder,
+                const FLAC__Frame * frame,
+                const FLAC__int32 * const buffer[],
+                void * client_data)
+{
+    UNUSED(decoder);
+
+    struct sound_data * data = (struct sound_data *)client_data;
+
+    for(size_t i=0; i<frame->header.blocksize; i++) {
+        for (size_t chan=0; chan<data->channels; chan++) {
+            *flac_write_loc++ = (FLAC__int16)buffer[chan][i];
+        }
+    }
+
+    return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
+}
+
 void read_sound(struct sound_data * data,
                 enum sound_types type,
                 const char * filepath)
@@ -639,8 +689,32 @@ void read_sound(struct sound_data * data,
                 buffer_pointer += ret/sample_16_bit;
             }
             ov_clear(&vf);
+            data->free = free;
             break;
-        case FLAC:
+        case FLAC:;
+            FLAC__bool ok = true;
+            FLAC__StreamDecoder * decoder = FLAC__stream_decoder_new();
+            FLAC__StreamDecoderInitStatus init_status;
+            init_status = FLAC__stream_decoder_init_file(decoder,
+                                                         filepath,
+                                                         flac_w_callback,
+                                                         flac_m_callback,
+                                                         flac_err_callback,
+                                                         &data);
+            if (init_status != FLAC__STREAM_DECODER_INIT_STATUS_OK) {
+                error_and_exit("Could not initialize FLAC decoder.");
+            }
+            ok = FLAC__stream_decoder_process_until_end_of_metadata(decoder);
+            fprintf(stderr, "Decoding of FLACK file: %s: %s.\n", filepath,
+                    ok? "succeeded" : "FAILED");
+            data->data = calloc(data->size, sizeof(int16_t));
+            if (data->data == NULL) {
+                error_and_exit("Could not allocate enough data for FLAC file.\n");
+            }
+            flac_write_loc = data->data;
+            ok = FLAC__stream_decoder_process_until_end_of_stream(decoder);
+            FLAC__stream_decoder_delete(decoder);
+            data->free = free;
             break;
         default:
             fprintf(stderr, "Got wrong sound_type in read_sound function.\n");

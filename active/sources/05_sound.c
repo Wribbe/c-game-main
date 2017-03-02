@@ -673,6 +673,15 @@ int main(int argc, char ** argv)
         error_and_exit("Could not initialize GLFW, aborting.\n");
     }
 
+    ov_callbacks def = OV_CALLBACKS_DEFAULT;
+    ov_callbacks no_close = OV_CALLBACKS_NOCLOSE;
+    ov_callbacks stream = OV_CALLBACKS_STREAMONLY;
+    ov_callbacks stream_no = OV_CALLBACKS_STREAMONLY_NOCLOSE;
+    UNUSED(def);
+    UNUSED(no_close);
+    UNUSED(stream);
+    UNUSED(stream_no);
+
     struct sound_data sound_data = {0};
     const char * path = "";
 

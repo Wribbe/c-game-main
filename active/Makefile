@@ -26,11 +26,11 @@ CFLAGS += $(INCLUDE_FLAGS)
 DEPFLAGS = -MT $@ -MMD -MP -MF $(dir_deps)/$*.d
 CXXFLAGS += $(DEPFLAGS)
 CXX = gcc
-LDFLAGS += -L./$(dir_static_lib)
+LDFLAGS += #-L./$(dir_static_lib)
 DYNAMIC_LDFLAGS += -L./$(dir_dynamic_lib)
 
 GENERAL_LIBRARIES := -lm -lpthread
-AUDIO_FLAGS := -lportaudio -lasound -ljack
+AUDIO_FLAGS := -lportaudio -lasound -ljack -logg -lvorbis
 GRAPHICS_FLAGS := -lGLEW -lglfw3 -lGL -lX11 -lXrandr -lXi -lXxf86vm \
 				  -ldl -lXinerama -lXcursor -lrt
 
@@ -70,7 +70,7 @@ define generate_sh_runnner =
 	chmod +x $(2)
 endef
 
-$(execs) : $(call slibs,libportaudio_static.a)
+$(execs) : $(call slibs,libportaudio_static.a libpng.a libFLAC-static.a libvorbisfile.a)
 $(execs) : $(call objs,glad.o)
 
 include $(dir_make_utils)/postamble_makefile

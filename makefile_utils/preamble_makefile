@@ -47,8 +47,7 @@ libformatter = \
 # Return objects.
 get_obj = $(filter %.o,$(1))
 # Return static_libs.
-get_slibs = $(if $(filter %.a,$(1)),$(LDFLAGS) \
-				$(call libformatter,$(filter %.a,$(1))))
+get_slibs = $(if $(filter %.a,$(1)),$(LDFLAGS) $(filter %.a,$(1)))
 # Get dynamic libraries.
 filter_so = $(foreach lib,$(1),\
 				$(if $(findstring .so.,$(lib)),$(lib),)\

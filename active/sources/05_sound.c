@@ -531,8 +531,38 @@ void setup(void)
             }
         }
     }
+    /* Initialize PortAudio. */
+    if (Pa_Initialize() != paNoError) {
+        error_and_exit("Could not initialize PortAudio, aborting.\n");
+    }
 }
 
+PaStreamParameters pa_default_params(size_t channels)
+    /* Set and return struct for device parameters. */
+{
+    PaStreamParameters params = {0};
+
+    params.device = Pa_GetDefaultOutputDevice();
+    params.channelCount = channels;
+    params.sampleFormat = paInt16;
+    params.suggestedLatency = Pa_GetDeviceInfo(params.device)->\
+                              defaultHighOutputLatency;
+    params.hostApiSpecificStreamInfo = NULL;
+    return params;
+}
+
+struct sound_data {
+    const char * name;
+    size_t data_size;
+    size_t channels;
+    bool * abort;
+    int16_t * data;
+};
+
+struct sound_pointers {
+    int16_t * start;
+    int16_t * stop;
+};
 
 int main(int argc, char ** argv)
 {

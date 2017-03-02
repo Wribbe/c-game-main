@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include <math.h>
-#include <pthread.h>
 
 #include "glad.h"
 #include <GLFW/glfw3.h>
@@ -51,7 +50,6 @@ struct mapping_node * command_bindings[KEY_SIZE] = {0};
 struct function_guard  {
     bool atomic;
     bool been_run;
-    bool threaded;
     action_function_type action_function;
 };
 
@@ -336,7 +334,6 @@ void space(int key, int action, void * data)
 struct function_guard g_space = {
     false,
     false,
-    false,
     space,
 };
 
@@ -350,7 +347,6 @@ void mod_space(int key, int action, void * data)
 struct function_guard g_mod_space = {
     false,
     false,
-    false,
     mod_space,
 };
 
@@ -362,7 +358,6 @@ void mod2_space(int key, int action, void * data)
     printf("MOD 2 SPAAAAAAAAAAAAAAAAAAAACE!\n");
 }
 struct function_guard g_mod2_space = {
-    false,
     false,
     false,
     mod2_space,
@@ -379,7 +374,6 @@ void mod3_space(int key, int action, void * data)
 struct function_guard g_mod3_space = {
     false,
     false,
-    false,
     mod3_space,
 };
 
@@ -394,18 +388,7 @@ void close_window(int key, int action, void * data)
 struct function_guard g_close_window = {
     false,
     false,
-    false,
     close_window,
-};
-
-void play_sine(int key, int action, void * user_data);
-struct work_node * get_new_worknode(void);
-
-struct function_guard g_play_sine = {
-    .atomic = true,
-    .been_run = false,
-    .threaded = true,
-    .action_function = play_sine,
 };
 
 int get_mod_sum(void) {
@@ -433,14 +416,7 @@ void event_action(int key, int action)
                     return;
                 }
                 guard->been_run = press(action) ? true : false;
-                if (guard->threaded) {
-                    printf("It's threaded. \n");
-                    struct work_node * node = get_new_worknode();
-                    node->action_function = guard->action_function;
-                    add_work_node(node);
-                } else { // Non threaded functionality.
-                    guard->action_function(key, action, pointer->data);
-                }
+                guard->action_function(key, action, pointer->data);
                 break;
             }
         }
@@ -516,46 +492,6 @@ void process_events(void)
 struct mapping_node * mappings;
 size_t num_mappings = 0;
 
-struct function_guard g_add_space;
-
-struct paTestData {
-    float sine[TABLE_SIZE];
-    int left_phase;
-    int right_phase;
-    char message[20];
-};
-
-static int patestCallback(const void * inputBuffer,
-                          void * outputBuffer,
-                          unsigned long framesPerBuffer,
-                          const PaStreamCallbackTimeInfo * timeinfo,
-                          PaStreamCallbackFlags statusFlags,
-                          void * userData)
-{
-    struct paTestData * data = (struct paTestData *)userData;
-    float * out = (float *)outputBuffer;
-
-    UNUSED(timeinfo);
-    UNUSED(statusFlags);
-    UNUSED(inputBuffer);
-
-    for (size_t i=0; i<framesPerBuffer; i++) {
-        *out++ = data->sine[data->left_phase];
-        *out++ = data->sine[data->right_phase];
-        data->left_phase += 1;
-        if (data->left_phase >=TABLE_SIZE) {
-            data->left_phase -= TABLE_SIZE;
-        }
-        data->right_phase += 3;
-        if (data->right_phase >=TABLE_SIZE) {
-            data->right_phase -= TABLE_SIZE;
-        }
-    }
-    return paContinue;
-}
-
-struct paTestData data = {0};
-PaStream * stream = NULL;
 void setup(void)
     /* Do necessary setup. */
 {
@@ -565,8 +501,6 @@ void setup(void)
         {GLFW_KEY_SPACE, MOD_KEYS[0], &g_mod_space, NULL, NULL},
         {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], &g_mod2_space, NULL, NULL},
         {GLFW_KEY_ESCAPE, 0, &g_close_window, (void *)&STATE.window, NULL},
-        {GLFW_KEY_R, 0, &g_play_sine, NULL, NULL},
-        {GLFW_KEY_M, 0, &g_add_space, NULL, NULL},
     };
     num_mappings = SIZE(local_mappings);
     mappings = malloc(num_mappings * sizeof(struct mapping_node));
@@ -597,163 +531,7 @@ void setup(void)
             }
         }
     }
-    /* Do PortAudio stuff. */
-    PaError err = Pa_Initialize();
-    if(err != paNoError) {
-        error_and_exit("Could not initialize PortAudio.");
-    }
-
-    outputParameters.device = Pa_GetDefaultOutputDevice();
-    if (outputParameters.device == paNoDevice) {
-        error_and_exit("Could not find a default audio device.");
-    }
-
-    outputParameters.channelCount = 2; // Stereo.
-    outputParameters.sampleFormat = paFloat32;
-    outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->\
-                                        defaultLowOutputLatency;
-    outputParameters.hostApiSpecificStreamInfo = NULL;
-
-
-    /* Create sine-data. */
-    for (int i=0; i<TABLE_SIZE; i++) {
-        data.sine[i] = (float)sin(((double)i/(double)TABLE_SIZE) * M_PI * 2.0f);
-    }
-    data.left_phase = 0;
-    data.right_phase = 0;
-
-    err = Pa_OpenStream(
-                        &stream,
-                        NULL, // No input.
-                        &outputParameters,
-                        SAMPLE_RATE,
-                        FRAMES_PER_BUFFER,
-                        paClipOff, // Not overshooting range, don't bother clipping.
-                        patestCallback,
-                        &data
-                       );
-
 }
-
-
-pthread_cond_t sig_work = PTHREAD_COND_INITIALIZER;
-pthread_mutex_t lock_work_sig = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t lock_work_queue = PTHREAD_MUTEX_INITIALIZER;
-
-void play_sine(int key, int action, void * user_data)
-    /* Use PortAudio to play a constructed sine wave. */
-{
-    printf("Inside play_sine.\n");
-    /* Set up variables. */
-    PaError err = 0;
-
-    err = Pa_StartStream(stream);
-    if (err != paNoError) {
-        error_and_exit("Error when playing PA stream.");
-    }
-    printf("Play for %d seconds.\n", NUM_SECONDS);
-    Pa_Sleep(NUM_SECONDS * 1000);
-    err = Pa_StopStream(stream);
-    if (err != paNoError) {
-        error_and_exit("Error when stopping stream.");
-    }
-}
-
-#define NUM_THREADS 10
-pthread_t thread_pool[NUM_THREADS];
-bool kill_threads = false;
-
-struct work_node * work_queue = NULL;
-struct work_node * work_last = NULL;
-
-void add_work_node(struct work_node * node)
-    /* Function for adding node to work queue. */
-{
-    pthread_mutex_lock(&lock_work_queue);
-    if (work_queue == NULL) {
-        work_queue = node;
-    } else {
-        work_last->next = node;
-    }
-    work_last = node;
-    pthread_mutex_unlock(&lock_work_queue);
-    // Signal worker threads.
-    pthread_mutex_lock(&lock_work_sig);
-    pthread_cond_signal(&sig_work);
-    pthread_mutex_unlock(&lock_work_sig);
-}
-
-struct work_node * get_work_node(void)
-    /* Unlink a work node and return. */
-{
-    pthread_mutex_lock(&lock_work_queue);
-    if (work_queue == NULL) {
-        pthread_mutex_unlock(&lock_work_queue);
-        return NULL;
-    }
-    struct work_node * first_element = work_queue;
-    work_queue = work_queue->next;
-    pthread_mutex_unlock(&lock_work_queue);
-    return first_element;
-}
-
-
-void * thread_setup(void * data)
-{
-    printf("Waiting for lock.\n");
-    pthread_mutex_lock(&lock_work_sig);
-    for(;;) {
-        printf("Waiting on sig_work.\n");
-        pthread_cond_wait(&sig_work, &lock_work_sig);
-
-        if (kill_threads) {
-            pthread_mutex_unlock(&lock_work_sig);
-            return NULL;
-        }
-        struct work_node * node = get_work_node();
-        if (node != NULL) {
-            node->action_function(node->key, node->action, node->data);
-            free(node);
-        }
-    }
-}
-
-void setup_thread_pool(void)
-    /* Set up thread pool. */
-{
-    for (size_t i=0; i<NUM_THREADS; i++) {
-        pthread_create(&thread_pool[i], NULL, thread_setup, NULL);
-    }
-}
-
-struct work_node * get_new_worknode(void)
-    /* Get empty work node. */
-{
-    struct work_node * new_node = malloc(sizeof(struct work_node));
-    new_node->key = 0;
-    new_node->action = 0;
-    new_node->data = NULL;
-    new_node->next = NULL;
-    new_node->action_function = NULL;
-    return new_node;
-}
-
-void add_space(int key, int action, void * data)
-{
-    UNUSED(key);
-    UNUSED(action);
-    UNUSED(data);
-    struct work_node * new_node = get_new_worknode();
-    new_node->action_function = space;
-    add_work_node(new_node);
-}
-
-struct function_guard g_add_space = {
-    .atomic = false,
-    .been_run = false,
-    .threaded = false,
-    add_space,
-};
 
 
 int main(int argc, char ** argv)
@@ -764,7 +542,6 @@ int main(int argc, char ** argv)
 
     UNUSED(argc);
     setup();
-    setup_thread_pool();
 
     glfw_set_context();
 
@@ -929,9 +706,5 @@ int main(int argc, char ** argv)
     }
     glfwTerminate();
     free(mappings);
-    PaError err = Pa_CloseStream(stream);
-    if (err != paNoError) {
-        error_and_exit("Error when closing stream.");
-    }
     Pa_Terminate();
 }

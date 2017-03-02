@@ -222,6 +222,8 @@ void callback_simple_keyboard(GLFWwindow * window,
                               int mods)
     /* Simple callback function for keyboard input. */
 {
+    UNUSED(window);
+    UNUSED(scancode);
     if (action == GLFW_REPEAT) {
         return;
     }
@@ -384,6 +386,7 @@ void close_window(int key, int action, void * data)
         GLFWwindow ** window = (GLFWwindow **)data;
         glfwSetWindowShouldClose(*window, GLFW_TRUE);
     }
+    UNUSED(key);
 }
 struct function_guard g_close_window = {
     false,

@@ -1,0 +1,15 @@
+{
+    ignore_PortAudio_uninitialized_jumps
+    Memcheck:Cond
+    ...
+    obj:/usr/lib/libasound.so.2.0.0
+    ...
+}
+{
+    ignore_PortAudio_uninitialized_params
+    Memcheck:Param
+    ioctl(generic)
+    ...
+    obj:/usr/lib/libasound.so.2.0.0
+    ...
+}

@@ -824,46 +824,46 @@ int main(int argc, char ** argv)
     UNUSED(argc);
     setup();
 
-    struct sound_data sound_data = {0};
-    const char * path = "";
-
-    path = "input/voice_16.wav";
-    sound_data = load_sound(path);
-    if (sound_data.data == NULL) {
-        printf("Got no data from: %s\n", path);
-    } else {
-        printf("Got data from: %s\n", path);
-        play_sound(&sound_data);
-        sound_data.free((&sound_data)->data);
-        sound_data.data = NULL;
-    }
-    path = "input/voice_16bit.flac";
-    sound_data = load_sound(path);
-    if (sound_data.data == NULL) {
-        printf("Got no data from: %s\n", path);
-    } else {
-        printf("Got data from: %s\n", path);
-        play_sound(&sound_data);
-        sound_data.free((&sound_data)->data);
-        sound_data.data = NULL;
-    }
-    path = "input/voice.ogg";
-    sound_data = load_sound(path);
-    if (sound_data.data == NULL) {
-        printf("Got no data from: %s\n", path);
-    } else {
-        printf("Got data from: %s\n", path);
-        play_sound(&sound_data);
-        sound_data.free((&sound_data)->data);
-        sound_data.data = NULL;
-    }
-    path = "input/voice.txt";
-    sound_data = load_sound(path);
-    if (sound_data.data == NULL) {
-        printf("Got no data from: %s\n", path);
-    } else {
-        printf("Got data from: %s\n", path);
-    }
+//    struct sound_data sound_data = {0};
+//    const char * path = "";
+//
+//    path = "input/voice_16.wav";
+//    sound_data = load_sound(path);
+//    if (sound_data.data == NULL) {
+//        printf("Got no data from: %s\n", path);
+//    } else {
+//        printf("Got data from: %s\n", path);
+//        play_sound(&sound_data);
+//        sound_data.free((&sound_data)->data);
+//        sound_data.data = NULL;
+//    }
+//    path = "input/voice_16bit.flac";
+//    sound_data = load_sound(path);
+//    if (sound_data.data == NULL) {
+//        printf("Got no data from: %s\n", path);
+//    } else {
+//        printf("Got data from: %s\n", path);
+//        play_sound(&sound_data);
+//        sound_data.free((&sound_data)->data);
+//        sound_data.data = NULL;
+//    }
+//    path = "input/voice.ogg";
+//    sound_data = load_sound(path);
+//    if (sound_data.data == NULL) {
+//        printf("Got no data from: %s\n", path);
+//    } else {
+//        printf("Got data from: %s\n", path);
+//        play_sound(&sound_data);
+//        sound_data.free((&sound_data)->data);
+//        sound_data.data = NULL;
+//    }
+//    path = "input/voice.txt";
+//    sound_data = load_sound(path);
+//    if (sound_data.data == NULL) {
+//        printf("Got no data from: %s\n", path);
+//    } else {
+//        printf("Got data from: %s\n", path);
+//    }
 
     glfw_set_context();
 

@@ -57,6 +57,7 @@ struct function_guard  {
     bool atomic;
     bool been_run;
     action_function_type action_function;
+    void (*free)(void * data);
 };
 
 struct work_node {

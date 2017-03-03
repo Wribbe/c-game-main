@@ -573,8 +573,13 @@ struct sound_data {
 };
 
 struct sound_pointers {
-    int16_t * start;
-    int16_t * stop;
+    int16_t * current;
+    int16_t * end;
+};
+
+struct sound_info {
+    struct sound_data * data;
+    struct sound_pointers * pointers;
 };
 
 

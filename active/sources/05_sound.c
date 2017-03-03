@@ -752,6 +752,9 @@ int main(int argc, char ** argv)
     UNUSED(stream);
     UNUSED(stream_no);
 
+    UNUSED(argc);
+    setup();
+
     struct sound_data sound_data = {0};
     const char * path = "";
 
@@ -783,9 +786,6 @@ int main(int argc, char ** argv)
     } else {
         printf("Got data from: %s\n", path);
     }
-
-    UNUSED(argc);
-    setup();
 
     glfw_set_context();
 

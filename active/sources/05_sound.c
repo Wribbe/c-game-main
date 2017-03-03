@@ -609,7 +609,7 @@ PaStreamParameters pa_default_params(size_t channels)
     return params;
 }
 
-enum sound_types {
+enum sound_format {
     VORBIS,
     WAV,
     FLAC,
@@ -699,7 +699,7 @@ flac_w_callback(const FLAC__StreamDecoder * decoder,
 }
 
 void read_sound(struct sound_data * data,
-                enum sound_types type,
+                enum sound_format type,
                 const char * filepath)
     /* Read the sound from disk to sound_data struct.
      * If no data was read, set data pointer to NULL. */

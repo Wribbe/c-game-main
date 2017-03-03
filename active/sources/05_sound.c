@@ -658,7 +658,7 @@ void read_sound(struct sound_data * data,
                                                                 &data->channels,
                                                                 &data->rate,
                                                                 &data->size);
-            data->free = drwav_free;
+            data->free = free;
             break;
         case VORBIS:
             ov_fopen(filepath, &vf);

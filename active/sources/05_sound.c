@@ -701,7 +701,7 @@ void read_sound(struct sound_data * data,
                                                          flac_w_callback,
                                                          flac_m_callback,
                                                          flac_err_callback,
-                                                         &data);
+                                                         data);
             if (init_status != FLAC__STREAM_DECODER_INIT_STATUS_OK) {
                 error_and_exit("Could not initialize FLAC decoder.");
             }

@@ -15,6 +15,8 @@
 #include "vorbisfile.h"
 #include "FLAC/stream_decoder.h"
 
+#include <pthread.h>
+
 #define UNUSED(x) (void)x
 #define SIZE(x) sizeof(x)/sizeof(x[0])
 
@@ -494,6 +496,7 @@ enum playback_type {
     KEEP,       // Keep playing the original sound if it's playing.
     RESTART,    // If the sound is playing restart it from the beginning.
     OVERLAY,    // Play sounds on top of each other.
+    STOP,       // Stop the current sound, don't play other one.
 };
 
 struct playback_info {
@@ -533,6 +536,7 @@ void no_nested_data(void * data)
 
 void free_s_info(void * data);
 void print_sound_guard(int key, int action, void * data);
+void sound_queue_handler(int key, int action, void * data);
 
 void setup(void)
     /* Do necessary setup. */
@@ -587,7 +591,7 @@ void setup(void)
     g_mod2_space = get_guard(mod2_space);
     g_mod3_space = get_guard(mod3_space);
     g_close_window = get_guard(close_window);
-    g_play = get_guard(print_sound_guard);
+    g_play = get_guard(sound_queue_handler);
     g_play.atomic = true;
     g_play.free = free_s_info;
 }
@@ -620,7 +624,9 @@ struct sound_data {
     size_t size;
     uint32_t rate;
     uint32_t channels;
-    bool * abort;
+    pthread_mutex_t bool_mutex;
+    bool abort;
+    bool playing;
     int16_t * data;
     void (*free)(void * data);
 };
@@ -632,7 +638,10 @@ struct sound_pointers {
 
 struct sound_info {
     struct sound_data * data;
-    struct sound_pointers * pointers;
+    pthread_mutex_t * mutex;
+    bool * playing;
+    bool * abort;
+    struct sound_pointers pointers;
 };
 
 
@@ -779,6 +788,7 @@ void read_sound(struct sound_data * data,
 struct sound_data load_sound(const char * filepath)
 {
     struct sound_data data = {0};
+    pthread_mutex_init(&data.bool_mutex, NULL);
     const char * filetype =  get_filetype(filepath);
     if (strcmp(filetype, ".ogg") == 0) {
         printf("Found ogg file.\n");
@@ -811,15 +821,15 @@ static int portaudio_callback(const void * input_buffer,
     int16_t * out = (int16_t *)output_buffer;
 
     for(size_t i=0; i<frames_per_buffer; i++) {
-        if (info->pointers->current > info->pointers->end) {
+        if (info->pointers.current > info->pointers.end) {
             break;
         }
         for (size_t chan=0; chan < info->data->channels; chan++) {
-            *out++ = *info->pointers->current++;
+            *out++ = *info->pointers.current++;
         }
     }
 
-    if (info->pointers->current > info->pointers->end) {
+    if (info->pointers.current > info->pointers.end) {
         return paAbort;
     }
     return paContinue;
@@ -837,7 +847,7 @@ void play_sound(struct sound_data * data)
     };
     struct sound_info info = {
         .data = data,
-        .pointers = &pointers,
+        .pointers = pointers,
     };
     PaError err = Pa_OpenStream(&stream,
                                 NULL,
@@ -877,6 +887,119 @@ void print_sound_guard(int key, int action, void * data)
     printf("Got playback_type: %d\n", info->type);
 }
 
+struct sound_info_node {
+    struct sound_info info;
+    struct sound_info_node * next;
+};
+
+pthread_mutex_t sound_queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t sig_new_sound = PTHREAD_COND_INITIALIZER;
+
+struct sound_info_node * sound_queue = NULL;
+struct sound_info_node * sound_queue_last = NULL;
+
+void free_sound_info_node(void * data)
+    /* Method for freeing sound_info_nodes. */
+{
+    struct sound_info_node * info = (struct sound_info_node *)data;
+    free(info);
+}
+
+struct sound_data global_sound_data = {0};
+
+void add_sound_to_play_queue(struct sound_data * data)
+    /* Add sound data to a sound queue where threads pick it up, starts a
+     * stream if necessary and plays the data on that stream. */
+{
+    /* Create new node for queue. */
+    struct sound_info_node * node = calloc(1, sizeof(struct sound_info_node));
+    struct sound_info sound_info = node->info;
+    sound_info.pointers.current = data->data;
+    sound_info.pointers.end = sound_info.pointers.current+data->size/
+                              sizeof(int16_t);
+    sound_info.mutex = &data->bool_mutex;
+    sound_info.playing = &data->playing;
+    sound_info.abort = &data->abort;
+    sound_info.data = data;
+
+    /* Append to queue. */
+    pthread_mutex_lock(&sound_queue_mutex);
+    if (sound_queue == NULL) { // First element in list.
+        sound_queue = node;
+        sound_queue_last = node;
+    } else { // Not first in queue.
+        sound_queue_last->next = node;
+        sound_queue_last = node;
+    }
+    pthread_cond_signal(&sig_new_sound);
+    pthread_mutex_unlock(&sound_queue_mutex);
+
+    struct sound_info_node * pointer = sound_queue;
+    size_t num_in_list = 0;
+    for(;pointer != NULL; pointer = pointer->next) {
+        num_in_list++;
+    }
+    printf("%zu elements appended to list.\n", num_in_list);
+}
+
+void sound_queue_handler(int key, int action, void * data)
+    /* Check the type of playback and current status of the sound that should
+     * be played. */
+{
+    UNUSED(key);
+    UNUSED(action);
+
+    bool play = false;
+    bool mute_current = false;
+    /* Should have a way to get the correct data based on the name in the
+     * playback info, maybe have an enum instead? */
+    struct sound_data * sound_data = &global_sound_data;
+
+    struct playback_info * info = (struct playback_info *)data;
+
+    pthread_mutex_lock(&sound_data->bool_mutex);
+    if (sound_data->playing) {
+        switch (info->type) { // Sound is playing.
+            case KEEP:
+                break;
+            case OVERLAY:
+                play = true;
+                break;
+            case RESTART:
+                play = true;
+                mute_current = true;
+                break;
+            case STOP:
+                mute_current = true;
+                break;
+            default:
+                error_and_exit("Got unknown playback type, aborting");
+                break;
+        }
+    } else { // Sound not playing.
+        switch (info->type) {
+            case KEEP:
+            case OVERLAY:
+                play = true;
+                break;
+            case RESTART:
+                play = true;
+                mute_current = true;
+                break;
+            case STOP:
+                break;
+            default:
+                error_and_exit("Got unknown playback type, aborting");
+                break;
+        }
+    }
+    sound_data->abort = mute_current;
+    pthread_mutex_unlock(&sound_data->bool_mutex);
+    if (play) {
+        add_sound_to_play_queue(sound_data);
+    }
+}
+
 int main(int argc, char ** argv)
 {
     if (!glfwInit()) {
@@ -895,19 +1018,18 @@ int main(int argc, char ** argv)
     UNUSED(argc);
     setup();
 
-//    struct sound_data sound_data = {0};
-//    const char * path = "";
-//
-//    path = "input/voice_16.wav";
-//    sound_data = load_sound(path);
-//    if (sound_data.data == NULL) {
-//        printf("Got no data from: %s\n", path);
-//    } else {
-//        printf("Got data from: %s\n", path);
+    const char * path = "";
+
+    path = "input/voice_16.wav";
+    global_sound_data = load_sound(path);
+    if (global_sound_data.data == NULL) {
+        printf("Got no data from: %s\n", path);
+    } else {
+        printf("Got data from: %s\n", path);
 //        play_sound(&sound_data);
 //        sound_data.free((&sound_data)->data);
 //        sound_data.data = NULL;
-//    }
+    }
 //    path = "input/voice_16bit.flac";
 //    sound_data = load_sound(path);
 //    if (sound_data.data == NULL) {

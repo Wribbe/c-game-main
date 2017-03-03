@@ -980,11 +980,9 @@ void sound_queue_handler(int key, int action, void * data)
         switch (info->type) {
             case KEEP:
             case OVERLAY:
-                play = true;
-                break;
             case RESTART:
                 play = true;
-                mute_current = true;
+                break;
                 break;
             case STOP:
                 break;

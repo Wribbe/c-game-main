@@ -742,6 +742,70 @@ struct sound_data load_sound(const char * filepath)
     return data;
 }
 
+static int portaudio_callback(const void * input_buffer,
+                              void * output_buffer,
+                              unsigned long frames_per_buffer,
+                              const PaStreamCallbackTimeInfo * timeInfo,
+                              PaStreamCallbackFlags statusFlags,
+                              void * user_data)
+{
+    UNUSED(timeInfo);
+    UNUSED(statusFlags);
+    UNUSED(input_buffer);
+
+    struct sound_info * info = (struct sound_info *)user_data;
+
+    int16_t * out = (int16_t *)output_buffer;
+
+    for(size_t i=0; i<frames_per_buffer; i++) {
+        if (info->pointers->current > info->pointers->end) {
+            break;
+        }
+        for (size_t chan=0; chan < info->data->channels; chan++) {
+            *out++ = *info->pointers->current++;
+        }
+    }
+
+    if (info->pointers->current > info->pointers->end) {
+        return paAbort;
+    }
+    return paContinue;
+}
+
+void play_sound(struct sound_data * data)
+    /* Play sound stored in a sound_data struct. */
+{
+    PaStreamParameters defaults = pa_default_params(data->channels);
+    size_t frames_per_buffer = 128;
+    PaStream * stream = NULL;
+    struct sound_pointers pointers = {
+        .current = data->data,
+        .end = data->data+(data->size/sizeof(int16_t)),
+    };
+    struct sound_info info = {
+        .data = data,
+        .pointers = &pointers,
+    };
+    PaError err = Pa_OpenStream(&stream,
+                                NULL,
+                                &defaults,
+                                data->rate,
+                                frames_per_buffer,
+                                paClipOff,
+                                portaudio_callback,
+                                &info);
+    if (err != paNoError) {
+        error_and_exit("Could not open stream, aborting.\n");
+    }
+    err = Pa_StartStream(stream);
+    if (err != paNoError) {
+        error_and_exit("Could not start stream, aborting.\n");
+    }
+    Pa_Sleep(5*1000);
+    Pa_StopStream(stream);
+    Pa_CloseStream(stream);
+}
+
 int main(int argc, char ** argv)
 {
     if (!glfwInit()) {
@@ -769,6 +833,9 @@ int main(int argc, char ** argv)
         printf("Got no data from: %s\n", path);
     } else {
         printf("Got data from: %s\n", path);
+        play_sound(&sound_data);
+        sound_data.free((&sound_data)->data);
+        sound_data.data = NULL;
     }
     path = "input/voice_16bit.flac";
     sound_data = load_sound(path);

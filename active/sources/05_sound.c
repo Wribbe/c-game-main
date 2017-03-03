@@ -1098,6 +1098,11 @@ int main(int argc, char ** argv)
         glfwSwapBuffers(window);
     }
     glfwTerminate();
+    for (size_t i=0; i<num_mappings; i++) {
+        struct mapping_node * node = &mappings[i];
+        node->function_guard->free(node->data);
+    }
     free(mappings);
     Pa_Terminate();
+    glfwTerminate();
 }

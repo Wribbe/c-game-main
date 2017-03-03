@@ -67,13 +67,6 @@ struct work_node {
     struct work_node * next;
 };
 
-PaStreamParameters outputParameters = {0};
-#define NUM_SECONDS   (5)
-#define SAMPLE_RATE   (44100)
-#define FRAMES_PER_BUFFER  (64)
-#define TABLE_SIZE 200
-
-
 void prefixed_output(FILE * output,
                      const char * tag,
                      const char * message)
@@ -552,6 +545,9 @@ PaStreamParameters pa_default_params(size_t channels)
     PaStreamParameters params = {0};
 
     params.device = Pa_GetDefaultOutputDevice();
+    if (params.device == paNoDevice) {
+        error_and_exit("Could not establish default device, aborting.\n");
+    }
     params.channelCount = channels;
     params.sampleFormat = paInt16;
     params.suggestedLatency = Pa_GetDeviceInfo(params.device)->\

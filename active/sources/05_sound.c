@@ -843,6 +843,9 @@ int main(int argc, char ** argv)
         printf("Got no data from: %s\n", path);
     } else {
         printf("Got data from: %s\n", path);
+        play_sound(&sound_data);
+        sound_data.free((&sound_data)->data);
+        sound_data.data = NULL;
     }
     path = "input/voice.ogg";
     sound_data = load_sound(path);
@@ -850,6 +853,9 @@ int main(int argc, char ** argv)
         printf("Got no data from: %s\n", path);
     } else {
         printf("Got data from: %s\n", path);
+        play_sound(&sound_data);
+        sound_data.free((&sound_data)->data);
+        sound_data.data = NULL;
     }
     path = "input/voice.txt";
     sound_data = load_sound(path);

@@ -63,6 +63,28 @@ static void StreamFinished( void* userData )
 }
 
 /*******************************************************************/
+
+struct thread_data {
+    pthread_t thread;
+    size_t index;
+};
+
+void * workerfunc_threads(void * data)
+{
+    struct thread_data * thread_data = (struct thread_data *)data;
+    printf("Hello from thread: %zu\n", thread_data->index);
+    return NULL;
+}
+
+void setup_thread_pool(size_t num_threads, struct thread_data * pool)
+    /* Setup thread pool for all streams. */
+{
+    for(size_t i=0; i<num_threads; i++) {
+        pool[i].index = i;
+        pthread_create(&pool[i].thread, NULL, workerfunc_threads, &pool[i]);
+    }
+}
+
 void error(PaError err) {
     Pa_Terminate();
     fprintf( stderr, "An error occured while using the portaudio stream\n" );
@@ -102,6 +124,10 @@ int main(void)
     outputParameters.sampleFormat = paFloat32; /* 32 bit floating point output */
     outputParameters.suggestedLatency = Pa_GetDeviceInfo( outputParameters.device )->defaultLowOutputLatency;
     outputParameters.hostApiSpecificStreamInfo = NULL;
+
+    size_t num_threads = 10;
+    struct thread_data pool[num_threads];
+    setup_thread_pool(num_threads, pool);
 
     err = Pa_OpenStream(
               &stream,

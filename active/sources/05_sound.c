@@ -353,7 +353,6 @@ struct function_guard g_mod_space = {0};
 struct function_guard g_mod2_space = {0};
 struct function_guard g_mod3_space = {0};
 struct function_guard g_close_window = {0};
-struct function_guard g_play = {0};
 
 void mod_space(int key, int action, void * data)
 {
@@ -537,7 +536,6 @@ void no_nested_data(void * data)
 
 void free_s_info(void * data);
 void print_sound_guard(int key, int action, void * data);
-void sound_queue_handler(int key, int action, void * data);
 
 void setup(void)
     /* Do necessary setup. */
@@ -548,9 +546,6 @@ void setup(void)
         {GLFW_KEY_SPACE, MOD_KEYS[0], &g_mod_space, NULL, NULL},
         {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], &g_mod2_space, NULL, NULL},
         {GLFW_KEY_ESCAPE, 0, &g_close_window, (void *)&STATE.window, NULL},
-        {GLFW_KEY_K, 0, &g_play, s_info("voice_16.wav", KEEP), NULL},
-        {GLFW_KEY_O, 0, &g_play, s_info("voice_16.wav", OVERLAY), NULL},
-        {GLFW_KEY_R, 0, &g_play, s_info("voice_16.wav", RESTART), NULL},
     };
     num_mappings = SIZE(local_mappings);
     mappings = malloc(num_mappings * sizeof(struct mapping_node));
@@ -592,9 +587,6 @@ void setup(void)
     g_mod2_space = get_guard(mod2_space);
     g_mod3_space = get_guard(mod3_space);
     g_close_window = get_guard(close_window);
-    g_play = get_guard(sound_queue_handler);
-    g_play.atomic = true;
-    g_play.free = free_s_info;
 }
 
 PaStreamParameters default_pa_params(size_t channels)
@@ -632,21 +624,6 @@ struct sound_data {
     uint16_t playing;
     int16_t * data;
     void (*free)(void * data);
-};
-
-struct sound_pointers {
-    int16_t * current;
-    int16_t * end;
-    struct sound_data * data;
-    PaStream ** stream;
-};
-
-struct sound_info {
-    struct sound_data * data;
-    uint16_t * playing;
-    bool * abort;
-    bool * mute;
-    struct sound_pointers pointers;
 };
 
 
@@ -829,116 +806,6 @@ void print_sound_guard(int key, int action, void * data)
     printf("Got playback_type: %d\n", info->type);
 }
 
-struct sound_info_node {
-    struct sound_info info;
-    struct sound_info_node * next;
-};
-
-pthread_mutex_t mutex_sound_queue = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t sig_new_sound = PTHREAD_COND_INITIALIZER;
-
-struct sound_info_node * sound_queue = NULL;
-struct sound_info_node * sound_queue_last = NULL;
-
-void free_sound_info_node(void * data)
-    /* Method for freeing sound_info_nodes. */
-{
-    struct sound_info_node * info = (struct sound_info_node *)data;
-    free(info);
-}
-
-struct sound_data global_sound_data = {0};
-
-void add_sound_to_play_queue(struct sound_data * data)
-    /* Add sound data to a sound queue where threads pick it up, starts a
-     * stream if necessary and plays the data on that stream. */
-{
-    /* Create new node for queue. */
-    struct sound_info_node * node = calloc(1, sizeof(struct sound_info_node));
-    struct sound_info * sound_info = &node->info;
-    sound_info->pointers.current = data->data;
-    sound_info->pointers.end = sound_info->pointers.current+data->size/
-                               sizeof(int16_t);
-    sound_info->playing = &data->playing;
-    sound_info->abort = &data->abort;
-    sound_info->mute = &data->mute;
-    sound_info->data = data;
-
-    /* Append to queue. */
-    pthread_mutex_lock(&mutex_sound_queue);
-    if (sound_queue == NULL) { // First element in list.
-        sound_queue = node;
-        sound_queue_last = node;
-    } else { // Not first in queue.
-        sound_queue_last->next = node;
-        sound_queue_last = node;
-    }
-
-    struct sound_info_node * pointer = sound_queue;
-    size_t num_in_list = 0;
-    for(;pointer != NULL; pointer = pointer->next) {
-        num_in_list++;
-    }
-    printf("%zu elements appended to list.\n", num_in_list);
-
-    pthread_cond_signal(&sig_new_sound);
-    pthread_mutex_unlock(&mutex_sound_queue);
-}
-
-void sound_queue_handler(int key, int action, void * data)
-    /* Check the type of playback and current status of the sound that should
-     * be played. */
-{
-    UNUSED(key);
-    UNUSED(action);
-
-    bool play = false;
-    bool mute_current = false;
-
-    struct playback_info * info = (struct playback_info *)data;
-    /* Should have a way to get the correct data based on the name in the
-     * playback info, maybe have an enum instead? */
-    struct sound_data * sound_data = &global_sound_data;
-
-    pthread_mutex_lock(&sound_data->mutex_sound_data);
-    if (sound_data->playing > 0) {
-        switch (info->type) { // Sound is playing.
-            case KEEP:
-                break;
-            case OVERLAY:
-                play = true;
-                break;
-            case RESTART:
-                play = true;
-                mute_current = true;
-                break;
-            case STOP:
-                mute_current = true;
-                break;
-            default:
-                error_and_exit("Got unknown playback type, aborting");
-                break;
-        }
-    } else { // Sound not playing.
-        switch (info->type) {
-            case KEEP:
-            case OVERLAY:
-            case RESTART:
-                play = true;
-                break;
-            case STOP:
-                break;
-            default:
-                error_and_exit("Got unknown playback type, aborting");
-                break;
-        }
-    }
-    sound_data->mute = mute_current;
-    pthread_mutex_unlock(&sound_data->mutex_sound_data);
-    if (play) {
-        add_sound_to_play_queue(sound_data);
-    }
-}
 
 static int callback_pa(const void * input_buffer,
                        void * output_buffer,
@@ -956,136 +823,10 @@ static int callback_pa(const void * input_buffer,
     int16_t * out = (int16_t *)output_buffer;
 
     for (size_t i=0; i<frames_per_buffer; i++) {
-        for (size_t chan=0; chan < pointers->data->channels; chan++) {
-            *out++ = *pointers->current;
-            pointers->current += 1;
-            if (pointers->current > pointers->end) {
-                return paComplete;
-            }
-        }
     }
     return paContinue;
 }
 
-pthread_mutex_t mutex_pa_cleanup = PTHREAD_MUTEX_INITIALIZER;
-void * decremnt_playing(void * data)
-    /* Thread work function to decrement playing variable in sound data. */
-{
-    struct sound_pointers * pointers = (struct sound_pointers *)data;
-    struct sound_data * sound_data = pointers->data;
-
-    // Change sound playing variable.
-    pthread_mutex_lock(&sound_data->mutex_sound_data);
-    sound_data->playing -= 1;
-    pthread_cond_signal(&sound_data->sig_sound_data_change);
-    pthread_mutex_unlock(&sound_data->mutex_sound_data);
-
-    // Close and cleanup the stream.
-    pthread_mutex_lock(&mutex_pa_cleanup);
-    Pa_StopStream(*pointers->stream);
-    Pa_CloseStream(*pointers->stream);
-    *pointers->stream = NULL;
-    pthread_mutex_unlock(&mutex_pa_cleanup);
-    return NULL;
-}
-
-pthread_attr_t attr = {0};
-pthread_t temp_thread = {0};
-void stopped_playing(void * data)
-    /* Use new temp thread to decrement playing and stop and close stream. */
-{
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    pthread_create(&temp_thread, &attr, decremnt_playing, data);
-}
-
-
-static void stream_finished(void * data)
-    /* Clean-up function for when a stream finishes.
-     * Close it self and set to NULL, should set playing to false.. */
-{
-    pthread_mutex_lock(&mutex_pa_cleanup);
-    stopped_playing(data);
-    pthread_mutex_unlock(&mutex_pa_cleanup);
-}
-
-void * worker_func_sound_thread(void * data)
-    /* Worker function for basic sound scheduling run in separate threads. */
-{
-    UNUSED(data);
-    PaStream * stream = NULL;
-    pthread_mutex_lock(&mutex_sound_queue);
-    size_t frames_per_buffer = 128;
-    struct sound_info_node * node = NULL;
-    struct sound_data * sound_data = NULL;
-    struct sound_data * prev_sound_data = NULL;
-    for(;;) {
-        // Wait if there is nothing to do.
-        while (sound_queue == NULL) {
-            pthread_cond_wait(&sig_new_sound, &mutex_sound_queue);
-        } // Something new in the queue.
-        if (stream != NULL) { // Were we doing something?
-            prev_sound_data = sound_data;
-        }
-        // Load new nodes and data.
-        node = sound_queue;
-        sound_data = node->info.data;
-        bool same_data = prev_sound_data == sound_data;
-        // Should abort irregardless of current sound.
-        if (*node->info.abort) {
-            if (stream != NULL) {
-                Pa_StopStream(stream);
-                Pa_CloseStream(stream);
-                pthread_mutex_unlock(&mutex_sound_queue);
-                break;
-            }
-        // Are we working on the sound in the current node?
-        } else if (*node->info.mute && stream != NULL && same_data) {
-            Pa_StopStream(stream);
-            Pa_CloseStream(stream);
-            pthread_cond_wait(&sound_data->sig_sound_data_change,
-                              &sound_data->mutex_sound_data);
-            // De-link node from queue if no-one is playing anymore.
-            if (sound_data->playing == 0) {
-                sound_queue = node->next;
-                if (sound_queue == NULL) {
-                    sound_queue_last = NULL;
-                }
-                free(node);
-            }
-        } else { // Create new stream.
-            PaStreamParameters params = default_pa_params(sound_data->channels);
-            node->info.pointers.data = sound_data;
-            node->info.pointers.stream = &stream;
-            Pa_OpenStream(&stream,
-                          NULL,
-                          &params,
-                          sound_data->rate,
-                          frames_per_buffer,
-                          paClipOff,
-                          callback_pa,
-                          &node->info.pointers);
-            Pa_SetStreamFinishedCallback(stream, stream_finished);
-            Pa_StartStream(stream);
-            // De-link node.
-            sound_queue = node->next;
-            if (sound_queue == NULL) {
-                sound_queue_last = NULL;
-            }
-            free(node);
-        }
-    }
-    return NULL;
-}
-
-void setup_sound_thread_pool(size_t num_threads, pthread_t * pool)
-    /* Setup thread pool for sound stream threads. How should the be aborted?
-     * Wait on a signal? */
-{
-    for (size_t i=0; i<num_threads; i++) {
-        pthread_create(&pool[i], NULL, worker_func_sound_thread, NULL);
-    }
-}
 
 int main(int argc, char ** argv)
 {
@@ -1105,14 +846,10 @@ int main(int argc, char ** argv)
     UNUSED(argc);
     setup();
 
-    size_t num_sound_threads = 1;
-    pthread_t pool[num_sound_threads];
-    setup_sound_thread_pool(num_sound_threads, pool);
-
     const char * path = "";
 
     path = "input/voice_16.wav";
-    global_sound_data = load_sound(path);
+    struct sound_data global_sound_data = load_sound(path);
     if (global_sound_data.data == NULL) {
         printf("Got no data from: %s\n", path);
     } else {

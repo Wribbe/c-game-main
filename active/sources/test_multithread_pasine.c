@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include "portaudio.h"
+#include <pthread.h>
 
 #define NUM_SECONDS   (5)
 #define SAMPLE_RATE   (44100)
@@ -61,6 +63,15 @@ static void StreamFinished( void* userData )
 }
 
 /*******************************************************************/
+void error(PaError err) {
+    Pa_Terminate();
+    fprintf( stderr, "An error occured while using the portaudio stream\n" );
+    fprintf( stderr, "Error number: %d\n", err );
+    fprintf( stderr, "Error message: %s\n", Pa_GetErrorText( err ) );
+    exit(EXIT_FAILURE);
+}
+
+
 int main(void);
 int main(void)
 {
@@ -80,12 +91,12 @@ int main(void)
     data.left_phase = data.right_phase = 0;
 
     err = Pa_Initialize();
-    if( err != paNoError ) goto error;
+    if( err != paNoError )error(err);
 
     outputParameters.device = Pa_GetDefaultOutputDevice(); /* default output device */
     if (outputParameters.device == paNoDevice) {
       fprintf(stderr,"Error: No default output device.\n");
-      goto error;
+      error(err);
     }
     outputParameters.channelCount = 2;       /* stereo output */
     outputParameters.sampleFormat = paFloat32; /* 32 bit floating point output */
@@ -101,32 +112,26 @@ int main(void)
               paClipOff,      /* we won't output out of range samples so don't bother clipping them */
               patestCallback,
               &data );
-    if( err != paNoError ) goto error;
+    if( err != paNoError )error(err);
 
     sprintf( data.message, "No Message" );
     err = Pa_SetStreamFinishedCallback( stream, &StreamFinished );
-    if( err != paNoError ) goto error;
+    if( err != paNoError )error(err);
 
     err = Pa_StartStream( stream );
-    if( err != paNoError ) goto error;
+    if( err != paNoError )error(err);
 
     printf("Play for %d seconds.\n", NUM_SECONDS );
     Pa_Sleep( NUM_SECONDS * 1000 );
 
     err = Pa_StopStream( stream );
-    if( err != paNoError ) goto error;
+    if( err != paNoError )error(err);
 
     err = Pa_CloseStream( stream );
-    if( err != paNoError ) goto error;
+    if( err != paNoError )error(err);
 
     Pa_Terminate();
     printf("Test finished.\n");
 
-    return err;
-error:
-    Pa_Terminate();
-    fprintf( stderr, "An error occured while using the portaudio stream\n" );
-    fprintf( stderr, "Error number: %d\n", err );
-    fprintf( stderr, "Error message: %s\n", Pa_GetErrorText( err ) );
     return err;
 }

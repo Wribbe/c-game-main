@@ -751,8 +751,9 @@ static int callback_pa(const void * input_buffer,
     UNUSED(status_flags);
     UNUSED(input_buffer);
 
-    struct queue_sound_node * node = (struct queue_sound_node *)user_data;
+    struct queue_sound_node ** node_ptr = (struct queue_sound_node *)user_data;
     int16_t * out = (int16_t *)output_buffer;
+    struct queue_sound_node * node = *node_ptr;
 
     size_t i = 0;
     for (;; node = node->next) {
@@ -806,6 +807,35 @@ PaStreamParameters default_pa_params(size_t channels);
 void setup(void)
     /* Do necessary setup. */
 {
+    /* Initialize PortAudio. */
+    if (Pa_Initialize() != paNoError) {
+        error_and_exit("Could not initialize PortAudio, aborting.\n");
+    }
+    /* Set up stream. */
+    params_pa = default_pa_params(2);
+    empty_node.next = &empty_node;
+    empty_node.current = NULL;
+    queue_sound = &empty_node;
+    Pa_OpenStream(&stream_pa,
+                  NULL,
+                  &params_pa,
+                  44000,
+                  128,
+                  paClipOff,
+                  callback_pa,
+                  &queue_sound);
+    Pa_StartStream(stream_pa);
+
+    /* Load sounds. */
+    const char * path = "input/voice_16.wav";
+    sounds[VOICE_16_WAV] = load_sound(path);
+    if (sounds[VOICE_16_WAV].data == NULL) {
+        printf("Got no data from: %s\n", path);
+    } else {
+        printf("Got data from: %s\n", path);
+    }
+
+    /* Setup key-bindings. */
     struct mapping_node local_mappings[] = {
         {GLFW_KEY_SPACE, 0, &g_space, NULL, NULL},
         {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1]+MOD_KEYS[2], &g_mod3_space, NULL, NULL},
@@ -843,25 +873,6 @@ void setup(void)
             }
         }
     }
-    /* Initialize PortAudio. */
-    if (Pa_Initialize() != paNoError) {
-        error_and_exit("Could not initialize PortAudio, aborting.\n");
-    }
-    /* Set up stream. */
-    params_pa = default_pa_params(2);
-    empty_node.next = &empty_node;
-    empty_node.current = NULL;
-    queue_sound = &empty_node;
-    Pa_OpenStream(&stream_pa,
-                  NULL,
-                  &params_pa,
-                  44000,
-                  128,
-                  paClipOff,
-                  callback_pa,
-                  queue_sound);
-    Pa_StartStream(stream_pa);
-
 
     /* Setup keybinding function guards. */
     g_space = get_guard(space);
@@ -910,18 +921,6 @@ int main(int argc, char ** argv)
     UNUSED(argc);
     setup();
 
-    const char * path = "";
-
-    path = "input/voice_16.wav";
-    sounds[VOICE_16_WAV] = load_sound(path);
-    if (sounds[VOICE_16_WAV].data == NULL) {
-        printf("Got no data from: %s\n", path);
-    } else {
-        printf("Got data from: %s\n", path);
-//        play_sound(&sound_data);
-//        sound_data.free((&sound_data)->data);
-//        sound_data.data = NULL;
-    }
 //    path = "input/voice_16bit.flac";
 //    sound_data = load_sound(path);
 //    if (sound_data.data == NULL) {

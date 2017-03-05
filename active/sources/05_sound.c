@@ -50,7 +50,8 @@ struct mapping_node {
     int key;
     int modifier_sum;
     struct function_guard * function_guard;
-    void * data;
+    void * (*data_function)(void * parameters);
+    void * parameters;
     struct mapping_node * next;
 };
 typedef void (*action_function_type)(int key, int action, void * data);
@@ -413,7 +414,8 @@ void event_action(int key, int action)
                     return;
                 }
                 guard->been_run = press(action) ? true : false;
-                guard->action_function(key, action, pointer->data);
+                void * data = pointer->data_function(pointer->parameters);
+                guard->action_function(key, action, data);
                 break;
             }
         }
@@ -532,11 +534,24 @@ void play_sound(int key, int action, void * data)
         queue_sound->next = node;
         node->next = current_next;
     }
+    struct queue_sound_node * pointer = queue_sound;
+    struct queue_sound_node * next = queue_sound->next;
+    size_t i = 1;
+    while(pointer != next) {
+        next = next->next;
+        i++;
+    }
+    printf("Currently %zu nodes in queue_sound.\n", i);
 }
 
 void print_sound_guard(int key, int action, void * data);
-struct queue_sound_node * get_queue_sound_node(enum EFF_SOUND sound,
-                                               enum PLAYBACK_TYPE type);
+void * get_queue_sound_node(void * parameters);
+void * pack_params(enum EFF_SOUND sound, enum PLAYBACK_TYPE);
+
+struct params_get_queue_sound {
+    enum EFF_SOUND sound;
+    enum PLAYBACK_TYPE type;
+};
 
 enum sound_format {
     VORBIS,
@@ -751,7 +766,7 @@ static int callback_pa(const void * input_buffer,
     UNUSED(status_flags);
     UNUSED(input_buffer);
 
-    struct queue_sound_node ** node_ptr = (struct queue_sound_node *)user_data;
+    struct queue_sound_node ** node_ptr = (struct queue_sound_node **)user_data;
     int16_t * out = (int16_t *)output_buffer;
     struct queue_sound_node * node = *node_ptr;
 
@@ -778,27 +793,44 @@ static int callback_pa(const void * input_buffer,
 }
 
 
-struct sound_data sounds[200] = {0};
+struct sound_data sounds[50] = {0};
 
 struct sound_data * get_sound_data(enum EFF_SOUND sound)
 {
     return &sounds[sound];
 }
 
-
-struct queue_sound_node * get_queue_sound_node(enum EFF_SOUND sound,
-                                               enum PLAYBACK_TYPE type)
+void * pack_params(enum EFF_SOUND sound, enum PLAYBACK_TYPE type)
 {
+    struct params_get_queue_sound * params = NULL;
+    params = calloc(1, sizeof(struct params_get_queue_sound));
+
+    params->sound = sound;
+    params->type = type;
+    return params;
+}
+
+
+void * get_queue_sound_node(void * parameters)
+{
+    struct params_get_queue_sound * params = NULL;
+    params = (struct params_get_queue_sound *)parameters;
+
     struct queue_sound_node * node = calloc(1, sizeof(struct queue_sound_node));
-    struct sound_data * sound_data = get_sound_data(sound);
+    struct sound_data * sound_data = get_sound_data(params->sound);
 
     node->channels = sound_data->channels;
     node->current = sound_data->data;
     node->end = sound_data->data+sound_data->size;
-    node->type = type;
+    node->type = params->type;
     node->next = NULL;
 
     return node;
+}
+
+void * pass_pointer(void * pointer)
+{
+    return pointer;
 }
 
 PaStreamParameters params_pa = {0};
@@ -837,12 +869,12 @@ void setup(void)
 
     /* Setup key-bindings. */
     struct mapping_node local_mappings[] = {
-        {GLFW_KEY_SPACE, 0, &g_space, NULL, NULL},
-        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1]+MOD_KEYS[2], &g_mod3_space, NULL, NULL},
-        {GLFW_KEY_SPACE, MOD_KEYS[0], &g_mod_space, NULL, NULL},
-        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], &g_mod2_space, NULL, NULL},
-        {GLFW_KEY_ESCAPE, 0, &g_close_window, (void *)&STATE.window, NULL},
-        {GLFW_KEY_R, 0, &g_play_sound, get_queue_sound_node(VOICE_16_WAV, KEEP), NULL},
+        {GLFW_KEY_SPACE, 0, &g_space, pass_pointer, &g_space, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1]+MOD_KEYS[2], &g_mod3_space, pass_pointer, &g_mod_space, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0], &g_mod_space, pass_pointer, &g_mod_space, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], &g_mod2_space, pass_pointer, &g_mod2_space, NULL},
+        {GLFW_KEY_ESCAPE, 0, &g_close_window, pass_pointer, &STATE.window, NULL},
+        {GLFW_KEY_R, 0, &g_play_sound, get_queue_sound_node, pack_params(VOICE_16_WAV, KEEP), NULL},
     };
     num_mappings = SIZE(local_mappings);
     mappings = malloc(num_mappings * sizeof(struct mapping_node));
@@ -1111,10 +1143,6 @@ int main(int argc, char ** argv)
         glfwSwapBuffers(window);
     }
     glfwTerminate();
-    for (size_t i=0; i<num_mappings; i++) {
-        struct mapping_node * node = &mappings[i];
-        node->function_guard->free(node->data);
-    }
     free(mappings);
     Pa_Terminate();
     glfwTerminate();

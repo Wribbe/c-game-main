@@ -327,7 +327,6 @@ size_t NUM_MOD_KEYS = sizeof(MOD_KEYS)/sizeof(MOD_KEYS[0]);
 struct work_node;
 void add_work_node(struct work_node * node);
 struct work_node * get_work_node(void);
-void no_nested_data(void * data);
 
 void space(int key, int action, void * data)
 {
@@ -343,7 +342,6 @@ struct function_guard get_guard(action_function_type func)
         .atomic = false,
         .been_run = false,
         .action_function = func,
-        .free = no_nested_data,
     };
     return guard;
 }
@@ -353,6 +351,7 @@ struct function_guard g_mod_space = {0};
 struct function_guard g_mod2_space = {0};
 struct function_guard g_mod3_space = {0};
 struct function_guard g_close_window = {0};
+struct function_guard g_play_sound = {0};
 
 void mod_space(int key, int action, void * data)
 {
@@ -491,7 +490,7 @@ struct mapping_node * mappings;
 size_t num_mappings = 0;
 
 
-enum playback_type {
+enum PLAYBACK_TYPE {
     KEEP,       // Keep playing the original sound if it's playing.
     RESTART,    // If the sound is playing restart it from the beginning.
     OVERLAY,    // Play sounds on top of each other.
@@ -500,111 +499,44 @@ enum playback_type {
 
 struct playback_info {
     char * name;
-    enum playback_type type;
+    enum PLAYBACK_TYPE type;
 };
 
-void * s_info(const char * name, enum playback_type type)
-    /* Allocate and space for a playback info struct and return pointer to
-     * memory. */
+enum EFF_SOUND {
+    VOICE_16_WAV,
+};
+
+struct queue_sound_node * queue_sound = {0};
+struct queue_sound_node empty_node;
+
+struct queue_sound_node {
+    uint16_t channels;
+    int16_t * current;
+    int16_t * end;
+    enum PLAYBACK_TYPE type;
+    struct queue_sound_node * next;
+};
+
+void play_sound(int key, int action, void * data)
 {
-    struct playback_info * info = calloc(1,sizeof(struct playback_info));
-    size_t name_length = strlen(name)+1;
-    info->name = calloc(name_length, sizeof(char));
-    if (info->name == NULL) {
-        error_and_exit("Could not allocate enough memory for name in s_info");
+    UNUSED(key);
+    if (release(action)) {
+        return;
     }
-    snprintf(info->name, name_length, "%s", name);
-    info->type = type;
-
-    return info;
+    struct queue_sound_node * node = (struct queue_sound_node *)data;
+    if (queue_sound->current == NULL) { // Queue is empty.
+        queue_sound = node;
+        node->next = node;
+    } else { // Nodes present in queue.
+        struct queue_sound_node * current_next = queue_sound->next;
+        queue_sound->next = node;
+        node->next = current_next;
+    }
 }
 
-void free_s_info(void * data)
-    /* Free function for s_info. */
-{
-    struct playback_info * info = (struct playback_info *)data;
-    // Free nested string data. */
-    free(info->name);
-    free(info);
-}
-
-void no_nested_data(void * data)
-    /* Dummy function that does nothing.*/
-{
-    UNUSED(data);
-}
-
-void free_s_info(void * data);
 void print_sound_guard(int key, int action, void * data);
-
-void setup(void)
-    /* Do necessary setup. */
-{
-    struct mapping_node local_mappings[] = {
-        {GLFW_KEY_SPACE, 0, &g_space, NULL, NULL},
-        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1]+MOD_KEYS[2], &g_mod3_space, NULL, NULL},
-        {GLFW_KEY_SPACE, MOD_KEYS[0], &g_mod_space, NULL, NULL},
-        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], &g_mod2_space, NULL, NULL},
-        {GLFW_KEY_ESCAPE, 0, &g_close_window, (void *)&STATE.window, NULL},
-    };
-    num_mappings = SIZE(local_mappings);
-    mappings = malloc(num_mappings * sizeof(struct mapping_node));
-    for (size_t i=0; i<num_mappings; i++) {
-        mappings[i] = local_mappings[i];
-        struct mapping_node * current = &mappings[i];
-        struct mapping_node ** bound = &command_bindings[current->key];
-        if (*bound == NULL) { // Empty list.
-            *bound = current;
-        } else { // Sort so that the largest mod-sum comes first.
-            struct mapping_node * pointer = *bound;
-            struct mapping_node * prev = NULL;
-            for(;;prev=pointer,pointer=pointer->next) {
-                if (current->modifier_sum > pointer->modifier_sum) {
-                    if(prev == NULL) { // First in list.
-                        current->next = pointer;
-                        *bound = current;
-                    } else { // Not first in list.
-                        current->next = pointer;
-                        prev->next = current;
-                    }
-                    break; // No more to be done.
-                } else if (pointer->next == NULL) {  // No more elements.
-                    pointer->next = current;
-                    pointer->next->next = NULL;
-                    break;
-                }
-            }
-        }
-    }
-    /* Initialize PortAudio. */
-    if (Pa_Initialize() != paNoError) {
-        error_and_exit("Could not initialize PortAudio, aborting.\n");
-    }
-
-    /* Setup keybinding function guards. */
-    g_space = get_guard(space);
-    g_mod_space = get_guard(mod_space);
-    g_mod2_space = get_guard(mod2_space);
-    g_mod3_space = get_guard(mod3_space);
-    g_close_window = get_guard(close_window);
-}
-
-PaStreamParameters default_pa_params(size_t channels)
-    /* Set and return struct for device parameters. */
-{
-    PaStreamParameters params = {0};
-
-    params.device = Pa_GetDefaultOutputDevice();
-    if (params.device == paNoDevice) {
-        error_and_exit("Could not establish default device, aborting.\n");
-    }
-    params.channelCount = channels;
-    params.sampleFormat = paInt16;
-    params.suggestedLatency = Pa_GetDeviceInfo(params.device)->\
-                              defaultHighOutputLatency;
-    params.hostApiSpecificStreamInfo = NULL;
-    return params;
-}
+struct queue_sound_node * get_queue_sound_node(enum EFF_SOUND sound,
+                                               enum PLAYBACK_TYPE type);
 
 enum sound_format {
     VORBIS,
@@ -803,7 +735,7 @@ void print_sound_guard(int key, int action, void * data)
     printf("Got action: %d\n", action);
     struct playback_info * info = (struct playback_info *)data;
     printf("Got name: %s\n", info->name);
-    printf("Got playback_type: %d\n", info->type);
+    printf("Got PLAYBACK_TYPE: %d\n", info->type);
 }
 
 
@@ -819,13 +751,145 @@ static int callback_pa(const void * input_buffer,
     UNUSED(status_flags);
     UNUSED(input_buffer);
 
-    struct sound_pointers * pointers = (struct sound_pointers *)user_data;
+    struct queue_sound_node * node = (struct queue_sound_node *)user_data;
     int16_t * out = (int16_t *)output_buffer;
 
-    for (size_t i=0; i<frames_per_buffer; i++) {
+    size_t i = 0;
+    for (;; node = node->next) {
+        if (node->current != NULL && node->current <= node->end) {
+            if (node->channels == 2) { // Interleaved sound for each channel.
+                *out++ = *node->current++;
+                *out++ = *node->current++;
+            } else { // Mono sound on both channels.
+                *out++ = *node->current;
+                *out++ = *node->current++;
+            }
+        } else {
+            *out++ = 0; // Don't play anything.
+            *out++ = 0; // Don't play anything.
+        }
+        i++;
+        if (i >= frames_per_buffer) {
+            return paContinue;
+        }
     }
     return paContinue;
 }
+
+
+struct sound_data sounds[200] = {0};
+
+struct sound_data * get_sound_data(enum EFF_SOUND sound)
+{
+    return &sounds[sound];
+}
+
+
+struct queue_sound_node * get_queue_sound_node(enum EFF_SOUND sound,
+                                               enum PLAYBACK_TYPE type)
+{
+    struct queue_sound_node * node = calloc(1, sizeof(struct queue_sound_node));
+    struct sound_data * sound_data = get_sound_data(sound);
+
+    node->channels = sound_data->channels;
+    node->current = sound_data->data;
+    node->end = sound_data->data+sound_data->size;
+    node->type = type;
+    node->next = NULL;
+
+    return node;
+}
+
+PaStreamParameters params_pa = {0};
+PaStream * stream_pa = NULL;
+PaStreamParameters default_pa_params(size_t channels);
+void setup(void)
+    /* Do necessary setup. */
+{
+    struct mapping_node local_mappings[] = {
+        {GLFW_KEY_SPACE, 0, &g_space, NULL, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1]+MOD_KEYS[2], &g_mod3_space, NULL, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0], &g_mod_space, NULL, NULL},
+        {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], &g_mod2_space, NULL, NULL},
+        {GLFW_KEY_ESCAPE, 0, &g_close_window, (void *)&STATE.window, NULL},
+        {GLFW_KEY_R, 0, &g_play_sound, get_queue_sound_node(VOICE_16_WAV, KEEP), NULL},
+    };
+    num_mappings = SIZE(local_mappings);
+    mappings = malloc(num_mappings * sizeof(struct mapping_node));
+    for (size_t i=0; i<num_mappings; i++) {
+        mappings[i] = local_mappings[i];
+        struct mapping_node * current = &mappings[i];
+        struct mapping_node ** bound = &command_bindings[current->key];
+        if (*bound == NULL) { // Empty list.
+            *bound = current;
+        } else { // Sort so that the largest mod-sum comes first.
+            struct mapping_node * pointer = *bound;
+            struct mapping_node * prev = NULL;
+            for(;;prev=pointer,pointer=pointer->next) {
+                if (current->modifier_sum > pointer->modifier_sum) {
+                    if(prev == NULL) { // First in list.
+                        current->next = pointer;
+                        *bound = current;
+                    } else { // Not first in list.
+                        current->next = pointer;
+                        prev->next = current;
+                    }
+                    break; // No more to be done.
+                } else if (pointer->next == NULL) {  // No more elements.
+                    pointer->next = current;
+                    pointer->next->next = NULL;
+                    break;
+                }
+            }
+        }
+    }
+    /* Initialize PortAudio. */
+    if (Pa_Initialize() != paNoError) {
+        error_and_exit("Could not initialize PortAudio, aborting.\n");
+    }
+    /* Set up stream. */
+    params_pa = default_pa_params(2);
+    empty_node.next = &empty_node;
+    empty_node.current = NULL;
+    queue_sound = &empty_node;
+    Pa_OpenStream(&stream_pa,
+                  NULL,
+                  &params_pa,
+                  44000,
+                  128,
+                  paClipOff,
+                  callback_pa,
+                  queue_sound);
+    Pa_StartStream(stream_pa);
+
+
+    /* Setup keybinding function guards. */
+    g_space = get_guard(space);
+    g_mod_space = get_guard(mod_space);
+    g_mod2_space = get_guard(mod2_space);
+    g_mod3_space = get_guard(mod3_space);
+    g_close_window = get_guard(close_window);
+    g_play_sound = get_guard(play_sound);
+    g_play_sound.atomic = true;
+}
+
+PaStreamParameters default_pa_params(size_t channels)
+    /* Set and return struct for device parameters. */
+{
+    PaStreamParameters params = {0};
+
+    params.device = Pa_GetDefaultOutputDevice();
+    if (params.device == paNoDevice) {
+        error_and_exit("Could not establish default device, aborting.\n");
+    }
+    params.channelCount = channels;
+    params.sampleFormat = paInt16;
+    params.suggestedLatency = Pa_GetDeviceInfo(params.device)->\
+                              defaultHighOutputLatency;
+    params.hostApiSpecificStreamInfo = NULL;
+    return params;
+}
+
 
 
 int main(int argc, char ** argv)
@@ -849,8 +913,8 @@ int main(int argc, char ** argv)
     const char * path = "";
 
     path = "input/voice_16.wav";
-    struct sound_data global_sound_data = load_sound(path);
-    if (global_sound_data.data == NULL) {
+    sounds[VOICE_16_WAV] = load_sound(path);
+    if (sounds[VOICE_16_WAV].data == NULL) {
         printf("Got no data from: %s\n", path);
     } else {
         printf("Got data from: %s\n", path);

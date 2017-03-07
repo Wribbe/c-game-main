@@ -894,6 +894,14 @@ struct sound_data * get_sound_data(enum EFF_SOUND sound)
     return &sounds[sound];
 }
 
+struct free_param_node {
+    void * data;
+    void (*free)(void * data);
+    struct free_param_node * next;
+};
+
+struct free_param_node * queue_params = NULL;
+
 void * pack_params(enum EFF_SOUND sound, enum PLAYBACK_TYPE type)
 {
     struct params_get_queue_sound * params = NULL;
@@ -901,6 +909,17 @@ void * pack_params(enum EFF_SOUND sound, enum PLAYBACK_TYPE type)
 
     params->sound = sound;
     params->type = type;
+
+    struct free_param_node * free_node = NULL;
+    free_node = calloc(1, sizeof(struct free_param_node));
+    free_node->data = params;
+    free_node->free = free;
+    free_node->next = NULL;
+    if(queue_params != NULL) {
+        free_node->next = queue_params;
+    }
+    queue_params = free_node;
+
     return params;
 }
 
@@ -1217,4 +1236,12 @@ int main(int argc, char ** argv)
     free(mappings);
     Pa_Terminate();
     glfwTerminate();
+    // Free allocated parameters.
+    struct free_param_node * ptr = queue_params;
+    while(ptr != NULL){
+        struct free_param_node * temp = ptr;
+        ptr = ptr->next;
+        temp->free(temp->data);
+        free(temp);
+    }
 }

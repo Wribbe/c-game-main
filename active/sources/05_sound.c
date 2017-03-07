@@ -956,7 +956,7 @@ PaStreamParameters default_pa_params(size_t channels)
     params.channelCount = channels;
     params.sampleFormat = paInt16;
     params.suggestedLatency = Pa_GetDeviceInfo(params.device)->\
-                              defaultHighOutputLatency;
+                              defaultLowOutputLatency;
     params.hostApiSpecificStreamInfo = NULL;
     return params;
 }

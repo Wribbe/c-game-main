@@ -748,31 +748,13 @@ void print_sound_guard(int key, int action, void * data)
     printf("Got PLAYBACK_TYPE: %d\n", info->type);
 }
 
-int16_t get_normalized_sound_value(struct queue_sound_node * node,
-                                   size_t shifts,
-                                   size_t num_samples)
+int16_t get_next_sound_value(struct queue_sound_node * node)
 {
-    int16_t value = *node->current++;
-
-    //uint32_t pos_value = value + (0xffff >> 2);
-    //pos_value <<= shifts;
-    //if (num_samples == 0) {
-    //    return pos_value;
-    //}
-    //return (uint32_t)(pos_value/num_samples);
-    return value;
+    return *node->current++;
 }
 
-int16_t get_unshifted_sound_sum(int64_t sum,
-                                size_t shifts)
+int16_t get_cutoff_sum(int64_t sum)
 {
-//    // Round nearest decimal.
-//    sum += 1 << (shifts - 1);
-//    // Undo overall shift.
-//    sum >>= shifts;
-//    // Shift back the sum into neg - pos range.
-//    int32_t shifted_sum = sum - (0xffff >> 2);
-//    // Cast to int16_t and return.
     if (sum == 0) {
         return 0;
     } else if (sum >= 0xffff/2) {
@@ -801,37 +783,19 @@ static int callback_pa(const void * input_buffer,
     int16_t * out = (int16_t *)output_buffer;
     struct queue_sound_node * node = *node_ptr;
 
-    size_t shifts = 6;
-
     for (size_t i=0; i<frames_per_buffer; i++) {
         int64_t sum_left = 0;
         int64_t sum_right = 0;
-        size_t num_samples = 0;
         if (node->current != NULL) {
-            if (node->current <= node->end) {
-                num_samples++;
-            }
             struct queue_sound_node * pointer = node->next;
-            // Iterate over all pointers except the first node.
-            for (;pointer != node; pointer = pointer->next) {
-                if (pointer->current <= pointer->end) {
-                    num_samples++;
-                }
-            }
             pointer = node->next; // Reset pointer after count.
             for (;pointer != node; pointer = pointer->next) {
                 if (pointer->current <= pointer->end) {
                     if (pointer->channels == 2) { // Interleaved sound for each channel.
-                        sum_left += get_normalized_sound_value(pointer,
-                                                               shifts,
-                                                               num_samples);
-                        sum_right += get_normalized_sound_value(pointer,
-                                                                shifts,
-                                                                num_samples);
+                        sum_left += get_next_sound_value(pointer);
+                        sum_right += get_next_sound_value(pointer);
                     } else { // Mono sound on both channels.
-                        int16_t div = get_normalized_sound_value(pointer,
-                                                                 shifts,
-                                                                 num_samples);
+                        int16_t div = get_next_sound_value(pointer);
                         sum_left += div;
                         sum_right += div;
                     }
@@ -840,23 +804,17 @@ static int callback_pa(const void * input_buffer,
             if (node->current <= node->end) {
                 // Add node, since it is used as stop above.
                 if (node->channels == 2) {
-                    sum_left += get_normalized_sound_value(node,
-                                                           shifts,
-                                                           num_samples);
-                    sum_right += get_normalized_sound_value(node,
-                                                            shifts,
-                                                            num_samples);
+                    sum_left += get_next_sound_value(node);
+                    sum_right += get_next_sound_value(node);
                 } else {
-                    int16_t div = get_normalized_sound_value(node,
-                                                             shifts,
-                                                             num_samples);
+                    int16_t div = get_next_sound_value(node);
                     sum_left += div;
                     sum_right += div;
                 }
             }
         }
-        *out++ = get_unshifted_sound_sum(sum_left, 0);
-        *out++ = get_unshifted_sound_sum(sum_right, 0);
+        *out++ = get_cutoff_sum(sum_left);
+        *out++ = get_cutoff_sum(sum_right);
     }
     return paContinue;
 }

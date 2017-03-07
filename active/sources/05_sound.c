@@ -507,7 +507,7 @@ struct queue_sound_node {
 struct queue_sound_node * queue_sound = NULL;
 struct queue_sound_node queue_sound_empty = {0};
 
-size_t size_queue_sound = 0;
+pthread_mutex_t mutex_queue_sound = PTHREAD_MUTEX_INITIALIZER;
 void play_sound(int key, int action, void * data)
 {
     UNUSED(key);
@@ -516,6 +516,7 @@ void play_sound(int key, int action, void * data)
         return;
     }
     struct queue_sound_node * node = (struct queue_sound_node *)data;
+    pthread_mutex_lock(&mutex_queue_sound);
     if (queue_sound->current == NULL) { // Queue is empty.
         queue_sound = node;
         node->next = node;
@@ -524,8 +525,6 @@ void play_sound(int key, int action, void * data)
         queue_sound->next = node;
         node->next = current_next;
     }
-    size_queue_sound++;
-    printf("Currently %zu nodes in queue_sound.\n", size_queue_sound);
 }
 
 void print_sound_guard(int key, int action, void * data);
@@ -758,6 +757,68 @@ int16_t get_cutoff_sum(int64_t sum)
     return (int16_t)sum;
 }
 
+void * thread_work_clean_queue_sound(void * data)
+{
+    UNUSED(data);
+    pthread_mutex_lock(&mutex_queue_sound);
+
+    pthread_t ** thread_pointer = (pthread_t **)data;
+
+    if (queue_sound == &queue_sound_empty) { // Empty queue.
+        pthread_mutex_unlock(&mutex_queue_sound);
+        return NULL;
+    }
+    if (*thread_pointer == NULL) { // Should only be one active thread.
+        pthread_mutex_unlock(&mutex_queue_sound);
+        return NULL;
+    }
+
+    struct queue_sound_node * prev = queue_sound;
+    struct queue_sound_node * node = queue_sound->next;
+    struct queue_sound_node * temp = NULL;
+
+    for(;;) {
+        if (node == queue_sound) {
+            break;
+        }
+        if (node->current >= node->end) { // Unlink and free.
+            temp = node;
+            node = node->next;
+            prev->next = node;
+            free(temp);
+        } else { // Don't free, continue iteration.
+            prev = node;
+            node = node->next;
+        }
+    }
+    // Node is pointing at the last node at this point.
+    if (queue_sound->current >= queue_sound->end) {
+        if (queue_sound == queue_sound->next) {
+            // There is only one element in the queue.
+            temp = queue_sound;
+            queue_sound = &queue_sound_empty;
+            free(temp);
+        } else {
+            // Were more elements in the queue.
+            temp = queue_sound;
+            // Unlink the first node.
+            queue_sound = queue_sound->next;
+            // Keep the circular queue by relinking the last node.
+            prev->next = queue_sound;
+            // Free the old first node.
+            free(temp);
+        }
+    }
+    // Reset pointer to mark that we're done.
+    *thread_pointer = NULL;
+    pthread_mutex_unlock(&mutex_queue_sound);
+    return NULL;
+}
+
+
+pthread_attr_t cleanup_attribs = {0};
+pthread_t thread_queue_sound_cleaner = {0};
+pthread_t * thread_pointer_cleaner = NULL;
 
 static int callback_pa(const void * input_buffer,
                        void * output_buffer,
@@ -771,16 +832,17 @@ static int callback_pa(const void * input_buffer,
     UNUSED(status_flags);
     UNUSED(input_buffer);
 
+    pthread_mutex_lock(&mutex_queue_sound);
     struct queue_sound_node ** node_ptr = (struct queue_sound_node **)user_data;
     int16_t * out = (int16_t *)output_buffer;
     struct queue_sound_node * node = *node_ptr;
+    bool someone_is_done = false;
 
     for (size_t i=0; i<frames_per_buffer; i++) {
         int64_t sum_left = 0;
         int64_t sum_right = 0;
         if (node->current != NULL) {
             struct queue_sound_node * pointer = node->next;
-            pointer = node->next; // Reset pointer after count.
             for (;pointer != node; pointer = pointer->next) {
                 if (pointer->current <= pointer->end) {
                     if (pointer->channels == 2) { // Interleaved sound for each channel.
@@ -791,6 +853,8 @@ static int callback_pa(const void * input_buffer,
                         sum_left += div;
                         sum_right += div;
                     }
+                } else {
+                    someone_is_done = true;
                 }
             }
             if (node->current <= node->end) {
@@ -803,11 +867,22 @@ static int callback_pa(const void * input_buffer,
                     sum_left += div;
                     sum_right += div;
                 }
+            } else {
+                someone_is_done = true;
             }
         }
         *out++ = get_cutoff_sum(sum_left);
         *out++ = get_cutoff_sum(sum_right);
     }
+    if (someone_is_done && thread_pointer_cleaner == NULL) {
+        // Spin up a cleaning thread.
+        thread_pointer_cleaner = &thread_queue_sound_cleaner;
+        pthread_create(thread_pointer_cleaner,
+                       &cleanup_attribs,
+                       thread_work_clean_queue_sound,
+                       &thread_pointer_cleaner);
+    }
+    pthread_mutex_unlock(&mutex_queue_sound);
     return paContinue;
 }
 
@@ -858,15 +933,19 @@ PaStreamParameters default_pa_params(size_t channels);
 void setup(void)
     /* Do necessary setup. */
 {
+    /* Set-up sound queue cleanup attributes. */
+    pthread_attr_init(&cleanup_attribs);
+    pthread_attr_setdetachstate(&cleanup_attribs, PTHREAD_CREATE_DETACHED);
+
     /* Initialize PortAudio. */
     if (Pa_Initialize() != paNoError) {
         error_and_exit("Could not initialize PortAudio, aborting.\n");
     }
     /* Set up stream. */
     params_pa = default_pa_params(2);
-    empty_node.next = &empty_node;
-    empty_node.current = NULL;
-    queue_sound = &empty_node;
+    queue_sound_empty.next = &queue_sound_empty;
+    queue_sound_empty.current = NULL;
+    queue_sound = &queue_sound_empty;
     Pa_OpenStream(&stream_pa,
                   NULL,
                   &params_pa,

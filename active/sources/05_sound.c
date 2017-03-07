@@ -512,6 +512,7 @@ void play_sound(int key, int action, void * data)
 {
     UNUSED(key);
     if (release(action)) {
+        free(data);
         return;
     }
     struct queue_sound_node * node = (struct queue_sound_node *)data;

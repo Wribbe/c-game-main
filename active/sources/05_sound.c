@@ -496,9 +496,6 @@ enum EFF_SOUND {
     VOICE_16_WAV,
 };
 
-struct queue_sound_node * queue_sound = {0};
-struct queue_sound_node empty_node;
-
 struct queue_sound_node {
     uint16_t channels;
     int16_t * current;
@@ -506,6 +503,9 @@ struct queue_sound_node {
     enum PLAYBACK_TYPE type;
     struct queue_sound_node * next;
 };
+
+struct queue_sound_node * queue_sound = NULL;
+struct queue_sound_node queue_sound_empty = {0};
 
 size_t size_queue_sound = 0;
 void play_sound(int key, int action, void * data)

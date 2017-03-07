@@ -501,11 +501,29 @@ struct queue_sound_node {
     int16_t * current;
     int16_t * end;
     enum PLAYBACK_TYPE type;
+    struct sound_data * sound_data;
     struct queue_sound_node * next;
 };
 
 struct queue_sound_node * queue_sound = NULL;
 struct queue_sound_node queue_sound_empty = {0};
+
+bool sound_playback_type_handler(struct queue_sound_node * node)
+{
+    switch(node->type) {
+        case RESTART:
+            break;
+        case KEEP:
+            break;
+        case STOP:
+            break;
+        case OVERLAY:
+            break;
+        default:
+            break;
+    }
+    return true;
+}
 
 pthread_mutex_t mutex_queue_sound = PTHREAD_MUTEX_INITIALIZER;
 void play_sound(int key, int action, void * data)
@@ -517,14 +535,17 @@ void play_sound(int key, int action, void * data)
     }
     struct queue_sound_node * node = (struct queue_sound_node *)data;
     pthread_mutex_lock(&mutex_queue_sound);
-    if (queue_sound->current == NULL) { // Queue is empty.
-        queue_sound = node;
-        node->next = node;
-    } else { // Nodes present in queue.
-        struct queue_sound_node * current_next = queue_sound->next;
-        queue_sound->next = node;
-        node->next = current_next;
+    if (sound_playback_type_handler(node)) {
+        if (queue_sound->current == NULL) { // Queue is empty.
+            queue_sound = node;
+            node->next = node;
+        } else { // Nodes present in queue.
+            struct queue_sound_node * current_next = queue_sound->next;
+            queue_sound->next = node;
+            node->next = current_next;
+        }
     }
+    pthread_mutex_unlock(&mutex_queue_sound);
 }
 
 void print_sound_guard(int key, int action, void * data);
@@ -547,10 +568,8 @@ struct sound_data {
     size_t size;
     uint32_t rate;
     uint32_t channels;
-    pthread_mutex_t mutex_sound_data;
-    pthread_cond_t sig_sound_data_change;
-    bool abort;
-    bool mute;
+    bool pause;
+    bool cancel;
     uint16_t playing;
     int16_t * data;
     void (*free)(void * data);
@@ -700,8 +719,6 @@ void read_sound(struct sound_data * data,
 struct sound_data load_sound(const char * filepath)
 {
     struct sound_data data = {0};
-    pthread_mutex_init(&data.mutex_sound_data, NULL);
-    pthread_cond_init(&data.sig_sound_data_change, NULL);
     const char * filetype =  get_filetype(filepath);
     if (strcmp(filetype, ".ogg") == 0) {
         printf("Found ogg file.\n");
@@ -844,6 +861,13 @@ static int callback_pa(const void * input_buffer,
         if (node->current != NULL) {
             struct queue_sound_node * pointer = node->next;
             for (;pointer != node; pointer = pointer->next) {
+                if (pointer->sound_data->pause) {
+                    continue; // Pause playback of this sound.
+                }
+                if (pointer->sound_data->cancel) {
+                    // Set current == end, will end the sound.
+                    pointer->current = pointer->end;
+                }
                 if (pointer->current <= pointer->end) {
                     if (pointer->channels == 2) { // Interleaved sound for each channel.
                         sum_left += get_next_sound_value(pointer);
@@ -937,6 +961,7 @@ void * get_queue_sound_node(void * parameters)
     node->end = sound_data->data+sound_data->size-1;
     node->type = params->type;
     node->next = NULL;
+    node->sound_data = sound_data;
 
     return node;
 }

@@ -766,7 +766,6 @@ int16_t get_cutoff_sum(int64_t sum)
 }
 
 
-bool record = false;
 static int callback_pa(const void * input_buffer,
                        void * output_buffer,
                        unsigned long frames_per_buffer,
@@ -980,34 +979,6 @@ int main(int argc, char ** argv)
 
     UNUSED(argc);
     setup();
-
-//    path = "input/voice_16bit.flac";
-//    sound_data = load_sound(path);
-//    if (sound_data.data == NULL) {
-//        printf("Got no data from: %s\n", path);
-//    } else {
-//        printf("Got data from: %s\n", path);
-//        play_sound(&sound_data);
-//        sound_data.free((&sound_data)->data);
-//        sound_data.data = NULL;
-//    }
-//    path = "input/voice.ogg";
-//    sound_data = load_sound(path);
-//    if (sound_data.data == NULL) {
-//        printf("Got no data from: %s\n", path);
-//    } else {
-//        printf("Got data from: %s\n", path);
-//        play_sound(&sound_data);
-//        sound_data.free((&sound_data)->data);
-//        sound_data.data = NULL;
-//    }
-//    path = "input/voice.txt";
-//    sound_data = load_sound(path);
-//    if (sound_data.data == NULL) {
-//        printf("Got no data from: %s\n", path);
-//    } else {
-//        printf("Got data from: %s\n", path);
-//    }
 
     glfw_set_context();
 

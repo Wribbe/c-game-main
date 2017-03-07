@@ -739,7 +739,11 @@ void print_sound_guard(int key, int action, void * data)
 
 int16_t get_next_sound_value(struct queue_sound_node * node)
 {
-    return *node->current++;
+    int16_t value = *node->current;
+    if (node->current <= node->end) {
+        node->current++;
+    }
+    return value;
 }
 
 int16_t get_cutoff_sum(int64_t sum)
@@ -836,7 +840,7 @@ void * get_queue_sound_node(void * parameters)
 
     node->channels = sound_data->channels;
     node->current = sound_data->data;
-    node->end = sound_data->data+sound_data->size;
+    node->end = sound_data->data+sound_data->size-1;
     node->type = params->type;
     node->next = NULL;
 

@@ -63,14 +63,6 @@ struct function_guard  {
     void (*free)(void * data);
 };
 
-struct work_node {
-    action_function_type action_function;
-    int key;
-    int action;
-    void * data;
-    struct work_node * next;
-};
-
 void prefixed_output(FILE * output,
                      const char * tag,
                      const char * message)
@@ -324,10 +316,6 @@ int MOD_KEYS[] = {
     GLFW_KEY_RIGHT_ALT,
 };
 size_t NUM_MOD_KEYS = sizeof(MOD_KEYS)/sizeof(MOD_KEYS[0]);
-
-struct work_node;
-void add_work_node(struct work_node * node);
-struct work_node * get_work_node(void);
 
 void space(int key, int action, void * data)
 {

@@ -519,6 +519,7 @@ struct queue_sound_node {
     struct queue_sound_node * next;
 };
 
+size_t size_queue_sound = 0;
 void play_sound(int key, int action, void * data)
 {
     UNUSED(key);
@@ -534,14 +535,8 @@ void play_sound(int key, int action, void * data)
         queue_sound->next = node;
         node->next = current_next;
     }
-    struct queue_sound_node * pointer = queue_sound;
-    struct queue_sound_node * next = queue_sound->next;
-    size_t i = 1;
-    while(pointer != next) {
-        next = next->next;
-        i++;
-    }
-    printf("Currently %zu nodes in queue_sound.\n", i);
+    size_queue_sound++;
+    printf("Currently %zu nodes in queue_sound.\n", size_queue_sound);
 }
 
 void print_sound_guard(int key, int action, void * data);
@@ -753,7 +748,43 @@ void print_sound_guard(int key, int action, void * data)
     printf("Got PLAYBACK_TYPE: %d\n", info->type);
 }
 
+int16_t get_normalized_sound_value(struct queue_sound_node * node,
+                                   size_t shifts,
+                                   size_t num_samples)
+{
+    int16_t value = *node->current++;
 
+    //uint32_t pos_value = value + (0xffff >> 2);
+    //pos_value <<= shifts;
+    //if (num_samples == 0) {
+    //    return pos_value;
+    //}
+    //return (uint32_t)(pos_value/num_samples);
+    return value;
+}
+
+int16_t get_unshifted_sound_sum(int64_t sum,
+                                size_t shifts)
+{
+//    // Round nearest decimal.
+//    sum += 1 << (shifts - 1);
+//    // Undo overall shift.
+//    sum >>= shifts;
+//    // Shift back the sum into neg - pos range.
+//    int32_t shifted_sum = sum - (0xffff >> 2);
+//    // Cast to int16_t and return.
+    if (sum == 0) {
+        return 0;
+    } else if (sum >= 0xffff/2) {
+        return 0xffff/2;
+    } else if (sum <= -(0xffff/2)) {
+        return -0xffff/2;
+    }
+    return (int16_t)sum;
+}
+
+
+bool record = false;
 static int callback_pa(const void * input_buffer,
                        void * output_buffer,
                        unsigned long frames_per_buffer,
@@ -770,24 +801,62 @@ static int callback_pa(const void * input_buffer,
     int16_t * out = (int16_t *)output_buffer;
     struct queue_sound_node * node = *node_ptr;
 
-    size_t i = 0;
-    for (;; node = node->next) {
-        if (node->current != NULL && node->current <= node->end) {
-            if (node->channels == 2) { // Interleaved sound for each channel.
-                *out++ = *node->current++;
-                *out++ = *node->current++;
-            } else { // Mono sound on both channels.
-                *out++ = *node->current;
-                *out++ = *node->current++;
+    size_t shifts = 6;
+
+    for (size_t i=0; i<frames_per_buffer; i++) {
+        int64_t sum_left = 0;
+        int64_t sum_right = 0;
+        size_t num_samples = 0;
+        if (node->current != NULL) {
+            if (node->current <= node->end) {
+                num_samples++;
             }
-        } else {
-            *out++ = 0; // Don't play anything.
-            *out++ = 0; // Don't play anything.
+            struct queue_sound_node * pointer = node->next;
+            // Iterate over all pointers except the first node.
+            for (;pointer != node; pointer = pointer->next) {
+                if (pointer->current <= pointer->end) {
+                    num_samples++;
+                }
+            }
+            pointer = node->next; // Reset pointer after count.
+            for (;pointer != node; pointer = pointer->next) {
+                if (pointer->current <= pointer->end) {
+                    if (pointer->channels == 2) { // Interleaved sound for each channel.
+                        sum_left += get_normalized_sound_value(pointer,
+                                                               shifts,
+                                                               num_samples);
+                        sum_right += get_normalized_sound_value(pointer,
+                                                                shifts,
+                                                                num_samples);
+                    } else { // Mono sound on both channels.
+                        int16_t div = get_normalized_sound_value(pointer,
+                                                                 shifts,
+                                                                 num_samples);
+                        sum_left += div;
+                        sum_right += div;
+                    }
+                }
+            }
+            if (node->current <= node->end) {
+                // Add node, since it is used as stop above.
+                if (node->channels == 2) {
+                    sum_left += get_normalized_sound_value(node,
+                                                           shifts,
+                                                           num_samples);
+                    sum_right += get_normalized_sound_value(node,
+                                                            shifts,
+                                                            num_samples);
+                } else {
+                    int16_t div = get_normalized_sound_value(node,
+                                                             shifts,
+                                                             num_samples);
+                    sum_left += div;
+                    sum_right += div;
+                }
+            }
         }
-        i++;
-        if (i >= frames_per_buffer) {
-            return paContinue;
-        }
+        *out++ = get_unshifted_sound_sum(sum_left, 0);
+        *out++ = get_unshifted_sound_sum(sum_right, 0);
     }
     return paContinue;
 }
@@ -851,7 +920,7 @@ void setup(void)
     Pa_OpenStream(&stream_pa,
                   NULL,
                   &params_pa,
-                  44000,
+                  44100,
                   128,
                   paClipOff,
                   callback_pa,
@@ -860,6 +929,7 @@ void setup(void)
 
     /* Load sounds. */
     const char * path = "input/voice_16.wav";
+    //const char * path = "input/sine_16.wav";
     sounds[VOICE_16_WAV] = load_sound(path);
     if (sounds[VOICE_16_WAV].data == NULL) {
         printf("Got no data from: %s\n", path);

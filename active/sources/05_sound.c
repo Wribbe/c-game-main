@@ -540,14 +540,26 @@ bool sound_playback_type_handler(struct queue_sound_node * node)
             }
             // Unset own cancel attribute.
             node->cancel = false;
+            node->sound_data->playing = true;
             break;
         case KEEP:
+            if (node->sound_data->playing) {
+                node->cancel = true;
+            } else {
+                node->sound_data->playing = true;
+            }
             break;
         case STOP:
+            for(;instances != NULL; instances=instances->next) {
+                instances->queue_node->cancel = true;
+            }
+            node->sound_data->playing = false;
             break;
         case OVERLAY:
+            node->sound_data->playing = true;
             break;
         default:
+            error_and_exit("Unknown type in sound_playback_type_handler");
             break;
     }
     return true;
@@ -1088,6 +1100,9 @@ void setup(void)
         {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], &g_mod2_space, pass_pointer, &g_mod2_space, NULL},
         {GLFW_KEY_ESCAPE, 0, &g_close_window, pass_pointer, &STATE.window, NULL},
         {GLFW_KEY_R, 0, &g_play_sound, get_queue_sound_node, pack_params(VOICE_16_WAV, RESTART), NULL},
+        {GLFW_KEY_O, 0, &g_play_sound, get_queue_sound_node, pack_params(VOICE_16_WAV, OVERLAY), NULL},
+        {GLFW_KEY_S, 0, &g_play_sound, get_queue_sound_node, pack_params(VOICE_16_WAV, STOP), NULL},
+        {GLFW_KEY_K, 0, &g_play_sound, get_queue_sound_node, pack_params(VOICE_16_WAV, KEEP), NULL},
     };
     num_mappings = SIZE(local_mappings);
     mappings = malloc(num_mappings * sizeof(struct mapping_node));

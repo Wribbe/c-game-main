@@ -502,11 +502,29 @@ struct queue_sound_node {
     int16_t * end;
     enum PLAYBACK_TYPE type;
     struct sound_data * sound_data;
-    bool ignore_next_update;
     bool pause;
     bool cancel;
-    struct sound_instances * my_instance;
+    struct sound_instance * my_instance;
     struct queue_sound_node * next;
+};
+
+struct sound_instance {
+    struct queue_sound_node * queue_node;
+    struct sound_instance * next;
+    struct sound_instance * prev;
+};
+
+struct sound_data {
+    const char * name;
+    size_t size;
+    uint32_t rate;
+    uint32_t channels;
+    bool pause;
+    bool cancel;
+    uint16_t playing;
+    int16_t * data;
+    struct sound_instance * instances;
+    void (*free)(void * data);
 };
 
 struct queue_sound_node * queue_sound = NULL;
@@ -514,8 +532,14 @@ struct queue_sound_node queue_sound_empty = {0};
 
 bool sound_playback_type_handler(struct queue_sound_node * node)
 {
+    struct sound_instance * instances = node->sound_data->instances;
     switch(node->type) {
-        case RESTART:
+        case RESTART: // Cancel all other instances of this sound.
+            for(;instances != NULL; instances=instances->next) {
+                instances->queue_node->cancel = true;
+            }
+            // Unset own cancel attribute.
+            node->cancel = false;
             break;
         case KEEP:
             break;
@@ -534,14 +558,15 @@ void free_queue_sound_node(struct queue_sound_node * node);
 void play_sound(int key, int action, void * data)
 {
     UNUSED(key);
+    pthread_mutex_lock(&mutex_queue_sound);
     if (release(action)) {
         struct queue_sound_node * node = NULL;
         node = (struct queue_sound_node *)data;
         free_queue_sound_node(node);
+        pthread_mutex_unlock(&mutex_queue_sound);
         return;
     }
     struct queue_sound_node * node = (struct queue_sound_node *)data;
-    pthread_mutex_lock(&mutex_queue_sound);
     if (sound_playback_type_handler(node)) {
         if (queue_sound->current == NULL) { // Queue is empty.
             queue_sound = node;
@@ -568,25 +593,6 @@ enum sound_format {
     VORBIS,
     WAV,
     FLAC,
-};
-
-struct sound_instances {
-    struct queue_sound_node * queue_node;
-    struct sound_instances * next;
-    struct sound_instances * prev;
-};
-
-struct sound_data {
-    const char * name;
-    size_t size;
-    uint32_t rate;
-    uint32_t channels;
-    bool pause;
-    bool cancel;
-    uint16_t playing;
-    int16_t * data;
-    struct sound_instances * instances;
-    void (*free)(void * data);
 };
 
 
@@ -789,15 +795,21 @@ int16_t get_cutoff_sum(int64_t sum)
 }
 
 
-struct sound_instances * unlink_instance(struct queue_sound_node * node)
+struct sound_instance * unlink_instance(struct queue_sound_node * node)
 {
     // Unlink our instance.
-    struct sound_instances * my_instance = node->my_instance;
+    struct sound_instance * my_instance = node->my_instance;
     if (my_instance->prev == NULL) { // First in instance list.
+        // Next can be NULL, which we want if it's the end.
         node->sound_data->instances = my_instance->next;
+        if (my_instance->next != NULL) {
+            my_instance->next->prev = NULL;
+        }
     } else { // Not first in list.
         if (my_instance->next == NULL) { // Last in list.
             my_instance->prev->next = NULL;
+        } else { // All other variants.
+            my_instance->prev = my_instance->next;
         }
     }
     return my_instance;
@@ -893,7 +905,7 @@ static int callback_pa(const void * input_buffer,
             for (;pointer != node; pointer = pointer->next) {
                 if (pointer->cancel) {
                     // Set current == end, will end the sound.
-                    pointer->current = pointer->end;
+                    pointer->current = pointer->end+1;
                 } else if (pointer->pause) {
                     continue; // Pause playback of this sound.
                 }
@@ -910,8 +922,13 @@ static int callback_pa(const void * input_buffer,
                     someone_is_done = true;
                 }
             }
+            if (node->cancel) {
+                // Set current == end, will end the sound.
+                node->current = node->end+1;
+            } else if (node->pause) {
+                continue; // Pause playback of this sound.
+            }
             if (node->current <= node->end) {
-                // Add node, since it is used as stop above.
                 if (node->channels == 2) {
                     sum_left += get_next_sound_value(node);
                     sum_right += get_next_sound_value(node);
@@ -978,7 +995,7 @@ void * pack_params(enum EFF_SOUND sound, enum PLAYBACK_TYPE type)
 
 void free_queue_sound_node(struct queue_sound_node * node)
 {
-    struct sound_instances * my_instance = unlink_instance(node);
+    struct sound_instance * my_instance = unlink_instance(node);
     free(my_instance);
     free(node);
 }
@@ -992,17 +1009,17 @@ void * get_queue_sound_node(void * parameters)
     struct queue_sound_node * node = calloc(1, sizeof(struct queue_sound_node));
     struct sound_data * sound_data = get_sound_data(params->sound);
 
-    struct sound_instances * instance = NULL;
-    instance = calloc(1,sizeof(struct sound_instances));
+    struct sound_instance * instance = NULL;
+    instance = calloc(1,sizeof(struct sound_instance));
     node->my_instance = instance;
 
     instance->queue_node = node;
     instance->next = NULL;
     instance->prev = NULL;
 
-    if (sound_data->instances != NULL) {
+    if (sound_data->instances != NULL) { // Not first element.
         instance->next = sound_data->instances;
-        sound_data->instances->prev = instance;
+        instance->next->prev = instance;
     }
     sound_data->instances = instance;
 
@@ -1012,7 +1029,6 @@ void * get_queue_sound_node(void * parameters)
     node->type = params->type;
     node->next = NULL;
     node->sound_data = sound_data;
-    node->ignore_next_update = false;
     node->pause = false;
     node->cancel = false;
 
@@ -1070,7 +1086,7 @@ void setup(void)
         {GLFW_KEY_SPACE, MOD_KEYS[0], &g_mod_space, pass_pointer, &g_mod_space, NULL},
         {GLFW_KEY_SPACE, MOD_KEYS[0]+MOD_KEYS[1], &g_mod2_space, pass_pointer, &g_mod2_space, NULL},
         {GLFW_KEY_ESCAPE, 0, &g_close_window, pass_pointer, &STATE.window, NULL},
-        {GLFW_KEY_R, 0, &g_play_sound, get_queue_sound_node, pack_params(VOICE_16_WAV, KEEP), NULL},
+        {GLFW_KEY_R, 0, &g_play_sound, get_queue_sound_node, pack_params(VOICE_16_WAV, RESTART), NULL},
     };
     num_mappings = SIZE(local_mappings);
     mappings = malloc(num_mappings * sizeof(struct mapping_node));

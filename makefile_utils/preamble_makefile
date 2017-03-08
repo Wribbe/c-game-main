@@ -123,6 +123,8 @@ export PATH := $(shell pwd)/$(dir_helpers):$(PATH)
 linked_libs := $(foreach path,$(wildcard ../lib/*.$(source_extension)),$(patsubst ../%,%,$(path)))
 linked_headers := $(foreach path,$(wildcard ../includes/*.h),$(patsubst ../%,%,$(path)))
 lib_portAudio := $(dir_static_lib)/libportaudio_static.a
+lib_FLAC := $(dir_static_lib)/libFLAC-static.a
+lib_vorbisfile := $(dir_static_lib)/libvorbisfile.a
 
 # Phony targets.
 # --------------

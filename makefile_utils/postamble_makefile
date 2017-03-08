@@ -57,6 +57,11 @@ $(dir_flac_source):
 	git clone https://git.xiph.org/flac.git $@ && \
 	cd $@ && git checkout master
 
+# Build flac static lib if missing.
+$(dir_flac_source)/src/libFLAC/.libs/libFLAC-static.a:
+	@rm -f $@
+	@cd $(dir_flac_source) && ./autogen.sh && ./configure && make
+
 # Get dr_wav header.
 $(dir_dr_wav_source):
 	mkdir $@ && cd $@ && \
@@ -66,6 +71,11 @@ $(dir_dr_wav_source):
 $(dir_vorbisfile_source):
 	git clone https://git.xiph.org/vorbis.git $@ && \
 	cd $@ && git checkout master
+
+# Build vorbis static lib if missing.
+$(dir_vorbisfile_source)/lib/.libs/libvorbisfile.a:
+	@rm -f $@
+	@cd $(dir_vorbisfile_source) && ./autogen.sh && ./configure && make
 
 $(dirs_all): # Create all directories.
 	$(call create_dirs,$(dirs_all))
@@ -90,7 +100,15 @@ $(linked_headers):
 $(lib_portAudio) : $(dir_portaudio_source)/libportaudio_static.a
 	$(shell ln -s $(abspath $^) $(abspath $@))
 
-symlinks := $(linked_libs) $(linked_headers) $(lib_portAudio)
+$(lib_FLAC) : $(dir_flac_source)/src/libFLAC/.libs/libFLAC-static.a
+	$(shell ln -s $(abspath $^) $(abspath $@))
+
+$(lib_vorbisfile) : $(dir_vorbisfile_source)/lib/.libs/libvorbisfile.a
+	$(shell ln -s $(abspath $^) $(abspath $@))
+
+lib_symlinks := $(lib_portAudio) $(lib_FLAC) $(lib_vorbisfile)
+
+symlinks := $(linked_libs) $(linked_headers) $(lib_symlinks)
 library_sources := $(dir_portaudio_source) $(dir_flac_source) \
 					$(dir_dr_wav_source) $(dir_vorbisfile_source)
 

@@ -21,7 +21,9 @@ SUPPRESS_GIT_OUTPUT := $(True)
 # Compiler options:
 # -----------------
 CFLAGS += -g -std=c11 -Wall -Wextra -pedantic -Wwrite-strings
-INCLUDE_FLAGS = -I$(dir_includes) -I$(dir_portaudio_source)/include
+INCLUDE_FLAGS = -I$(dir_includes) -I$(dir_portaudio_source)/include \
+				-I$(dir_flac_source)/include \
+				-I$(dir_vorbisfile_source)/include/vorbis
 CFLAGS += $(INCLUDE_FLAGS)
 DEPFLAGS = -MT $@ -MMD -MP -MF $(dir_deps)/$*.d
 CXXFLAGS += $(DEPFLAGS)

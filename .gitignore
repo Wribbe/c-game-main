@@ -6,6 +6,10 @@
 **/text
 **/deps
 **/lib/PortAudio
+**/lib/FLAC
+**/lib/dr_wav
+**/lib/vorbis
+
 
 # Ignore vim swap files.
 *.sw*

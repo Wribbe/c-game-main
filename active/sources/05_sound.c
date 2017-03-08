@@ -809,7 +809,8 @@ struct sound_instance * unlink_instance(struct queue_sound_node * node)
         if (my_instance->next == NULL) { // Last in list.
             my_instance->prev->next = NULL;
         } else { // All other variants.
-            my_instance->prev = my_instance->next;
+            my_instance->prev->next = my_instance->next;
+            my_instance->next->prev = my_instance->prev;
         }
     }
     return my_instance;

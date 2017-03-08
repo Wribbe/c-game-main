@@ -1,0 +1,132 @@
+# Makefile preamble for C++ course.
+# ---------------------------------
+
+# Make flags:
+# -----------
+MAKEFLAGS += --warn-undefined-variables
+MAKEFLAGS += --no-builtin-rules
+
+# Utilities.
+# ----------
+
+create_dirs = \
+	@for dir in $(1) ; do \
+		if [ ! -d $$dir ]; then \
+		    echo_info "Can't find directory: <$$dir>, creating."; \
+			mkdir $$dir; \
+		fi \
+	done
+
+remove_dirs = \
+	@for dir in $(1) ; do \
+		if [ -d $$dir ]; then \
+			if [ -f "$(dir_helpers)/$(echo_info)" ]; then \
+			    echo_info "Removing directory <$$dir>."; \
+			fi; \
+			rm -rf $$dir; \
+		fi;\
+	done; \
+
+objs = $(foreach obj,$(1),$(dir_objects)/$(obj))
+fobjs = $(foreach obj,$(1),$(dir_objects_fpic)/$(obj))
+execs = $(foreach exec,$(1),$(dir_exec)/$(exec))
+slibs = $(foreach lib,$(1),$(dir_static_lib)/$(lib))
+dlibs = $(foreach lib,$(1),$(dir_dynamic_lib)/$(lib))
+
+# Return the base name without any suffixes.
+strip_suffixes = $(firstword $(subst ., ,$(1)))
+
+# Strip path from library dependency together with any suffix, add prefix -l.
+libformatter = \
+	$(foreach libpath,$(1),\
+		-l$(patsubst lib%,%,\
+			$(notdir $(call strip_suffixes,$(libpath)))\
+		)\
+	)
+
+# Return objects.
+get_obj = $(filter %.o,$(1))
+# Return static_libs.
+get_slibs = $(if $(filter %.a,$(1)),$(LDFLAGS) $(filter %.a,$(1)))
+# Get dynamic libraries.
+filter_so = $(foreach lib,$(1),\
+				$(if $(findstring .so.,$(lib)),$(lib),)\
+			)
+
+get_dlibs = $(if $(strip $(call filter_so,$(1))),\
+				$(DYNAMIC_LDFLAGS)/ -Wl$(,)-rpath=./$(dir_dynamic_lib)\
+				$(call libformatter,$(call filter_so,$(1))),\
+			)
+
+soname = $(patsubst $(suffix $(1)),,$(1)) # Remove last .x part from libname.
+
+# Function for assigning that a prerequisite should be built at a specific
+# git-tag/-branch.
+git = $(2)@$(1).git-revision
+
+# Variables.
+# ----------
+
+# Special character escapes.
+,:=,# Write $(,) to include a comma.
+
+# Boolean variables:
+True:=True
+False:=False
+
+# Directories:
+dir_exec := bin
+dir_helpers := helper_scripts
+dir_objects := objects
+dir_sources := sources
+dir_includes := includes
+dir_txt := text
+dir_deps := deps
+dir_lib := lib
+dir_inputs := input
+dir_output := output
+dir_static_lib := $(dir_exec)/static_libs
+dir_dynamic_lib := $(dir_exec)/dynamic_libs
+dir_objects_fpic := $(dir_objects)/fPIC
+dir_portaudio_source := $(dir_lib)/PortAudio
+dir_flac_source := $(dir_lib)/FLAC
+dir_dr_wav_source := $(dir_lib)/dr_wav
+dir_vorbisfile_source := $(dir_lib)/vorbis
+# Directory groupings:
+dirs_clean := $(dir_exec) $(dir_static_lib) $(dir_objects) $(dir_txt) \
+				$(dir_deps) $(dir_output) $(dir_dynamic_lib) \
+			   	$(dir_objects_fpic)
+dirs_remove := $(dirs_clean) $(dir_helpers)
+dirs_keep := $(dir_sources) $(dir_includes) $(dir_lib) $(dir_inputs)
+dirs_all := $(dirs_remove) $(dirs_keep)
+
+# Set vpaths (vpath is for source only):
+vpath %.$(source_extension) $(dir_sources)
+vpath %.$(source_extension) $(dir_lib)
+vpath %.txt $(dir_txt)
+vpath %.d $(dir_deps)
+
+# File_lists:
+CC_sources = $(foreach path,\
+				$(wildcard $(dir_sources)/*.$(source_extension)),\
+				$(patsubst $(dir_sources)/%,%,$(path))\
+			  )
+
+# Output scripts.
+echo_info := echo_info
+echo_warning := echo_warning
+helpers := $(echo_info) $(echo_warning)
+helper_paths := $(foreach name,$(helpers),$(dir_helpers)/$(name))
+# Add helpers to path.
+export PATH := $(shell pwd)/$(dir_helpers):$(PATH)
+# Link global lib folder libs to local lib folder.
+linked_libs := $(foreach path,$(wildcard ../lib/*.$(source_extension)),$(patsubst ../%,%,$(path)))
+linked_headers := $(foreach path,$(wildcard ../includes/*.h),$(patsubst ../%,%,$(path)))
+lib_portAudio := $(dir_static_lib)/libportaudio_static.a
+lib_FLAC := $(dir_static_lib)/libFLAC-static.a
+lib_vorbisfile := $(dir_static_lib)/libvorbisfile.a
+
+# Phony targets.
+# --------------
+
+.PHONY: all setup remove clean re

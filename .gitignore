@@ -1,9 +1,21 @@
 # Ignore executables and object folders.
-executables/
-objects/
+**/executables
+**/objects
+**/bin
+**/output
+**/text
+**/deps
+**/lib/PortAudio
+**/lib/FLAC
+**/lib/dr_wav
+**/lib/vorbis
+
 
 # Ignore vim swap files.
 *.sw*
 
 # Ignore vgcore files.
 vgcore.*
+
+# Ignore *.d files.
+*.d

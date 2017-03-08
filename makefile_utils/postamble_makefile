@@ -1,0 +1,155 @@
+# General compilation recipes:
+
+$(dir_objects)/%.o : %.$(source_extension)
+	$(o_from_cc)
+
+$(dir_objects_fpic)/%.o : %.$(source_extension)
+	$(o_from_cc) -fPIC
+
+$(dir_exec)/% : $(dir_objects)/%.o
+	$(exec_from_o)
+
+$(dir_exec)/static_% : $(dir_objects)/%.o
+	$(exec_from_o)
+
+$(dir_exec)/dynamic_% : $(dir_objects)/%.o
+	$(exec_from_o)
+
+$(dir_static_lib)/%.a :
+	$(a_from_os)
+
+$(dir_dynamic_lib)/% :
+	$(so_from_os)
+	@cd $(dir_dynamic_lib) && ln -s $(notdir $@) $(notdir \
+			$(call strip_suffixes,$@).so)
+
+.SECONDARY: $(wildcard $(dir_dynamic_lib)/*)
+
+%.git-revision: # Invoke sub-make with set git-env parameters.
+	$(eval new_target_tokens := $(subst @, ,$*))
+	$(eval target := $(firstword $(new_target_tokens)))
+	$(eval revision := $(lastword $(new_target_tokens)))
+	$(eval MAIN_MAKE := $(firstword $(MAKEFILE_LIST)))
+	$(eval export GIT_CHANGE_TO = $(revision))
+	$(eval export GIT_CHANGE_FROM = $(shell git rev-parse --abbrev-ref HEAD))
+	$(MAKE) -f $(MAIN_MAKE) $(target)
+
+# Utility recipes:
+
+clean: # Remove most dirs, keep some.
+	$(call remove_dirs,$(dirs_clean))
+
+remove: # Thorough clean of all non-permanent files.
+	$(call remove_dirs,$(dirs_remove))
+
+# Clone portaudio.
+$(dir_portaudio_source):
+	git clone git://git.assembla.com/portaudio.git $@ && \
+	cd $@ && git checkout master
+
+# Build portaudio static lib if missing.
+$(dir_portaudio_source)/libportaudio_static.a :
+	@rm -f $(dir_static_lib)/libportaudio_static.a
+	@cd $(dir_portaudio_source) && cmake . && make
+
+# Clone FLAC.
+$(dir_flac_source):
+	git clone https://git.xiph.org/flac.git $@ && \
+	cd $@ && git checkout master
+
+# Build flac static lib if missing.
+$(dir_flac_source)/src/libFLAC/.libs/libFLAC-static.a:
+	@rm -f $@
+	@cd $(dir_flac_source) && ./autogen.sh && ./configure && make
+
+# Get dr_wav header.
+$(dir_dr_wav_source):
+	mkdir $@ && cd $@ && \
+    wget https://raw.githubusercontent.com/mackron/dr_libs/master/dr_wav.h
+
+# Clone vorbis.
+$(dir_vorbisfile_source):
+	git clone https://git.xiph.org/vorbis.git $@ && \
+	cd $@ && git checkout master
+
+# Build vorbis static lib if missing.
+$(dir_vorbisfile_source)/lib/.libs/libvorbisfile.a:
+	@rm -f $@
+	@cd $(dir_vorbisfile_source) && ./autogen.sh && ./configure && make
+
+$(dirs_all): # Create all directories.
+	$(call create_dirs,$(dirs_all))
+
+re: remove all # Re-generate from fresh slate.
+
+# Link global libraries to lib folder.
+$(linked_libs):
+	@# Link libs sources.
+	$(foreach file,$(linked_libs),\
+		$(shell ln -s $(abspath ../$(file)) $(abspath $(file))) \
+	)
+
+# Link global headers to include folder.
+$(linked_headers):
+	@# Link header files.
+	$(foreach file,$(linked_headers),\
+		$(shell ln -s $(abspath ../$(file)) $(abspath $(file))) \
+	)
+
+# Link external libraries to static library folder.
+$(lib_portAudio) : $(dir_portaudio_source)/libportaudio_static.a
+	$(shell ln -s $(abspath $^) $(abspath $@))
+
+$(lib_FLAC) : $(dir_flac_source)/src/libFLAC/.libs/libFLAC-static.a
+	$(shell ln -s $(abspath $^) $(abspath $@))
+
+$(lib_vorbisfile) : $(dir_vorbisfile_source)/lib/.libs/libvorbisfile.a
+	$(shell ln -s $(abspath $^) $(abspath $@))
+
+lib_symlinks := $(lib_portAudio) $(lib_FLAC) $(lib_vorbisfile)
+
+symlinks := $(linked_libs) $(linked_headers) $(lib_symlinks)
+library_sources := $(dir_portaudio_source) $(dir_flac_source) \
+					$(dir_dr_wav_source) $(dir_vorbisfile_source)
+
+# Create helpers, dirs and symlinks.
+setup: $(helper_paths) $(dirs_all) $(library_sources) $(symlinks)
+
+# Creating and writing helper scripts.
+
+$(helper_paths):
+	@# Bootstrap directory creation for helper scripts, since create_dirs uses
+	@# helper scripts.
+	@if [ ! -d $(dir_helpers) ] ; then \
+		mkdir $(dir_helpers); \
+	 fi
+	@# Write echo_info utility to disk.
+	@(echo "#!/bin/sh" &&\
+	  echo "if [ \"\$$OUT_INFO\" = \"$(True)\" ] ; then"  &&\
+	  echo "   echo [~]: \$$1;" &&\
+	  echo "fi" &&\
+	  echo "") > $(dir_helpers)/$(echo_info)
+	@# Make echo_info executable.
+	@chmod a+x $(dir_helpers)/$(echo_info)
+	@# Write echo_warning utility to disk.
+	@(echo "#!/bin/sh" &&\
+	  echo "if [ \"\$$OUT_WARNING\" = \"$(True)\" ] ; then"  &&\
+	  echo "   echo [!]: \$$1;" &&\
+	  echo "fi" &&\
+	  echo "") > $(dir_helpers)/$(echo_warning)
+	@# Make echo_warning executable.
+	@chmod a+x $(dir_helpers)/$(echo_warning)
+	@echo_info "Helper scripts created."
+
+# *d-file inclusion.
+# ------------------
+D_FILES := $(foreach source,$(CC_sources),$(dir_deps)/$(source:.$(source_extension)=.d))
+-include $(D_FILES)
+
+# Unset git global vars if they are set.
+ifdef GIT_CHANGE_TO
+$(eval export GIT_CHANGE_TO = )
+endif
+ifdef GIT_CHANGE_FROM
+$(eval export GIT_CHANGE_FROM = )
+endif

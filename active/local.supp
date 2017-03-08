@@ -1,0 +1,22 @@
+{
+    ignore_PortAudio_uninitialized_jumps
+    Memcheck:Cond
+    ...
+    obj:/usr/lib/libasound.so.2.0.0
+    ...
+}
+{
+    ignore_PortAudio_uninitialized_params
+    Memcheck:Param
+    ioctl(generic)
+    ...
+    obj:/usr/lib/libasound.so.2.0.0
+    ...
+}
+{
+    r600_dri_memory_leak_suppression
+    Memcheck:Leak
+    ...
+    obj:/usr/lib/xorg/modules/dri/r600_dri.so
+    ...
+}

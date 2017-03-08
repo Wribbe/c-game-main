@@ -9,6 +9,7 @@
 **/lib/FLAC
 **/lib/dr_wav
 **/lib/vorbis
+**/lib/freetype2
 
 
 # Ignore vim swap files.

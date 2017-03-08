@@ -77,6 +77,16 @@ $(dir_vorbisfile_source)/lib/.libs/libvorbisfile.a:
 	@rm -f $@
 	@cd $(dir_vorbisfile_source) && ./autogen.sh && ./configure && make
 
+# Clone Freetype2 from git.
+$(dir_freetype2_source):
+	git clone git://git.savannah.gnu.org/freetype/freetype2.git $@ && \
+	cd $@ && git checkout master
+
+# Build freetype static lib if missing.
+$(dir_freetype2_source)/objs/.libs/libfreetype.a:
+	@rm -f $@
+	@cd $(dir_freetype2_source) && ./autogen.sh && ./configure && make
+
 $(dirs_all): # Create all directories.
 	$(call create_dirs,$(dirs_all))
 
@@ -106,7 +116,10 @@ $(lib_FLAC) : $(dir_flac_source)/src/libFLAC/.libs/libFLAC-static.a
 $(lib_vorbisfile) : $(dir_vorbisfile_source)/lib/.libs/libvorbisfile.a
 	$(shell ln -s $(abspath $^) $(abspath $@))
 
-lib_symlinks := $(lib_portAudio) $(lib_FLAC) $(lib_vorbisfile)
+$(lib_freetype2) : $(dir_freetype2_source)/objs/.libs/libfreetype.a
+	$(shell ln -s $(abspath $^) $(abspath $@))
+
+lib_symlinks := $(lib_portAudio) $(lib_FLAC) $(lib_vorbisfile) $(lib_freetype2)
 
 symlinks := $(linked_libs) $(linked_headers) $(lib_symlinks)
 library_sources := $(dir_portaudio_source) $(dir_flac_source) \

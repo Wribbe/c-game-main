@@ -92,6 +92,7 @@ dir_portaudio_source := $(dir_lib)/PortAudio
 dir_flac_source := $(dir_lib)/FLAC
 dir_dr_wav_source := $(dir_lib)/dr_wav
 dir_vorbisfile_source := $(dir_lib)/vorbis
+dir_freetype2_source := $(dir_lib)/freetype2
 # Directory groupings:
 dirs_clean := $(dir_exec) $(dir_static_lib) $(dir_objects) $(dir_txt) \
 				$(dir_deps) $(dir_output) $(dir_dynamic_lib) \
@@ -125,6 +126,7 @@ linked_headers := $(foreach path,$(wildcard ../includes/*.h),$(patsubst ../%,%,$
 lib_portAudio := $(dir_static_lib)/libportaudio_static.a
 lib_FLAC := $(dir_static_lib)/libFLAC-static.a
 lib_vorbisfile := $(dir_static_lib)/libvorbisfile.a
+lib_freetype2 := $(dir_static_lib)/libfreetype.a
 
 # Phony targets.
 # --------------

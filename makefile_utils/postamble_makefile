@@ -43,12 +43,29 @@ remove: # Thorough clean of all non-permanent files.
 	$(call remove_dirs,$(dirs_remove))
 
 # Clone portaudio.
-$(dir_lib)/PortAudio:
-	git clone git://git.assembla.com/portaudio.git $@
+$(dir_portaudio_source):
+	git clone git://git.assembla.com/portaudio.git $@ && \
+	cd $@ && git checkout master
 
+# Build portaudio static lib if missing.
 $(dir_portaudio_source)/libportaudio_static.a :
 	@rm -f $(dir_static_lib)/libportaudio_static.a
 	@cd $(dir_portaudio_source) && cmake . && make
+
+# Clone FLAC.
+$(dir_flac_source):
+	git clone https://git.xiph.org/flac.git $@ && \
+	cd $@ && git checkout master
+
+# Get dr_wav header.
+$(dir_dr_wav_source):
+	mkdir $@ && cd $@ && \
+    wget https://raw.githubusercontent.com/mackron/dr_libs/master/dr_wav.h
+
+# Clone vorbis.
+$(dir_vorbisfile_source):
+	git clone https://git.xiph.org/vorbis.git $@ && \
+	cd $@ && git checkout master
 
 $(dirs_all): # Create all directories.
 	$(call create_dirs,$(dirs_all))
@@ -74,9 +91,11 @@ $(lib_portAudio) : $(dir_portaudio_source)/libportaudio_static.a
 	$(shell ln -s $(abspath $^) $(abspath $@))
 
 symlinks := $(linked_libs) $(linked_headers) $(lib_portAudio)
+library_sources := $(dir_portaudio_source) $(dir_flac_source) \
+					$(dir_dr_wav_source) $(dir_vorbisfile_source)
 
 # Create helpers, dirs and symlinks.
-setup: $(helper_paths) $(dirs_all) $(dir_portaudio_source) $(symlinks)
+setup: $(helper_paths) $(dirs_all) $(library_sources) $(symlinks)
 
 # Creating and writing helper scripts.
 

@@ -89,6 +89,9 @@ dir_static_lib := $(dir_exec)/static_libs
 dir_dynamic_lib := $(dir_exec)/dynamic_libs
 dir_objects_fpic := $(dir_objects)/fPIC
 dir_portaudio_source := $(dir_lib)/PortAudio
+dir_flac_source := $(dir_lib)/FLAC
+dir_dr_wav_source := $(dir_lib)/dr_wav
+dir_vorbisfile_source := $(dir_lib)/vorbis
 # Directory groupings:
 dirs_clean := $(dir_exec) $(dir_static_lib) $(dir_objects) $(dir_txt) \
 				$(dir_deps) $(dir_output) $(dir_dynamic_lib) \

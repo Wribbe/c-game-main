@@ -17,8 +17,12 @@
 
 #include <pthread.h>
 
+#include <ft2build.h>
+#include FT_FREETYPE_H
+
 #define UNUSED(x) (void)x
 #define SIZE(x) sizeof(x)/sizeof(x[0])
+
 
 /* Global variables. */
 #define WIDTH 800
@@ -1056,6 +1060,8 @@ void * pass_pointer(void * pointer)
 PaStreamParameters params_pa = {0};
 PaStream * stream_pa = NULL;
 PaStreamParameters default_pa_params(size_t channels);
+FT_Library ft = {0};
+
 void setup(void)
     /* Do necessary setup. */
 {
@@ -1142,6 +1148,11 @@ void setup(void)
     g_close_window = get_guard(close_window);
     g_play_sound = get_guard(play_sound);
     g_play_sound.atomic = true;
+
+    /* Set up freetype library. */
+    if (FT_Init_FreeType(&ft)) {
+        error_and_exit("Could not initialize FreeType library.");
+    }
 }
 
 PaStreamParameters default_pa_params(size_t channels)

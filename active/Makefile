@@ -36,8 +36,9 @@ GENERAL_LIBRARIES := -lm -lpthread
 AUDIO_FLAGS := -lportaudio -lasound -ljack -logg -lvorbis
 GRAPHICS_FLAGS := -lGLEW -lglfw3 -lGL -lX11 -lXrandr -lXi -lXxf86vm \
 				  -ldl -lXinerama -lXcursor -lrt
+FONT_FLAGS := -lpng -lz -lharfbuzz -lbz2
 
-CFLAGS +=  $(GENERAL_LIBRARIES) $(AUDIO_FLAGS) $(GRAPHICS_FLAGS)
+CFLAGS +=  $(GENERAL_LIBRARIES) $(AUDIO_FLAGS) $(GRAPHICS_FLAGS) $(FONT_FLAGS)
 
 # Compilation commands:
 o_from_cc = $(CXX) -c $< $(CFLAGS) $(CXXFLAGS) -o $@

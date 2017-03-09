@@ -115,7 +115,7 @@ const GLchar * source_frag_basic = \
 
 GLfloat vertex_data_triangle[] = \
     {
-        0.0f,  1.0f,  0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f,  0.8f,  0.0f, 1.0f, 0.0f, 0.0f,
        -1.0f, -1.0f,  0.0f, 0.0f, 1.0f, 0.0f,
         1.0f, -1.0f,  0.0f, 0.0f, 0.0f, 1.0f,
     };
@@ -1060,7 +1060,33 @@ void * pass_pointer(void * pointer)
 PaStreamParameters params_pa = {0};
 PaStream * stream_pa = NULL;
 PaStreamParameters default_pa_params(size_t channels);
+
+/* Freetype related globals. */
 FT_Library ft = {0};
+FT_Face face = {0};
+GLuint vao_fake = 0;
+
+/* Source for text render shaders. */
+const GLchar * source_vert_text = \
+    "#version 330 core\n"
+    "layout (location=0) in vec4 coord;\n"
+    "out vec2 texcoord;\n"
+    "\n"
+    "void main(void) {\n"
+    "   gl_Position = vec4(coord.xyz, 1.0f);\n"
+    "   texcoord = coord.zw;\n"
+    "}\n";
+
+const GLchar * source_frag_text = \
+    "#version 330 core\n"
+    "in vec2 texcoord;\n"
+    "uniform sampler2D tex;\n"
+    "uniform vec4 uniform_color;\n"
+    "out vec4 color;\n"
+    "\n"
+    "void main(void) {\n"
+    "   color = vec4(1, 1, 1, texture2D(tex, texcoord).r)*uniform_color;\n"
+    "}\n";
 
 void setup(void)
     /* Do necessary setup. */
@@ -1153,6 +1179,15 @@ void setup(void)
     if (FT_Init_FreeType(&ft)) {
         error_and_exit("Could not initialize FreeType library.");
     }
+
+    /* Load FreeSans font. */
+    if(FT_New_Face(ft, "fonts/FreeSans/FreeSans.ttf", 0, &face)) {
+        error_and_exit("Could not load FreeSans font.");
+    }
+
+    /* Set font size. */
+    FT_Set_Pixel_Sizes(face, 0, 48);
+
 }
 
 PaStreamParameters default_pa_params(size_t channels)
@@ -1172,6 +1207,95 @@ PaStreamParameters default_pa_params(size_t channels)
     return params;
 }
 
+void render_text(const char * text,
+                 float x,
+                 float y,
+                 float sx,
+                 float sy,
+                 GLuint program)
+{
+    const char * pointer = text;
+    glBindVertexArray(vao_fake);
+    glUseProgram(program);
+
+
+    /* Set text rendering blending options. */
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    /* Set up single texture object to render all glyphs. */
+    GLuint tex;
+    glActiveTexture(GL_TEXTURE0);
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    GLint uniform_text_sampler = glGetUniformLocation(program, "tex");
+    GLint uniform_color = glGetUniformLocation(program, "uniform_color");
+
+    /* Set uniforms. */
+    glUniform1i(uniform_text_sampler, 0); // Activated texture 0.
+    GLfloat red[] = {1.0f, 0.0f, 0.0f, 1.0f};
+    glUniform4fv(uniform_color, 1, red);
+
+
+    /* Clamp texture to avoid artifacts. */
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    /* Disable 4-byte alignment. */
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    /* Set up Vertex Buffer Object for text rendering. */
+    GLuint vbo_text = 0;
+    glGenBuffers(1, &vbo_text);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_text);
+    GLuint attribute_coord = 0;
+    glEnableVertexAttribArray(attribute_coord);
+
+    for (; *pointer != '\0'; pointer++) {
+        if(FT_Load_Char(face, *pointer, FT_LOAD_RENDER)) {
+            continue;
+        }
+
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RED,
+            face->glyph->bitmap.width,
+            face->glyph->bitmap.rows,
+            0,
+            GL_RED,
+            GL_UNSIGNED_BYTE,
+            face->glyph->bitmap.buffer
+        );
+
+        float x2 = x + face->glyph->bitmap_left * sx;
+        float y2 = -y - face->glyph->bitmap_top * sy;
+        float w = face->glyph->bitmap.width * sx;
+        float h = face->glyph->bitmap.rows * sy;
+
+        GLfloat box[][4] = {
+            {x2,    -y2,      0, 0},
+            {x2 + w,-y2,      1, 0},
+            {x2,    -y2 - h , 0, 1},
+            {x2 + w,-y2 - h , 1, 1},
+        };
+
+        glBufferData(GL_ARRAY_BUFFER, sizeof(box), box, GL_DYNAMIC_DRAW);
+        glVertexAttribPointer(attribute_coord, 4, GL_FLOAT, GL_FALSE, 0, 0);
+
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        x += (face->glyph->advance.x/64) * sx;
+        y += (face->glyph->advance.y/64) * sy;
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    glUseProgram(0);
+}
 
 
 int main(int argc, char ** argv)
@@ -1243,6 +1367,8 @@ int main(int argc, char ** argv)
     /* Generate empty buffer objects. */
     glGenBuffers(1, &VBO);
     glGenVertexArrays(1, &VAO);
+    /* Generate fake VAO. */
+    glGenVertexArrays(1, &vao_fake);
 
     /*Bind vertex buffer. */
     glBindVertexArray(VAO);
@@ -1333,11 +1459,59 @@ int main(int argc, char ** argv)
     glDeleteShader(sh_vert_basic);
     glDeleteShader(sh_frag_basic);
 
+    /* Create shaders for text rendering. */
+    GLuint sh_vert_text = glCreateShader(GL_VERTEX_SHADER);
+    GLuint sh_frag_text = glCreateShader(GL_FRAGMENT_SHADER);
+    /* Bind shader sources. */
+    glShaderSource(sh_vert_text, 1, &source_vert_text, 0);
+    glShaderSource(sh_frag_text, 1, &source_frag_text, 0);
+    /* Use information space from above. */
+    glCompileShader(sh_vert_text);
+    glGetShaderiv(sh_vert_text, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(sh_vert_text,
+                           size_buffer_info,
+                           NULL,
+                           buffer_info);
+        fprintf(stderr, "Compilation of vertex shader failed: %s\n",
+                buffer_info);
+    }
+    glCompileShader(sh_frag_text);
+    glGetShaderiv(sh_frag_text, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(sh_frag_text,
+                           size_buffer_info,
+                           NULL,
+                           buffer_info);
+        fprintf(stderr, "Compilation of framgent shader failed: %s\n",
+                buffer_info);
+    }
+    /* Set up shader program for text-rendering. */
+    GLuint shp_text_shaders = glCreateProgram();
+    glAttachShader(shp_text_shaders, sh_vert_text);
+    glAttachShader(shp_text_shaders, sh_frag_text);
+    /* Link all the attached shaders. */
+    glLinkProgram(shp_text_shaders);
+    /* Check link status. */
+    glGetProgramiv(shp_text_shaders, GL_LINK_STATUS, &success);
+    if (!success) {
+        glGetProgramInfoLog(shp_text_shaders,
+                            size_buffer_info,
+                            NULL,
+                            buffer_info);
+        fprintf(stderr, "Failed to link shader %s\n", buffer_info);
+    }
+    /* Delete linked shaders. */
+    glDeleteShader(sh_vert_text);
+    glDeleteShader(sh_frag_text);
+
     // ========================================
     // == Display loop
     // ========================================
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    float sx = 2.0 / WIDTH;
+    float sy = 2.0 / HEIGHT;
     while(!glfwWindowShouldClose(window)){
 
         glClear(GL_COLOR_BUFFER_BIT);
@@ -1350,6 +1524,9 @@ int main(int argc, char ** argv)
         glDrawArrays(GL_TRIANGLES, 0, 3);
         glUseProgram(0);
         glBindVertexArray(0);
+
+        render_text("Hej Amanda, vi har text!", -1 + 8 * sx, 1 - 50 * sy, sx, sy,
+                    shp_text_shaders);
 
         glfwSwapBuffers(window);
     }

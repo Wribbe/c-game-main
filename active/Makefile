@@ -73,7 +73,8 @@ define generate_sh_runnner =
 	chmod +x $(2)
 endef
 
-$(execs) : $(call slibs,libportaudio_static.a libpng.a libFLAC-static.a libvorbisfile.a)
+$(execs) : $(call slibs,libportaudio_static.a libpng.a libFLAC-static.a \
+			libvorbisfile.a libfreetype.a)
 $(execs) : $(call objs,glad.o)
 
 include $(dir_make_utils)/postamble_makefile

@@ -1088,6 +1088,12 @@ const GLchar * source_frag_text = \
     "   color = vec4(1, 1, 1, texture2D(tex, texcoord).r)*uniform_color;\n"
     "}\n";
 
+
+GLuint tex;
+GLint uniform_text_sampler = 0;
+GLint uniform_color = 0;
+GLuint vbo_text = 0;
+
 void setup(void)
     /* Do necessary setup. */
 {
@@ -1218,38 +1224,13 @@ void render_text(const char * text,
     glBindVertexArray(vao_fake);
     glUseProgram(program);
 
-
-    /* Set text rendering blending options. */
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
     /* Set up single texture object to render all glyphs. */
-    GLuint tex;
-    glActiveTexture(GL_TEXTURE0);
-    glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
-    GLint uniform_text_sampler = glGetUniformLocation(program, "tex");
-    GLint uniform_color = glGetUniformLocation(program, "uniform_color");
 
     /* Set uniforms. */
     glUniform1i(uniform_text_sampler, 0); // Activated texture 0.
     GLfloat red[] = {1.0f, 0.0f, 0.0f, 1.0f};
     glUniform4fv(uniform_color, 1, red);
-
-
-    /* Clamp texture to avoid artifacts. */
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    /* Disable 4-byte alignment. */
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-    /* Set up Vertex Buffer Object for text rendering. */
-    GLuint vbo_text = 0;
-    glGenBuffers(1, &vbo_text);
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo_text);
     GLuint attribute_coord = 0;
@@ -1504,6 +1485,35 @@ int main(int argc, char ** argv)
     /* Delete linked shaders. */
     glDeleteShader(sh_vert_text);
     glDeleteShader(sh_frag_text);
+
+    /* Activate and generate texture 0. */
+    glActiveTexture(GL_TEXTURE0);
+    glGenTextures(1, &tex);
+
+    glBindTexture(GL_TEXTURE_2D, tex);
+
+    /* Set text rendering blending options. */
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    /* Clamp texture to avoid artifacts. */
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    /* Disable 4-byte alignment. */
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    glBindTexture(GL_TEXTURE_2D, tex);
+
+    /* Set global uniform position values. */
+    uniform_text_sampler = glGetUniformLocation(shp_text_shaders, "tex");
+    uniform_color = glGetUniformLocation(shp_text_shaders, "uniform_color");
+
+    /* Set up Vertex Buffer Object for text rendering. */
+    glGenBuffers(1, &vbo_text);
 
     // ========================================
     // == Display loop

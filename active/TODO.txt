@@ -1,0 +1,67 @@
+Things to be done before next master commit:
+--------------------------------------------
+
+  [ ] - 2D control.
+    [ ] - Possible to move triangle.
+  [ ] - 2D Texture mapping.
+    [ ] - Import and setup usage of PNG library.
+    [?] - Switch between different textures with keyboard.
+  [ ] - 2D collision.
+    [ ] - Collide with walls of window.
+    [ ] - Collide with other entities.
+  [ ] - Vector/Matrix math & operations.
+    [ ] - Research best usage of <inline>.
+    [ ] - Implement vector operations.
+      [ ] - v4.
+    [ ] - Implement matrix operations.
+      [ ] - m4.
+  [ ] - Cross compilation Linux/Windows.
+    [ ] - Dig up old code for cross compilation.
+    [ ] - Cross-compile through VM + cygwin/mysys.
+    [ ] - Run on actual Windows machine.
+    [ ] - How to verify functionality? (Possible to automate?)
+  [ ] -
+  [ ] -
+
+
+Horizon:
+--------
+
+  [ ] - Refactor.
+  [ ] - Experiment with using Python to generate C-code.
+  [ ] - Test suit.
+  [ ] - Research "_Generic" C11 keyword.
+  [ ] -
+  [ ] -
+
+
+Considering:
+------------
+
+  [ ] - 3D control.
+  [ ] - 3D collision.
+  [ ] - Basic network capabilities.
+  [ ] -
+  [ ] -
+
+
+Wishlist:
+---------
+
+  [ ] - SIMD/SEE* optimization.
+  [ ] - Use C11 standard with Atomics & Native threads.
+  [ ] - Support for other image formats besides PNG.
+  [ ] - Automation of Windows <-> Linux functionality parity tests.
+  [ ] - Continuous Integration + Testing.
+  [ ] - WebGL+Javascript through Ecmescriptem.
+  [ ] - Android cross-compilation + runtime.
+  [ ] -
+  [ ] -
+
+
+Done:
+-----
+  [x] - Basic text rendering.
+  [x] - Basic sound playing.
+  [x] - Basic 2D triangle display.
+  [x] - Input handling + Modifiers.

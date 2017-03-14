@@ -94,11 +94,12 @@ const GLchar * source_vert_basic = \
     "#version 330 core\n"
     "layout (location=0) in vec3 position;\n"
     "layout (location=1) in vec3 color_input;\n"
+    "uniform mat4 transformation;\n"
     "\n"
     "out vec4 vertex_color;\n"
     "\n"
     "void main() {\n"
-    "   gl_Position = vec4(position, 1.0f);\n"
+    "   gl_Position = transformation * vec4(position, 1.0f);\n"
     "   vertex_color = vec4(color_input, 1.0f);\n"
     "}\n";
 
@@ -345,6 +346,7 @@ struct function_guard g_mod2_space = {0};
 struct function_guard g_mod3_space = {0};
 struct function_guard g_close_window = {0};
 struct function_guard g_play_sound = {0};
+struct function_guard g_move = {0};
 
 void mod_space(int key, int action, void * data)
 {
@@ -380,6 +382,8 @@ void close_window(int key, int action, void * data)
     }
     UNUSED(key);
 }
+
+void move(int key, int action, void * data);
 
 int get_mod_sum(void) {
     int sum = 0;
@@ -1092,9 +1096,15 @@ const GLchar * source_frag_text = \
 GLuint tex;
 GLint uniform_text_sampler = 0;
 GLint uniform_color = 0;
+GLint uniform_tranformation = 0;
 GLuint vbo_text = 0;
 
 void create_texture_atlas(void);
+
+#define KEY_UP GLFW_KEY_UP
+#define KEY_DOWN GLFW_KEY_DOWN
+#define KEY_LEFT GLFW_KEY_LEFT
+#define KEY_RIGHT GLFW_KEY_RIGHT
 
 void setup(void)
     /* Do necessary setup. */
@@ -1143,6 +1153,10 @@ void setup(void)
         {GLFW_KEY_O, 0, &g_play_sound, get_queue_sound_node, pack_params(VOICE_16_WAV, OVERLAY), NULL},
         {GLFW_KEY_S, 0, &g_play_sound, get_queue_sound_node, pack_params(VOICE_16_WAV, STOP), NULL},
         {GLFW_KEY_K, 0, &g_play_sound, get_queue_sound_node, pack_params(VOICE_16_WAV, KEEP), NULL},
+        {KEY_LEFT, 0, &g_move, pass_pointer, &g_move, NULL},
+        {KEY_RIGHT, 0, &g_move, pass_pointer, &g_move, NULL},
+        {KEY_UP, 0, &g_move, pass_pointer, &g_move, NULL},
+        {KEY_DOWN, 0, &g_move, pass_pointer, &g_move, NULL},
     };
     num_mappings = SIZE(local_mappings);
     mappings = malloc(num_mappings * sizeof(struct mapping_node));
@@ -1182,6 +1196,7 @@ void setup(void)
     g_close_window = get_guard(close_window);
     g_play_sound = get_guard(play_sound);
     g_play_sound.atomic = true;
+    g_move = get_guard(move);
 
     /* Set up freetype library. */
     if (FT_Init_FreeType(&ft)) {
@@ -1308,12 +1323,12 @@ void create_texture_atlas(void)
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-struct v4 {
-    float x;
-    float y;
-    float z;
-    float w;
-};
+typedef struct v4 {
+    GLfloat x;
+    GLfloat y;
+    GLfloat z;
+    GLfloat w;
+} v4;
 
 void render_text(const char * text,
                  float x,
@@ -1388,6 +1403,51 @@ void render_text(const char * text,
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+typedef v4 m4[4];
+
+/* Set up transformation matrix. */
+m4 m4_transformation = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
+static inline GLfloat * ptr_m4(v4 * vector)
+{
+    return &vector->x;
+}
+
+static inline GLfloat * translate(m4 * matrix, char coord)
+{
+    switch(coord){
+        case 'x':
+            return &matrix[0]->w;
+            break;
+        case 'y':
+            return &matrix[1]->w;
+            break;
+        case 'z':
+            return &matrix[2]->w;
+            break;
+        default:
+            error_and_exit("Undefined coord in translate.\n");
+            return 0;
+    }
+}
+
+float speed_movement = 0.01f;
+void move(int key, int action, void * data)
+{
+    UNUSED(data);
+    if (release(action)) {
+        return;
+    }
+    *translate(&m4_transformation, 'x') += key==KEY_RIGHT ? speed_movement : 0;
+    *translate(&m4_transformation, 'x') -= key==KEY_LEFT ? speed_movement : 0;
+    *translate(&m4_transformation, 'y') += key==KEY_DOWN ? speed_movement : 0;
+    *translate(&m4_transformation, 'y') -= key==KEY_UP ? speed_movement : 0;
+}
 
 int main(int argc, char ** argv)
 {
@@ -1628,6 +1688,10 @@ int main(int argc, char ** argv)
     /* Generate texture atlas. */
     create_texture_atlas();
 
+    /* Set global transformation uniform location. */
+    uniform_tranformation = glGetUniformLocation(shp_basic_shaders,
+                                                 "transformation");
+
     // ========================================
     // == Display loop
     // ========================================
@@ -1642,6 +1706,10 @@ int main(int argc, char ** argv)
 
         glUseProgram(shp_basic_shaders);
         glBindVertexArray(VAO);
+        glUniformMatrix4fv(uniform_tranformation,
+                           1,
+                           GL_TRUE,
+                           ptr_m4(m4_transformation));
         glDrawArrays(GL_TRIANGLES, 0, 3);
         glUseProgram(0);
         glBindVertexArray(0);

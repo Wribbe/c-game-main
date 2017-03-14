@@ -2,7 +2,7 @@ Things to be done before next master commit:
 --------------------------------------------
 
   [ ] - 2D control.
-    [ ] - Possible to move triangle.
+    [+] - Possible to move triangle.
   [ ] - 2D Texture mapping.
     [ ] - Import and setup usage of PNG library.
     [?] - Switch between different textures with keyboard.

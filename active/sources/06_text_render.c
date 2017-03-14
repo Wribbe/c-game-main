@@ -1094,6 +1094,8 @@ GLint uniform_text_sampler = 0;
 GLint uniform_color = 0;
 GLuint vbo_text = 0;
 
+void create_texture_atlas(void);
+
 void setup(void)
     /* Do necessary setup. */
 {
@@ -1193,7 +1195,6 @@ void setup(void)
 
     /* Set font size. */
     FT_Set_Pixel_Sizes(face, 0, 48);
-
 }
 
 PaStreamParameters default_pa_params(size_t channels)
@@ -1213,6 +1214,107 @@ PaStreamParameters default_pa_params(size_t channels)
     return params;
 }
 
+#define START_CHARS 32
+#define END_CHARS 128
+#define NUM_CHARS END_CHARS - START_CHARS
+int atlas_width = 0;
+int atlas_height = 0;
+struct info_character {
+    float advance_x;
+    float advance_y;
+    float bitmap_width;
+    float bitmap_rows;
+    float bitmap_left;
+    float bitmap_top;
+    float offset_texture_x;
+    float offset_texture_y;
+} info_chars[NUM_CHARS];
+
+int imax(int a, int b)
+{
+    if (a >= b) {
+        return a;
+    }
+    return b;
+}
+
+void create_texture_atlas(void)
+{
+    int width = 0;
+    int height = 0;
+    /* Initial loading of charaders. */
+    for (int i = START_CHARS; i<END_CHARS; i++) {
+        if(FT_Load_Char(face, i, FT_LOAD_RENDER)) {
+            fprintf(stderr, "Could not load character %c!\n", i);
+            continue;
+        }
+        info_chars[i-START_CHARS] = (struct info_character){
+            .advance_x = face->glyph->advance.x >> 6,
+            .advance_y = face->glyph->advance.y >> 6,
+            .bitmap_width = face->glyph->bitmap.width,
+            .bitmap_rows = face->glyph->bitmap.rows,
+            .bitmap_left = face->glyph->bitmap_left,
+            .bitmap_top = face->glyph->bitmap_top,
+            .offset_texture_x = 0,
+            .offset_texture_y = 0,
+        };
+        width += face->glyph->bitmap.width;
+        int rows = face->glyph->bitmap.rows;
+        height = height > rows ? height : rows;
+    }
+
+    /* Set up single texture object to contain all glyphs. */
+    glBindTexture(GL_TEXTURE_2D, tex);
+
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RED,
+        width,
+        height,
+        0,
+        GL_RED,
+        GL_UNSIGNED_BYTE,
+        0
+    );
+
+    int x_offset = 0;
+    int y_offset = 0;
+    /* Generate textures and add to atlas, add offset to struct. */
+    for (int i = 0; i<NUM_CHARS; i++) {
+        if (FT_Load_Char(face, i+START_CHARS, FT_LOAD_RENDER)) {
+            fprintf(stderr, "Could not load character %c!\n", i);
+            continue;
+        }
+        info_chars[i].offset_texture_x = x_offset / (float)width;
+        info_chars[i].offset_texture_y = y_offset / (float)height;
+        float height = info_chars[i].bitmap_rows;
+        float width = info_chars[i].bitmap_width;
+        void * data = face->glyph->bitmap.buffer;
+        glTexSubImage2D(GL_TEXTURE_2D,
+                        0,
+                        x_offset,
+                        y_offset,
+                        width,
+                        height,
+                        GL_RED,
+                        GL_UNSIGNED_BYTE,
+                        data);
+        /* No y-offset at the moment, add to x-offset. */
+        x_offset += width+1; // Why do we add 1?
+    }
+    atlas_width = width;
+    atlas_height = height;
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+struct v4 {
+    float x;
+    float y;
+    float z;
+    float w;
+};
+
 void render_text(const char * text,
                  float x,
                  float y,
@@ -1220,12 +1322,8 @@ void render_text(const char * text,
                  float sy,
                  GLuint program)
 {
-    const char * pointer = text;
     glBindVertexArray(vao_fake);
     glUseProgram(program);
-
-    /* Set up single texture object to render all glyphs. */
-    glBindTexture(GL_TEXTURE_2D, tex);
 
     /* Set uniforms. */
     glUniform1i(uniform_text_sampler, 0); // Activated texture 0.
@@ -1236,46 +1334,57 @@ void render_text(const char * text,
     GLuint attribute_coord = 0;
     glEnableVertexAttribArray(attribute_coord);
 
+    size_t num_points_per_square = 6;
+    size_t text_length = strlen(text);
+    struct v4 coordinates[text_length*num_points_per_square];
+
+    const char * pointer = text;
+    struct v4 * coord_pointer = coordinates;
     for (; *pointer != '\0'; pointer++) {
-        if(FT_Load_Char(face, *pointer, FT_LOAD_RENDER)) {
-            continue;
-        }
 
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
-            GL_RED,
-            face->glyph->bitmap.width,
-            face->glyph->bitmap.rows,
-            0,
-            GL_RED,
-            GL_UNSIGNED_BYTE,
-            face->glyph->bitmap.buffer
-        );
+        int char_index = *pointer - START_CHARS;
+        struct info_character * info = &info_chars[char_index];
 
-        float x2 = x + face->glyph->bitmap_left * sx;
-        float y2 = -y - face->glyph->bitmap_top * sy;
-        float w = face->glyph->bitmap.width * sx;
-        float h = face->glyph->bitmap.rows * sy;
+        float x2 = x + info->bitmap_left * sx;
+        float y2 = -y - info->bitmap_top * sy;
+        float w = info->bitmap_width * sx;
+        float h = info->bitmap_rows * sy;
 
-        GLfloat box[][4] = {
-            {x2,    -y2,      0, 0},
-            {x2 + w,-y2,      1, 0},
-            {x2,    -y2 - h , 0, 1},
-            {x2 + w,-y2 - h , 1, 1},
+        float proportional_width = info->bitmap_width/atlas_width;
+        float proportional_height = info->bitmap_rows/atlas_height;
+
+        float tex_u0 = info->offset_texture_x;
+        float tex_u1 = tex_u0+proportional_width;
+        float tex_v0 = info->offset_texture_y;
+        float tex_v1 = tex_v0+proportional_height;
+
+        struct v4 square[] = {
+            // First triangle.
+            {x2,    -y2,      tex_u0, tex_v0},
+            {x2 + w,-y2,      tex_u1, tex_v0},
+            {x2,    -y2 - h , tex_u0, tex_v1},
+            // Second triangle.
+            {x2 + w,-y2,      tex_u1, tex_v0},
+            {x2,    -y2 - h , tex_u0, tex_v1},
+            {x2 + w,-y2 - h , tex_u1, tex_v1},
         };
+        memcpy(coord_pointer, &square, sizeof(square));
+        coord_pointer += sizeof(square)/sizeof(square[0]);
 
-        glBufferData(GL_ARRAY_BUFFER, sizeof(box), box, GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(attribute_coord, 4, GL_FLOAT, GL_FALSE, 0, 0);
-
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-        x += (face->glyph->advance.x/64) * sx;
-        y += (face->glyph->advance.y/64) * sy;
+        /* Advance cursor to start of next character. */
+        x += info->advance_x * sx;
+        y += info->advance_y * sy;
     }
+    glBindTexture(GL_TEXTURE_2D, tex);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(coordinates), coordinates, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(attribute_coord, 4, GL_FLOAT, GL_FALSE, 0, 0);
+
+    glDrawArrays(GL_TRIANGLES, 0, sizeof(coordinates)/sizeof(coordinates[0]));
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
     glUseProgram(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 
@@ -1506,7 +1615,7 @@ int main(int argc, char ** argv)
     /* Disable 4-byte alignment. */
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    glBindTexture(GL_TEXTURE_2D, tex);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     /* Set global uniform position values. */
     uniform_text_sampler = glGetUniformLocation(shp_text_shaders, "tex");
@@ -1514,6 +1623,9 @@ int main(int argc, char ** argv)
 
     /* Set up Vertex Buffer Object for text rendering. */
     glGenBuffers(1, &vbo_text);
+
+    /* Generate texture atlas. */
+    create_texture_atlas();
 
     // ========================================
     // == Display loop

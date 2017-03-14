@@ -23,7 +23,8 @@ SUPPRESS_GIT_OUTPUT := $(True)
 CFLAGS += -g -std=c11 -Wall -Wextra -pedantic -Wwrite-strings
 INCLUDE_FLAGS = -I$(dir_includes) -I$(dir_portaudio_source)/include \
 				-I$(dir_flac_source)/include \
-				-I$(dir_vorbisfile_source)/include/vorbis
+				-I$(dir_vorbisfile_source)/include/vorbis \
+				-I$(dir_freetype2_source)/include
 CFLAGS += $(INCLUDE_FLAGS)
 DEPFLAGS = -MT $@ -MMD -MP -MF $(dir_deps)/$*.d
 CXXFLAGS += $(DEPFLAGS)
@@ -35,8 +36,9 @@ GENERAL_LIBRARIES := -lm -lpthread
 AUDIO_FLAGS := -lportaudio -lasound -ljack -logg -lvorbis
 GRAPHICS_FLAGS := -lGLEW -lglfw3 -lGL -lX11 -lXrandr -lXi -lXxf86vm \
 				  -ldl -lXinerama -lXcursor -lrt
+FONT_FLAGS := -lpng -lz -lharfbuzz -lbz2
 
-CFLAGS +=  $(GENERAL_LIBRARIES) $(AUDIO_FLAGS) $(GRAPHICS_FLAGS)
+CFLAGS +=  $(GENERAL_LIBRARIES) $(AUDIO_FLAGS) $(GRAPHICS_FLAGS) $(FONT_FLAGS)
 
 # Compilation commands:
 o_from_cc = $(CXX) -c $< $(CFLAGS) $(CXXFLAGS) -o $@
@@ -72,7 +74,8 @@ define generate_sh_runnner =
 	chmod +x $(2)
 endef
 
-$(execs) : $(call slibs,libportaudio_static.a libpng.a libFLAC-static.a libvorbisfile.a)
+$(execs) : $(call slibs,libportaudio_static.a libpng.a libFLAC-static.a \
+			libvorbisfile.a libfreetype.a)
 $(execs) : $(call objs,glad.o)
 
 include $(dir_make_utils)/postamble_makefile

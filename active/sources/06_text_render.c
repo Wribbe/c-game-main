@@ -1318,12 +1318,13 @@ struct v4 {
 void render_text(const char * text,
                  float x,
                  float y,
-                 float sx,
-                 float sy,
                  GLuint program)
 {
     glBindVertexArray(vao_fake);
     glUseProgram(program);
+
+    float sx = 2.0 / WIDTH;
+    float sy = 2.0 / HEIGHT;
 
     /* Set uniforms. */
     glUniform1i(uniform_text_sampler, 0); // Activated texture 0.
@@ -1346,7 +1347,7 @@ void render_text(const char * text,
         struct info_character * info = &info_chars[char_index];
 
         float x2 = x + info->bitmap_left * sx;
-        float y2 = -y - info->bitmap_top * sy;
+        float y2 = y - info->bitmap_top * sy;
         float w = info->bitmap_width * sx;
         float h = info->bitmap_rows * sy;
 
@@ -1632,8 +1633,6 @@ int main(int argc, char ** argv)
     // ========================================
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    float sx = 2.0 / WIDTH;
-    float sy = 2.0 / HEIGHT;
     while(!glfwWindowShouldClose(window)){
 
         glClear(GL_COLOR_BUFFER_BIT);
@@ -1647,8 +1646,7 @@ int main(int argc, char ** argv)
         glUseProgram(0);
         glBindVertexArray(0);
 
-        render_text("Hej Amanda, vi har text!", -1 + 8 * sx, 1 - 50 * sy, sx, sy,
-                    shp_text_shaders);
+        render_text("Hej Amanda, vi har text!", -1.0, -0.8, shp_text_shaders);
 
         glfwSwapBuffers(window);
     }

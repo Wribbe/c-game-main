@@ -3,10 +3,13 @@ Things to be done before next master commit:
 
   [ ] - 2D control.
     [+] - Possible to move triangle.
+  [ ] - Frame time counter & fps counter.
   [ ] - 2D Texture mapping.
     [ ] - Import and setup usage of PNG library.
     [?] - Switch between different textures with keyboard.
   [ ] - 2D collision.
+    [ ] - Bounding collision shapes.
+    [ ] - Debug display of collision shapes.
     [ ] - Collide with walls of window.
     [ ] - Collide with other entities.
   [ ] - Vector/Matrix math & operations.

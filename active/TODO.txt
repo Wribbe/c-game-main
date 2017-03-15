@@ -5,6 +5,7 @@ Things to be done before next master commit:
     [x] - Possible to move triangle.
   [+] - Frame time counter & fps counter.
     [x] - Display FPS.
+    [+] - Custom stop at e.g. 250 FPS.
     [ ] - Render fame time to texture and display.
   [ ] - 2D Texture mapping.
     [ ] - Import and setup usage of PNG library.

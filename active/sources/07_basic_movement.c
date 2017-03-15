@@ -20,6 +20,8 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+#include <time.h>
+
 #define UNUSED(x) (void)x
 #define SIZE(x) sizeof(x)/sizeof(x[0])
 
@@ -1717,6 +1719,8 @@ int main(int argc, char ** argv)
     double time_start = 0;
     double time_stop = 0;
     bool DISPLAY_PERFORMANCE = true;
+    size_t FRAMERATE_LIMIT = 250;
+    double TIME_FRAME_LIMIT = 1000 / FRAMERATE_LIMIT; // ms/frame.
     while(!glfwWindowShouldClose(window)){
 
         if (DISPLAY_PERFORMANCE) {
@@ -1742,7 +1746,16 @@ int main(int argc, char ** argv)
 
         if (DISPLAY_PERFORMANCE) {
             time_stop = glfwGetTime();
-            display_number(1e3/((time_stop-time_start)*1e3), 1.0, -0.8, shp_text_shaders);
+            double time_diff = time_stop-time_start;
+            double time_diff_millis = time_diff * 1e3;
+            if (time_diff_millis < TIME_FRAME_LIMIT) {
+                struct timespec diff = {
+                    .tv_sec = 0,
+                    .tv_nsec = 500,
+                };
+                nanosleep(&diff, NULL);
+            }
+            display_number(1e3/time_diff_millis, 1.0, -0.8, shp_text_shaders);
         }
 
         glfwSwapBuffers(window);

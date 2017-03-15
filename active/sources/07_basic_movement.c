@@ -1445,8 +1445,8 @@ void move(int key, int action, void * data)
     }
     *translate(&m4_transformation, 'x') += key==KEY_RIGHT ? speed_movement : 0;
     *translate(&m4_transformation, 'x') -= key==KEY_LEFT ? speed_movement : 0;
-    *translate(&m4_transformation, 'y') += key==KEY_DOWN ? speed_movement : 0;
-    *translate(&m4_transformation, 'y') -= key==KEY_UP ? speed_movement : 0;
+    *translate(&m4_transformation, 'y') -= key==KEY_DOWN ? speed_movement : 0;
+    *translate(&m4_transformation, 'y') += key==KEY_UP ? speed_movement : 0;
 }
 
 int main(int argc, char ** argv)

@@ -1449,6 +1449,22 @@ void move(int key, int action, void * data)
     *translate(&m4_transformation, 'y') += key==KEY_UP ? speed_movement : 0;
 }
 
+void display_number(uint32_t number, float x, float y, GLuint program)
+{
+    char buffer[128] = {0};
+    char * current = &buffer[126];
+    while (number > 0) {
+        int lowest = number % 10;
+        number /= 10;
+        *current-- = '0'+lowest;
+        if (current <= buffer) {
+            error_and_exit("Overflow in display number.");
+        }
+    }
+    size_t number_size = &buffer[126] - current;
+    render_text(current+1, x-((float)number_size * 0.1f), y, program);
+}
+
 int main(int argc, char ** argv)
 {
     if (!glfwInit()) {
@@ -1697,7 +1713,15 @@ int main(int argc, char ** argv)
     // ========================================
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glfwSwapInterval(1);
+    double time_start = 0;
+    double time_stop = 0;
+    bool DISPLAY_PERFORMANCE = true;
     while(!glfwWindowShouldClose(window)){
+
+        if (DISPLAY_PERFORMANCE) {
+            time_start = glfwGetTime();
+        }
 
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -1715,6 +1739,11 @@ int main(int argc, char ** argv)
         glBindVertexArray(0);
 
         render_text("Hej Amanda, vi har text!", -1.0, -0.8, shp_text_shaders);
+
+        if (DISPLAY_PERFORMANCE) {
+            time_stop = glfwGetTime();
+            display_number(1e3/((time_stop-time_start)*1e3), 1.0, -0.8, shp_text_shaders);
+        }
 
         glfwSwapBuffers(window);
     }

@@ -48,7 +48,7 @@ $(dir_portaudio_source):
 	cd $@ && git checkout master
 
 # Build portaudio static lib if missing.
-$(dir_portaudio_source)/libportaudio_static.a :
+$(dir_portaudio_source)/libportaudio_static.a : $(dir_portaudio_source)
 	@rm -f $(dir_static_lib)/libportaudio_static.a
 	@cd $(dir_portaudio_source) && cmake . && make
 
@@ -58,14 +58,14 @@ $(dir_flac_source):
 	cd $@ && git checkout master
 
 # Build flac static lib if missing.
-$(dir_flac_source)/src/libFLAC/.libs/libFLAC-static.a:
+$(dir_flac_source)/src/libFLAC/.libs/libFLAC-static.a: $(dir_flac_source)
 	@rm -f $@
 	@cd $(dir_flac_source) && ./autogen.sh && ./configure && make
 
 # Get dr_wav header.
 $(dir_dr_wav_source):
 	mkdir $@ && cd $@ && \
-    wget https://raw.githubusercontent.com/mackron/dr_libs/master/dr_wav.h
+	wget https://raw.githubusercontent.com/mackron/dr_libs/master/dr_wav.h
 
 # Clone vorbis.
 $(dir_vorbisfile_source):
@@ -73,7 +73,7 @@ $(dir_vorbisfile_source):
 	cd $@ && git checkout master
 
 # Build vorbis static lib if missing.
-$(dir_vorbisfile_source)/lib/.libs/libvorbisfile.a:
+$(dir_vorbisfile_source)/lib/.libs/libvorbisfile.a: $(dir_vorbisfile_source)
 	@rm -f $@
 	@cd $(dir_vorbisfile_source) && ./autogen.sh && ./configure && make
 
@@ -83,7 +83,7 @@ $(dir_freetype2_source):
 	cd $@ && git checkout master
 
 # Build freetype static lib if missing.
-$(dir_freetype2_source)/objs/.libs/libfreetype.a:
+$(dir_freetype2_source)/objs/.libs/libfreetype.a: $(dir_freetype2_source)
 	@rm -f $@
 	@cd $(dir_freetype2_source) && ./autogen.sh && ./configure && make
 

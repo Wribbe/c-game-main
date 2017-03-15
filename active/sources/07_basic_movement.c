@@ -1422,13 +1422,13 @@ static inline GLfloat * translate(m4 * matrix, char coord)
 {
     switch(coord){
         case 'x':
-            return &matrix[0]->w;
+            return &matrix[0][0].w;
             break;
         case 'y':
-            return &matrix[1]->w;
+            return &matrix[0][1].w;
             break;
         case 'z':
-            return &matrix[2]->w;
+            return &matrix[0][2].w;
             break;
         default:
             error_and_exit("Undefined coord in translate.\n");

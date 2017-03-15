@@ -3,7 +3,7 @@ Things to be done before next master commit:
 
   [x] - 2D control.
     [x] - Possible to move triangle.
-  [ ] - Frame time counter & fps counter.
+  [+] - Frame time counter & fps counter.
   [ ] - 2D Texture mapping.
     [ ] - Import and setup usage of PNG library.
     [?] - Switch between different textures with keyboard.

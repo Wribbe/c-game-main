@@ -76,8 +76,12 @@ False:=False
 
 # Directories:
 dir_exec := bin
+dir_exec_linux := $(dir_exec)/linux
+dir_exec_win := $(dir_exec)/win
 dir_helpers := helper_scripts
 dir_objects := objects
+dir_objects_linux := $(dir_objects)/linux
+dir_objects_win := $(dir_objects)/win
 dir_sources := sources
 dir_includes := includes
 dir_txt := text
@@ -86,6 +90,8 @@ dir_lib := lib
 dir_inputs := input
 dir_output := output
 dir_static_lib := $(dir_exec)/static_libs
+dir_static_lib_linux := $(dir_static_lib)/linux
+dir_static_lib_win := $(dir_static_lib)/win
 dir_dynamic_lib := $(dir_exec)/dynamic_libs
 dir_objects_fpic := $(dir_objects)/fPIC
 dir_portaudio_source := $(dir_lib)/PortAudio

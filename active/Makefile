@@ -13,6 +13,11 @@ OUT_COMPILATION := $(True)
 OUTPUT_DYN_LIB := $(False)
 OUTPUT_LIB := $(False)
 
+PACMAN := $(shell command -v pacman 2> /dev/null)
+ifndef PACMAN
+$(error "pacman is not installed, aborting.")
+endif
+
 
 # Functionality toggles:
 GIT_TARGETS := $(True)
@@ -54,11 +59,40 @@ include $(dir_make_utils)/suppression_makefile
 
 # Library dependencies.
 
-execs := $(call execs, $(foreach source,$(CC_sources),\
+dir_exec := $(dir_exec_linux)
+dir_objects := $(dir_objects_linux)
+dir_static_lib := $(dir_static_lib_linux)
+linux_execs = $(call execs, $(foreach source,$(CC_sources),\
 			$(source:.$(source_extension)=))\
 		  )
 
-all: $(execs) | setup
+dir_exec := $(dir_exec_win)
+dir_objects := $(dir_objects_win)
+dir_static_lib := $(dir_static_lib_win)
+linux_execs = $(call execs, $(foreach source,$(CC_sources),\
+			$(source:.$(source_extension)=.exe))\
+		  )
+
+all: linux win | setup
+
+set_linux_paths :
+
+$(dir_exec_linux):
+	mkdir $(dir_exec)
+
+#linux : set_linux_paths $(linux_execs) | $(dir_exec_linux)
+linux : set_linux_paths $(linux_execs)
+	@echo $^
+
+cross_compilation_win := /bin/x86_64-w64-mingw32-gcc
+$(cross_compilation_win) :
+	@echo "Could not find cross compilation toolkit, installing."
+	sudo pacman -S mingw-w64-binutils mingw-w64-gcc
+
+#win : $(cross_compilation_win) $(set_windows_paths) $(win_execs)
+win :
+	@echo "Hello from windows."
+
 
 undescore := =======================
 
@@ -74,8 +108,8 @@ define generate_sh_runnner =
 	chmod +x $(2)
 endef
 
-$(execs) : $(call slibs,libportaudio_static.a libpng.a libFLAC-static.a \
+$(linux_execs) : $(call slibs,libportaudio_static.a libpng.a libFLAC-static.a \
 			libvorbisfile.a libfreetype.a)
-$(execs) : $(call objs,glad.o)
+$(linux_execs) : $(call objs,glad.o)
 
 include $(dir_make_utils)/postamble_makefile

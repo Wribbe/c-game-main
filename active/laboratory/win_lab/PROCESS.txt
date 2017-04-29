@@ -1,0 +1,72 @@
+x86_64-w64-mingw32-gcc glfw_test.c -o glfw_test glfw/src/libglfw3.a -I../../includes -lgdi32 -lopengl32
+
+# Configuring PortaAudio.
+./configure --enable-static --disable-shared --target=i686-w64-mingw32 --host=i686-w64-mingw32
+# Compiling sine example.
+i686-w64-mingw32-gcc paex_sine.c -o paex_sine.exe -Iportaudio/include portaudio/lib/.libs/libportaudio.a -lwinmm
+
+# Compiling glfw cross.
+windres gnu-utils needed. // Should link to usr/bin/x86_64-w64-mingw32-windres
+
+  % make
+  Scanning dependencies of target glfw
+  [  1%] Building C object src/CMakeFiles/glfw.dir/context.c.obj
+  [  2%] Building C object src/CMakeFiles/glfw.dir/init.c.obj
+  [  3%] Building C object src/CMakeFiles/glfw.dir/input.c.obj
+  [  4%] Building C object src/CMakeFiles/glfw.dir/monitor.c.obj
+  [  5%] Building C object src/CMakeFiles/glfw.dir/vulkan.c.obj
+  [  6%] Building C object src/CMakeFiles/glfw.dir/window.c.obj
+  [  6%] Building C object src/CMakeFiles/glfw.dir/win32_init.c.obj
+  [  7%] Building C object src/CMakeFiles/glfw.dir/win32_joystick.c.obj
+  [  8%] Building C object src/CMakeFiles/glfw.dir/win32_monitor.c.obj
+  [  9%] Building C object src/CMakeFiles/glfw.dir/win32_time.c.obj
+  [ 10%] Building C object src/CMakeFiles/glfw.dir/win32_tls.c.obj
+  [ 11%] Building C object src/CMakeFiles/glfw.dir/win32_window.c.obj
+  [ 12%] Building C object src/CMakeFiles/glfw.dir/wgl_context.c.obj
+  [ 13%] Building C object src/CMakeFiles/glfw.dir/egl_context.c.obj
+  [ 14%] Linking C static library libglfw3.a
+  [ 14%] Built target glfw
+  Scanning dependencies of target heightmap
+  [ 15%] Building C object examples/CMakeFiles/heightmap.dir/heightmap.c.obj
+  [ 16%] Building RC object examples/CMakeFiles/heightmap.dir/glfw.rc.obj
+  /bin/sh: windres: command not found
+  make[2]: *** [examples/CMakeFiles/heightmap.dir/build.make:88: examples/CMakeFiles/heightmap.dir/glfw.rc.obj] Error 127
+  make[1]: *** [CMakeFiles/Makefile2:185: examples/CMakeFiles/heightmap.dir/all] Error 2
+  make: *** [Makefile:128: all] Error 2
+
+ln -s /usr/bin/x86_64-w64-mingw32-windres /home/steff/bin/windres
+
+cmake . -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc
+
+% uname -r
+4.10.2-1-ARCH
+
+cmake version 3.7.2
+CMake suite maintained and supported by Kitware (kitware.com/cmake).
+
+commit 999f3556fdd80983b10051746264489f2cb1ef16
+Author: Camilla Berglund <elmindreda@glfw.org>
+Date:   Wed Aug 17 16:48:22 2016 +0200
+
+    Documentation work
+
+commit 4f5731ac39892718695a3d1d0707e233704882b3
+Author: Camilla Berglund <elmindreda@glfw.org>
+Date:   Wed Aug 17 16:09:11 2016 +0200
+
+    Add description of 3.2.1 release
+
+commit 4aafdea5a7c8b44ddeb523d0b9ae37a9e3f2eccf
+
+community/mingw-w64-binutils 2.28-1 (mingw-w64-toolchain mingw-w64) [installed]
+    Cross binutils for the MinGW-w64 cross-compiler
+community/mingw-w64-crt 5.0.1-1 (mingw-w64-toolchain mingw-w64) [installed]
+    MinGW-w64 CRT for Windows
+community/mingw-w64-gcc 6.3.1-1 (mingw-w64-toolchain mingw-w64) [installed]
+    Cross GCC for the MinGW-w64 cross-compiler
+community/mingw-w64-headers 5.0.1-1 (mingw-w64-toolchain mingw-w64) [installed]
+    MinGW-w64 headers for Windows
+community/mingw-w64-headers-bootstrap 5.0.0-1 (mingw-w64-bootstrap)
+    MinGW-w64 headers for Windows (bootstrap)
+community/mingw-w64-winpthreads 5.0.1-1 (mingw-w64-toolchain mingw-w64) [installed]
+    MinGW-w64 winpthreads library

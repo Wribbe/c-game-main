@@ -3,14 +3,46 @@ extension := Extension
 compiler := Compiler
 
 headings :=		$(platform)		$(extension)	$(compiler)
-platforms := 	win64			.exe 			x86_64-w64-mingw32-gcc 	\
-				win32			.exe 			i686-w64-mingw32-gcc 	\
+platforms :=\
 			 	linux 			.				gcc						\
+			#	win64			.exe 			x86_64-w64-mingw32-gcc 	\
+			#	win32			.exe 			i686-w64-mingw32-gcc 	\
 
-directories := sources bin objects
-keep := sources
+directories := sources bin objects includes
+keep := sources includes
 
 SOURCE_EXTENSION := .c
+
+dir_lib := lib
+dir_inputs := input
+dir_output := output
+dir_static_lib := $(dir_exec)/static_libs
+dir_static_lib_linux := $(dir_static_lib)/linux
+dir_static_lib_win := $(dir_static_lib)/win
+dir_dynamic_lib := $(dir_exec)/dynamic_libs
+dir_objects_fpic := $(dir_objects)/fPIC
+dir_portaudio_source := $(dir_lib)/PortAudio
+dir_flac_source := $(dir_lib)/FLAC
+dir_dr_wav_source := $(dir_lib)/dr_wav
+dir_vorbisfile_source := $(dir_lib)/vorbis
+dir_freetype2_source := $(dir_lib)/freetype2
+
+CFLAGS += -g -std=c11 -Wall -Wextra -pedantic -Wwrite-strings
+INCLUDE_FLAGS = -I$(dir_includes) \
+				-I$(dir_portaudio_source)/include \
+				-I$(dir_flac_source)/include \
+				-I$(dir_vorbisfile_source)/include/vorbis \
+				-I$(dir_freetype2_source)/include
+
+GENERAL_LIBRARIES := -lm -lpthread
+AUDIO_FLAGS := -lportaudio -lasound -ljack -logg -lvorbis
+GRAPHICS_FLAGS := -lGLEW -lglfw3 -lGL -lX11 -lXrandr -lXi -lXxf86vm \
+				  -ldl -lXinerama -lXcursor -lrt
+FONT_FLAGS := -lpng -lz -lharfbuzz -lbz2
+
+CFLAGS +=  	$(INCLUDE_FLAGS) $(GENERAL_LIBRARIES) $(AUDIO_FLAGS)\
+			$(GRAPHICS_FLAGS) $(FONT_FLAGS)
+
 
 $(foreach dir,$(directories),$(eval dir_$(dir) := $(dir)) $(call create_path,$(dir)))
 
@@ -88,9 +120,9 @@ $(foreach string,$(platform_strings),\
 	$(call create_path, $(dir $(eval_obj_path))) \
 	$(eval eval_compiler := $(call get,$(compiler),$(string))) \
 	$(eval $(eval_obj_path) : $(dir_sources)/%.c ; \
-		$(eval_compiler) $$^ -c -g -o $$@)  \
+		$(eval_compiler) $$^ -c -g -o $$@ $(CFLAGS))  \
 	$(eval $(eval_exec_mask) : $(eval_obj_path);\
-		$(eval_compiler) -o $$@ $$^) \
+		$(eval_compiler) -o $$@ $$^ $(CFLAGS)) \
 )
 
 .PHONY: all clean

@@ -20,3 +20,6 @@ vgcore.*
 
 # Ignore *.d files.
 *.d
+
+# Ignore glfw folder.
+**/glfw

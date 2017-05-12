@@ -13,6 +13,8 @@
 const char * SOURCE_EXTENSION = ".c";
 const char * PATH_SEP = "/";
 
+const char * FLAGS = "libglfw3.a -lX11 -lGL -lglfw3 -lXrandr -lm -ldl -lpthread -lrt -lXinerama -lXcursor -lXxf86vm";
+
 enum dirpos {
     BIN,
     TOTAL_DIRS,
@@ -43,7 +45,7 @@ void setup_folders(void)
 
 void run(const char * format, ...)
 {
-    size_t command_size = 512;
+    size_t command_size = 1024;
     char buffer[command_size];
 
     va_list args;
@@ -51,6 +53,7 @@ void run(const char * format, ...)
     va_start(args, format);
     int chars_written = vsnprintf(buffer, command_size-1, format, args);
     va_end(args);
+
     buffer[chars_written] = '\0';
     printf("command == %s\n", buffer);
 
@@ -68,7 +71,22 @@ int main(void)
             const char * dir_name = dir->d_name;
             int dot_pos = endswith(dir_name, SOURCE_EXTENSION);
             if (dot_pos) {
-                run("gcc %s -o %s%s%.*s", dir_name, dirs[BIN], PATH_SEP, dot_pos, dir_name);
+                if (strcmp(dir_name, "comp.c") == 0) {
+                    run("gcc %s -o %s%s%.*s -g",
+                            dir_name, dirs[BIN],
+                            PATH_SEP,
+                            dot_pos,
+                            dir_name
+                       );
+                } else {
+                    run("gcc %s -o %s%s%.*s -g %s",
+                            dir_name, dirs[BIN],
+                            PATH_SEP,
+                            dot_pos,
+                            dir_name,
+                            FLAGS
+                       );
+                }
             }
         }
         closedir(d);

@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "GL/gl3w.h"
 #include "GLFW/glfw3.h"
@@ -52,49 +53,124 @@ GLfloat color_floor[] = {
     1.0f,
 };
 
-GLfloat vertices_cube[] = {
-        -0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f, -0.5f,
-         0.5f,  0.5f, -0.5f,
-         0.5f,  0.5f, -0.5f,
-        -0.5f,  0.5f, -0.5f,
-        -0.5f, -0.5f, -0.5f,
-
-        -0.5f, -0.5f,  0.5f,
-         0.5f, -0.5f,  0.5f,
-         0.5f,  0.5f,  0.5f,
-         0.5f,  0.5f,  0.5f,
-        -0.5f,  0.5f,  0.5f,
-        -0.5f, -0.5f,  0.5f,
-
-        -0.5f,  0.5f,  0.5f,
-        -0.5f,  0.5f, -0.5f,
-        -0.5f, -0.5f, -0.5f,
-        -0.5f, -0.5f, -0.5f,
-        -0.5f, -0.5f,  0.5f,
-        -0.5f,  0.5f,  0.5f,
-
-         0.5f,  0.5f,  0.5f,
-         0.5f,  0.5f, -0.5f,
-         0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f,  0.5f,
-         0.5f,  0.5f,  0.5f,
-
-        -0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f,  0.5f,
-         0.5f, -0.5f,  0.5f,
-        -0.5f, -0.5f,  0.5f,
-        -0.5f, -0.5f, -0.5f,
-
-        -0.5f,  0.5f, -0.5f,
-         0.5f,  0.5f, -0.5f,
-         0.5f,  0.5f,  0.5f,
-         0.5f,  0.5f,  0.5f,
-        -0.5f,  0.5f,  0.5f,
-        -0.5f,  0.5f, -0.5f,
+struct vertices {
+    size_t size;
+    size_t vertices;
+    GLfloat * data;
 };
+
+char * strtok_r(
+        char * string,
+        const char * delimiter,
+        char ** pointer_next)
+{
+    char * ret = NULL;
+
+    if (string == NULL) {
+        string = *pointer_next;
+    }
+
+    string += strspn(string, delimiter);
+
+    if (*string == '\0') {
+        return NULL;
+    }
+
+    ret = string;
+
+    string += strcspn(string, delimiter);
+
+    if (*string) {
+        *string++ = '\0';
+    }
+
+    *pointer_next = string;
+
+    return ret;
+}
+
+void load_vertices(struct vertices * vertices, char * string)
+{
+    char * saveptr = NULL;
+    const char * delimiter = ",";
+
+    char * token = strtok_r(string, delimiter, &saveptr);
+
+    size_t data_size = 512;
+    size_t num_points = 0;
+
+    vertices->data = malloc(data_size*sizeof(float));
+    if (!vertices->data) {
+        fprintf(stderr, "Could not allocate enough data for loading vertices.\n");
+        exit(EXIT_FAILURE);
+    }
+    float * last_entry = vertices->data;
+
+    while (token != NULL) {
+        *last_entry = strtof(token, NULL);
+        last_entry++;
+        num_points++;
+        if (num_points >= data_size) {
+            data_size *= 2;
+            vertices->data = realloc(vertices->data, data_size*sizeof(float));
+            if (!vertices->data) {
+                fprintf(stderr, "Not enough memory to reallocate data.\n");
+                exit(EXIT_FAILURE);
+            }
+        }
+        token = strtok_r(NULL, delimiter, &saveptr);
+    }
+    if (num_points < data_size) {
+        vertices->data = realloc(vertices->data, num_points*sizeof(float));
+    }
+    vertices->size = num_points;
+    vertices->vertices = num_points/3;
+}
+
+struct vertices vertices_cube  = {0};
+
+const char data_cube[] =\
+"-0.5f, -0.5f, -0.5f,\n"
+" 0.5f, -0.5f, -0.5f,\n"
+" 0.5f,  0.5f, -0.5f,\n"
+" 0.5f,  0.5f, -0.5f,\n"
+"-0.5f,  0.5f, -0.5f,\n"
+"-0.5f, -0.5f, -0.5f,\n"
+"\n"
+"-0.5f, -0.5f,  0.5f,\n"
+" 0.5f, -0.5f,  0.5f,\n"
+" 0.5f,  0.5f,  0.5f,\n"
+" 0.5f,  0.5f,  0.5f,\n"
+"-0.5f,  0.5f,  0.5f,\n"
+"-0.5f, -0.5f,  0.5f,\n"
+"\n"
+"-0.5f,  0.5f,  0.5f,\n"
+"-0.5f,  0.5f, -0.5f,\n"
+"-0.5f, -0.5f, -0.5f,\n"
+"-0.5f, -0.5f, -0.5f,\n"
+"-0.5f, -0.5f,  0.5f,\n"
+"-0.5f,  0.5f,  0.5f,\n"
+"\n"
+" 0.5f,  0.5f,  0.5f,\n"
+" 0.5f,  0.5f, -0.5f,\n"
+" 0.5f, -0.5f, -0.5f,\n"
+" 0.5f, -0.5f, -0.5f,\n"
+" 0.5f, -0.5f,  0.5f,\n"
+" 0.5f,  0.5f,  0.5f,\n"
+"\n"
+"-0.5f, -0.5f, -0.5f,\n"
+" 0.5f, -0.5f, -0.5f,\n"
+" 0.5f, -0.5f,  0.5f,\n"
+" 0.5f, -0.5f,  0.5f,\n"
+"-0.5f, -0.5f,  0.5f,\n"
+"-0.5f, -0.5f, -0.5f,\n"
+"\n"
+"-0.5f,  0.5f, -0.5f,\n"
+" 0.5f,  0.5f, -0.5f,\n"
+" 0.5f,  0.5f,  0.5f,\n"
+" 0.5f,  0.5f,  0.5f,\n"
+"-0.5f,  0.5f,  0.5f,\n"
+"-0.5f,  0.5f, -0.5f,\n";
 
 GLfloat vertices_floor[] = {
     -4.0f, -1.0f, -4.0f,
@@ -289,6 +365,21 @@ void m4_rotate(struct m4 * m, float rad_angle, struct v3 axis)
 
 }
 
+struct min_max {
+    float min;
+    float max;
+};
+
+struct pos_box {
+    struct min_max x;
+    struct min_max y;
+    struct min_max z;
+};
+
+struct pos_box positions_get(GLfloat vertices)
+{
+}
+
 int main(void)
 {
     GLFWwindow * window;
@@ -317,6 +408,12 @@ int main(void)
         return EXIT_FAILURE;
     }
 
+    // Load data into vertices structs.
+    size_t size_data_cube = sizeof(data_cube);
+    char * dynamic_data_cube = malloc(size_data_cube);
+    memcpy(dynamic_data_cube, data_cube, size_data_cube);
+    load_vertices(&vertices_cube, dynamic_data_cube);
+
     // Set up cube.
     GLuint VBO_cube, VAO_cube;
     glGenBuffers(1, &VBO_cube);
@@ -325,7 +422,7 @@ int main(void)
     glBindVertexArray(VAO_cube);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO_cube);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_cube), vertices_cube, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices_cube.size*sizeof(float), vertices_cube.data, GL_STATIC_DRAW);
 
     // Set up vertex attribute pointers.
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
@@ -409,6 +506,8 @@ int main(void)
 
     glEnable(GL_DEPTH_TEST);
 
+    double cube_y = 0.0f;
+
     while(!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -423,7 +522,10 @@ int main(void)
         m4_translate(&mat_view, (struct v3){0.0f, 0.0f, -3.0f});
 
         struct m4 mat_model = m4_eye();
-        m4_rotate(&mat_model, -M_PI*0.4*(GLfloat)glfwGetTime(), (struct v3){0.5f, 1.0f, 0.0f});
+//        m4_rotate(&mat_model, -M_PI*0.4*(GLfloat)glfwGetTime(), (struct v3){0.5f, 1.0f, 0.0f});
+        m4_translate(&mat_model, (struct v3){0.0f, cube_y, 0.0f});
+
+        cube_y += -0.003f;
 
         glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(mat_model));
         glUniformMatrix4fv(uniform_view, 1, TRANSPOSE, DATm(mat_view));
@@ -431,7 +533,7 @@ int main(void)
 
         glBindVertexArray(VAO_cube);
         glUniform4fv(uniform_color, 1, DATv(color_cube));
-        glDrawArrays(GL_TRIANGLES, 0, SIZE(vertices_cube));
+        glDrawArrays(GL_TRIANGLES, 0, vertices_cube.vertices);
 
         glBindVertexArray(VAO_floor);
 

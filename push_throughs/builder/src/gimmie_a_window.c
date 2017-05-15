@@ -16,6 +16,12 @@
 #define DATv(x) &x[0]
 #define DATm(x) &(x.data[0][0])
 
+struct vertices {
+    size_t size;
+    size_t vertices;
+    GLfloat * data;
+};
+
 const char * source_frag_simple =\
     "#version 330 core\n"
     "\n"
@@ -53,12 +59,6 @@ GLfloat color_floor[] = {
     1.0f,
 };
 
-struct vertices {
-    size_t size;
-    size_t vertices;
-    GLfloat * data;
-};
-
 char * strtok_r(
         char * string,
         const char * delimiter,
@@ -87,44 +87,6 @@ char * strtok_r(
     *pointer_next = string;
 
     return ret;
-}
-
-void load_vertices(struct vertices * vertices, char * string)
-{
-    char * saveptr = NULL;
-    const char * delimiter = ",";
-
-    char * token = strtok_r(string, delimiter, &saveptr);
-
-    size_t data_size = 512;
-    size_t num_points = 0;
-
-    vertices->data = malloc(data_size*sizeof(float));
-    if (!vertices->data) {
-        fprintf(stderr, "Could not allocate enough data for loading vertices.\n");
-        exit(EXIT_FAILURE);
-    }
-    float * last_entry = vertices->data;
-
-    while (token != NULL) {
-        *last_entry = strtof(token, NULL);
-        last_entry++;
-        num_points++;
-        if (num_points >= data_size) {
-            data_size *= 2;
-            vertices->data = realloc(vertices->data, data_size*sizeof(float));
-            if (!vertices->data) {
-                fprintf(stderr, "Not enough memory to reallocate data.\n");
-                exit(EXIT_FAILURE);
-            }
-        }
-        token = strtok_r(NULL, delimiter, &saveptr);
-    }
-    if (num_points < data_size) {
-        vertices->data = realloc(vertices->data, num_points*sizeof(float));
-    }
-    vertices->size = num_points;
-    vertices->vertices = num_points/3;
 }
 
 struct vertices vertices_cube  = {0};
@@ -376,8 +338,96 @@ struct pos_box {
     struct min_max z;
 };
 
-struct pos_box positions_get(GLfloat vertices)
+struct object {
+    struct pos_box bound;
+    struct vertices vertices;
+};
+
+struct pos_box pos_box_get(struct vertices * vertices)
 {
+
+    float * pointer = vertices->data;
+    float * end = pointer + vertices->size;
+
+    float x_min = *pointer;
+    float x_max = *pointer++;
+
+    float y_min = *pointer;
+    float y_max = *pointer++;
+
+    float z_min = *pointer;
+    float z_max = *pointer++;
+
+    while (pointer <= end) {
+        float x = *pointer++;
+        float y = *pointer++;
+        float z = *pointer++;
+
+        if (x < x_min) {
+            x_min = x;
+        }
+        if (x > x_max) {
+            x_max = x;
+        }
+
+        if (y < y_min) {
+            y_min = y;
+        }
+        if (y > y_max) {
+            y_max = y;
+        }
+
+        if (z < z_min) {
+            z_min = z;
+        }
+        if (z > z_max) {
+            z_max = z;
+        }
+    }
+
+    return (struct pos_box){
+        {x_min, x_max},
+        {y_min, y_max},
+        {z_min, z_max},
+    };
+}
+
+void load_vertices(struct vertices * vertices, char * string)
+{
+    char * saveptr = NULL;
+    const char * delimiter = ",";
+
+    char * token = strtok_r(string, delimiter, &saveptr);
+
+    size_t data_size = 512;
+    size_t num_points = 0;
+
+    vertices->data = malloc(data_size*sizeof(float));
+    if (!vertices->data) {
+        fprintf(stderr, "Could not allocate enough data for loading vertices.\n");
+        exit(EXIT_FAILURE);
+    }
+    float * last_entry = vertices->data;
+
+    while (token != NULL) {
+        *last_entry = strtof(token, NULL);
+        last_entry++;
+        num_points++;
+        if (num_points >= data_size) {
+            data_size *= 2;
+            vertices->data = realloc(vertices->data, data_size*sizeof(float));
+            if (!vertices->data) {
+                fprintf(stderr, "Not enough memory to reallocate data.\n");
+                exit(EXIT_FAILURE);
+            }
+        }
+        token = strtok_r(NULL, delimiter, &saveptr);
+    }
+    if (num_points < data_size) {
+        vertices->data = realloc(vertices->data, num_points*sizeof(float));
+    }
+    vertices->size = num_points;
+    vertices->vertices = num_points/3;
 }
 
 int main(void)
@@ -413,6 +463,9 @@ int main(void)
     char * dynamic_data_cube = malloc(size_data_cube);
     memcpy(dynamic_data_cube, data_cube, size_data_cube);
     load_vertices(&vertices_cube, dynamic_data_cube);
+    struct object obj_cube = {0};
+    obj_cube.vertices = vertices_cube;
+    obj_cube.bound = pos_box_get(&vertices_cube);
 
     // Set up cube.
     GLuint VBO_cube, VAO_cube;

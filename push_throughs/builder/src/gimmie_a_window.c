@@ -34,9 +34,47 @@ const char * source_vert_simple =\
     "}\n";
 
 GLfloat vertices[] = {
-    -0.5f, -0.5f, -0.5f,
-     0.5f, -0.5f, -0.5f,
-     0.0f,  0.5f, -0.5f
+        -0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f,  0.5f, -0.5f,
+         0.5f,  0.5f, -0.5f,
+        -0.5f,  0.5f, -0.5f,
+        -0.5f, -0.5f, -0.5f,
+
+        -0.5f, -0.5f,  0.5f,
+         0.5f, -0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
+        -0.5f,  0.5f,  0.5f,
+        -0.5f, -0.5f,  0.5f,
+
+        -0.5f,  0.5f,  0.5f,
+        -0.5f,  0.5f, -0.5f,
+        -0.5f, -0.5f, -0.5f,
+        -0.5f, -0.5f, -0.5f,
+        -0.5f, -0.5f,  0.5f,
+        -0.5f,  0.5f,  0.5f,
+
+         0.5f,  0.5f,  0.5f,
+         0.5f,  0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
+
+        -0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f,  0.5f,
+         0.5f, -0.5f,  0.5f,
+        -0.5f, -0.5f,  0.5f,
+        -0.5f, -0.5f, -0.5f,
+
+        -0.5f,  0.5f, -0.5f,
+         0.5f,  0.5f, -0.5f,
+         0.5f,  0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
+        -0.5f,  0.5f,  0.5f,
+        -0.5f,  0.5f, -0.5f,
 };
 
 struct v3 {
@@ -342,14 +380,14 @@ int main(void)
         m4_translate(&mat_view, (struct v3){0.0f, 0.0f, -3.0f});
 
         struct m4 mat_model = m4_eye();
-        m4_rotate(&mat_model, -M_PI*0.4, (struct v3){1.0f, 0.0f, 0.0f});
+        m4_rotate(&mat_model, -M_PI*0.4*(GLfloat)glfwGetTime(), (struct v3){0.5f, 1.0f, 0.0f});
 
         glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, m4_data(&mat_model));
         glUniformMatrix4fv(uniform_view, 1, TRANSPOSE, m4_data(&mat_view));
         glUniformMatrix4fv(uniform_projection, 1, TRANSPOSE, m4_data(&mat_projection));
 
         glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices)/sizeof(vertices[0]));
         glBindVertexArray(0);
 
         glfwSwapBuffers(window);

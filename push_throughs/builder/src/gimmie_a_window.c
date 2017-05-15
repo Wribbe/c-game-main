@@ -11,14 +11,19 @@
 #define M_PI 3.14159265358979323846
 #define TRANSPOSE GL_TRUE
 
+#define SIZE(x) sizeof(x)/sizeof(x[0])
+#define DATv(x) &x[0]
+#define DATm(x) &(x.data[0][0])
 
 const char * source_frag_simple =\
     "#version 330 core\n"
     "\n"
+    "uniform vec4 uniform_color;\n"
+    "\n"
     "out vec4 color;\n"
     "\n"
     "void main() {\n"
-    "   color = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
+    "   color = uniform_color;\n"
     "}\n";
 
 const char * source_vert_simple =\
@@ -33,7 +38,21 @@ const char * source_vert_simple =\
     "   gl_Position = projection * view * model * vec4(position, 1.0f);\n"
     "}\n";
 
-GLfloat vertices[] = {
+GLfloat color_cube[] = {
+    1.0f,
+    0.0f,
+    1.0f,
+    1.0f,
+};
+
+GLfloat color_floor[] = {
+    1.0f,
+    0.0f,
+    0.0f,
+    1.0f,
+};
+
+GLfloat vertices_cube[] = {
         -0.5f, -0.5f, -0.5f,
          0.5f, -0.5f, -0.5f,
          0.5f,  0.5f, -0.5f,
@@ -75,6 +94,16 @@ GLfloat vertices[] = {
          0.5f,  0.5f,  0.5f,
         -0.5f,  0.5f,  0.5f,
         -0.5f,  0.5f, -0.5f,
+};
+
+GLfloat vertices_floor[] = {
+    -4.0f, -1.0f, -4.0f,
+     4.0f, -1.0f, -4.0f,
+     4.0f, -1.0f,  4.0f,
+     // Second part.
+    -4.0f, -1.0f, -4.0f,
+    -4.0f, -1.0f,  4.0f,
+     4.0f, -1.0f,  4.0f,
 };
 
 struct v3 {
@@ -175,11 +204,6 @@ void m4_translate(struct m4 * m, struct v3 v_translate)
     m->data[0][3] = v_translate.x;
     m->data[1][3] = v_translate.y;
     m->data[2][3] = v_translate.z;
-}
-
-const GLfloat * m4_data(struct m4 * matrix)
-{
-    return &(matrix->data[0][0]);
 }
 
 struct m3 {
@@ -293,19 +317,37 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    GLuint VBO, VAO;
-    glGenBuffers(1, &VBO);
-    glGenVertexArrays(1, &VAO);
+    // Set up cube.
+    GLuint VBO_cube, VAO_cube;
+    glGenBuffers(1, &VBO_cube);
+    glGenVertexArrays(1, &VAO_cube);
 
-    glBindVertexArray(VAO);
+    glBindVertexArray(VAO_cube);
 
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO_cube);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_cube), vertices_cube, GL_STATIC_DRAW);
 
     // Set up vertex attribute pointers.
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
     glEnableVertexAttribArray(0);
 
+    glBindVertexArray(0);
+
+    // set up floor.
+    GLuint VBO_floor, VAO_floor;
+    glGenBuffers(1, &VBO_floor);
+    glGenVertexArrays(1, &VAO_floor);
+
+    glBindVertexArray(VAO_floor);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO_floor);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_floor), vertices_floor, GL_STATIC_DRAW);
+
+    // Set up vertex attribute pointers.
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
+
+    // Unbind vertex array.
     glBindVertexArray(0);
 
     // Create shader variables.
@@ -373,6 +415,7 @@ int main(void)
         GLint uniform_model = glGetUniformLocation(program_shader_simple, "model");
         GLint uniform_view = glGetUniformLocation(program_shader_simple, "view");
         GLint uniform_projection = glGetUniformLocation(program_shader_simple, "projection");
+        GLint uniform_color = glGetUniformLocation(program_shader_simple, "uniform_color");
 
         struct m4 mat_projection = m4_perspective(0.1f, 100.0f, M_PI*0.5f, (double)WIDTH/(double)HEIGHT);
 
@@ -382,12 +425,22 @@ int main(void)
         struct m4 mat_model = m4_eye();
         m4_rotate(&mat_model, -M_PI*0.4*(GLfloat)glfwGetTime(), (struct v3){0.5f, 1.0f, 0.0f});
 
-        glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, m4_data(&mat_model));
-        glUniformMatrix4fv(uniform_view, 1, TRANSPOSE, m4_data(&mat_view));
-        glUniformMatrix4fv(uniform_projection, 1, TRANSPOSE, m4_data(&mat_projection));
+        glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(mat_model));
+        glUniformMatrix4fv(uniform_view, 1, TRANSPOSE, DATm(mat_view));
+        glUniformMatrix4fv(uniform_projection, 1, TRANSPOSE, DATm(mat_projection));
 
-        glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices)/sizeof(vertices[0]));
+        glBindVertexArray(VAO_cube);
+        glUniform4fv(uniform_color, 1, DATv(color_cube));
+        glDrawArrays(GL_TRIANGLES, 0, SIZE(vertices_cube));
+
+        glBindVertexArray(VAO_floor);
+
+        struct m4 mat_model_neutral = m4_eye();
+        glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(mat_model_neutral));
+
+        glUniform4fv(uniform_color, 1, DATv(color_floor));
+        glDrawArrays(GL_TRIANGLES, 0, SIZE(vertices_floor));
+
         glBindVertexArray(0);
 
         glfwSwapBuffers(window);
@@ -396,4 +449,5 @@ int main(void)
 
     glfwTerminate();
     return 0;
+    // check:  http://www.dyn4j.org/2010/01/sat/ for SAT
 }

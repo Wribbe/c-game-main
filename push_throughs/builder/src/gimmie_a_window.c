@@ -144,6 +144,88 @@ const GLfloat * m4_data(struct m4 * matrix)
     return &(matrix->data[0][0]);
 }
 
+struct m3 {
+    float data[3][3];
+};
+
+void m3_smul(float scalar, struct m3 * m)
+{
+    for (size_t i=0; i<3; i++) {
+        for (size_t j=0; j<3; j++) {
+            m->data[i][j] *= scalar;
+        }
+    }
+}
+
+struct m3 m3_mul(struct m3 * A, struct m3 * B)
+{
+    struct m3 result = {0};
+    for (size_t i=0; i<3; i++) {
+        for (size_t j=0; j<3; j++) {
+            for (size_t k=0; k<3; k++) {
+                result.data[i][j] += A->data[i][k] * B->data[k][j];
+            }
+        }
+    }
+    return result;
+}
+
+struct m4 m3_to_m4(struct m3 * m)
+{
+    struct m4 converted = m4_eye();
+    for (size_t i=0; i<3; i++) {
+        for (size_t j=0; j<3; j++) {
+            converted.data[i][j] = m->data[i][j];
+        }
+    }
+    return converted;
+}
+
+void m4_write(struct m4 * dest, struct m4 * source)
+{
+    for (size_t i=0; i<4; i++) {
+        for (size_t j=0; j<4; j++) {
+            dest->data[i][j] = source->data[i][j];
+        }
+    }
+}
+
+struct m3 m3_eye(void)
+{
+    return (struct m3) {{
+        {1.0f, 0.0f, 0.0f},
+        {0.0f, 1.0f, 0.0f},
+        {0.0f, 0.0f, 1.0f},
+    }};
+}
+
+void m3_write(struct m3 * dest, struct m3 * source)
+{
+    for (size_t i=0; i<3; i++) {
+        for (size_t j=0; j<3; j++) {
+            dest->data[i][j] = source->data[i][j];
+        }
+    }
+}
+
+void m4_rotate(struct m4 * m, float rad_angle, struct v3 axis)
+{
+    float s = sinf(rad_angle);
+    float c = cosf(rad_angle);
+
+    struct v3 na = v3_normalize(axis);
+
+    struct m4 rotation = {{
+        {c + na.x*na.x*(1 - c),     na.x*na.y*(1 - c) - na.z*s, na.x*na.z*(1-c)+na.y*s,  0.0f},
+        {na.y*na.x*(1-c)+na.z*s,    c+na.y*na.y*(1-c),          na.y*na.z*(1-c)-na.x*s,  0.0f},
+        {na.z*na.x*(1-c)-na.y*s,    na.z*na.y*(1-c)+na.x*s,     c+na.z*na.z*(1-c),       0.0f},
+        {0.0f,                      0.0f,                       0.0f,                    1.0f}
+    }};
+
+    struct m4 result = m4_mul(m, &rotation);
+    m4_write(m, &result);
+
+}
 
 int main(void)
 {
@@ -260,6 +342,7 @@ int main(void)
         m4_translate(&mat_view, (struct v3){0.0f, 0.0f, -3.0f});
 
         struct m4 mat_model = m4_eye();
+        m4_rotate(&mat_model, -M_PI*0.4, (struct v3){1.0f, 0.0f, 0.0f});
 
         glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, m4_data(&mat_model));
         glUniformMatrix4fv(uniform_view, 1, TRANSPOSE, m4_data(&mat_view));

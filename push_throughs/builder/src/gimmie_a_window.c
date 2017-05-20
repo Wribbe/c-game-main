@@ -359,6 +359,7 @@ struct pos_box pos_box_get(struct vertices * vertices)
     float z_max = *pointer++;
 
     while (pointer <= end) {
+
         float x = *pointer++;
         float y = *pointer++;
         float z = *pointer++;
@@ -578,7 +579,11 @@ int main(void)
 //        m4_rotate(&mat_model, -M_PI*0.4*(GLfloat)glfwGetTime(), (struct v3){0.5f, 1.0f, 0.0f});
         m4_translate(&mat_model, (struct v3){0.0f, cube_y, 0.0f});
 
-        cube_y += -0.003f;
+        float next_cube_y = cube_y - 0.003f;
+        if (next_cube_y + obj_cube.bound.y.min >= -1.0) {
+            cube_y = next_cube_y;
+        }
+
 
         glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(mat_model));
         glUniformMatrix4fv(uniform_view, 1, TRANSPOSE, DATm(mat_view));

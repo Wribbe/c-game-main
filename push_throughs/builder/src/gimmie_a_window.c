@@ -587,6 +587,8 @@ int main(void)
 
     double cube_y = 0.0f;
 
+    glfwSwapInterval(0);
+
     while(!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 

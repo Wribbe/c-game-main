@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +16,7 @@
 #define SIZE(x) sizeof(x)/sizeof(x[0])
 #define DATv(x) &x[0]
 #define DATm(x) &(x.data[0][0])
+#define UNUSED(x) (void)x
 
 struct vertices {
     size_t size;
@@ -431,6 +433,26 @@ void load_vertices(struct vertices * vertices, char * string)
     vertices->vertices = num_points/3;
 }
 
+#define NUM_KEYS 512
+bool key_down[NUM_KEYS] = {0};
+
+void callback_keys(GLFWwindow * window, int key, int scancode, int action, int mods)
+{
+    UNUSED(scancode);
+
+    if (key >= NUM_KEYS) {
+        fprintf(stderr, "Key %d is out of bounds for key array!\n", key);
+        return;
+    }
+
+    if (action == GLFW_PRESS) {
+        key_down[key] = true;
+    } else if (action == GLFW_RELEASE) {
+        key_down[key] = false;
+    }
+
+}
+
 int main(void)
 {
     GLFWwindow * window;
@@ -458,6 +480,9 @@ int main(void)
         fprintf(stderr, "Failed to intialize OpenGL\n");
         return EXIT_FAILURE;
     }
+
+    // Set key callback for window.
+    glfwSetKeyCallback(window, callback_keys);
 
     // Load data into vertices structs.
     size_t size_data_cube = sizeof(data_cube);
@@ -579,11 +604,14 @@ int main(void)
 //        m4_rotate(&mat_model, -M_PI*0.4*(GLfloat)glfwGetTime(), (struct v3){0.5f, 1.0f, 0.0f});
         m4_translate(&mat_model, (struct v3){0.0f, cube_y, 0.0f});
 
+        if (key_down[GLFW_KEY_ESCAPE]) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+
         float next_cube_y = cube_y - 0.003f;
         if (next_cube_y + obj_cube.bound.y.min >= -1.0) {
             cube_y = next_cube_y;
         }
-
 
         glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(mat_model));
         glUniformMatrix4fv(uniform_view, 1, TRANSPOSE, DATm(mat_view));
@@ -605,6 +633,7 @@ int main(void)
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+
     }
 
     glfwTerminate();

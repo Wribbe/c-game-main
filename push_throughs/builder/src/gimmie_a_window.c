@@ -648,7 +648,12 @@ int main(void)
 
     }
 
+    // Terminate glfw.
     glfwTerminate();
+
+    // Free object data.
+    free(dynamic_data_cube);
+
     return 0;
     // check:  http://www.dyn4j.org/2010/01/sat/ for SAT
 }

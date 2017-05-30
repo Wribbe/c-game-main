@@ -589,7 +589,12 @@ int main(void)
 
     glfwSwapInterval(0);
 
+    double time_prev = glfwGetTime();
+    double time_current = 0;
+    double time_delta = 0;
+
     while(!glfwWindowShouldClose(window)) {
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         GLint uniform_model = glGetUniformLocation(program_shader_simple, "model");
@@ -610,7 +615,12 @@ int main(void)
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
 
-        float next_cube_y = cube_y - 0.003f;
+        // Set up time delta.
+        time_current = glfwGetTime();
+        time_delta = time_current - time_prev;
+        time_prev = time_current;
+
+        float next_cube_y = cube_y - 0.4f * time_delta;
         if (next_cube_y + obj_cube.bound.y.min >= -1.0) {
             cube_y = next_cube_y;
         }

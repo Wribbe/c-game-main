@@ -585,7 +585,7 @@ int main(void)
 
     glEnable(GL_DEPTH_TEST);
 
-    double cube_y = 0.0f;
+    struct v3 coords_cube = {0};
 
     glfwSwapInterval(0);
 
@@ -609,7 +609,7 @@ int main(void)
 
         struct m4 mat_model = m4_eye();
 //        m4_rotate(&mat_model, -M_PI*0.4*(GLfloat)glfwGetTime(), (struct v3){0.5f, 1.0f, 0.0f});
-        m4_translate(&mat_model, (struct v3){0.0f, cube_y, 0.0f});
+        m4_translate(&mat_model, coords_cube);
 
         if (key_down[GLFW_KEY_ESCAPE]) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
@@ -620,9 +620,9 @@ int main(void)
         time_delta = time_current - time_prev;
         time_prev = time_current;
 
-        float next_cube_y = cube_y - 0.4f * time_delta;
+        float next_cube_y = coords_cube.y - 0.4f * time_delta;
         if (next_cube_y + obj_cube.bound.y.min >= -1.0) {
-            cube_y = next_cube_y;
+            coords_cube.y = next_cube_y;
         }
 
         glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(mat_model));

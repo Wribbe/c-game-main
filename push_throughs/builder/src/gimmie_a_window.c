@@ -360,7 +360,7 @@ struct pos_box pos_box_get(struct vertices * vertices)
     float z_min = *pointer;
     float z_max = *pointer++;
 
-    while (pointer <= end) {
+    while (pointer+3 < end) {
 
         float x = *pointer++;
         float y = *pointer++;

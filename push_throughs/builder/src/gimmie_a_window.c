@@ -593,6 +593,8 @@ int main(void)
     double time_current = 0;
     double time_delta = 0;
 
+    struct m4 mat_projection = m4_perspective(0.1f, 100.0f, M_PI*0.5f, (double)WIDTH/(double)HEIGHT);
+
     while(!glfwWindowShouldClose(window)) {
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -601,8 +603,6 @@ int main(void)
         GLint uniform_view = glGetUniformLocation(program_shader_simple, "view");
         GLint uniform_projection = glGetUniformLocation(program_shader_simple, "projection");
         GLint uniform_color = glGetUniformLocation(program_shader_simple, "uniform_color");
-
-        struct m4 mat_projection = m4_perspective(0.1f, 100.0f, M_PI*0.5f, (double)WIDTH/(double)HEIGHT);
 
         struct m4 mat_view = m4_eye();
         m4_translate(&mat_view, (struct v3){0.0f, 0.0f, -3.0f});

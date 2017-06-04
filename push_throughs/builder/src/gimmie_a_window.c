@@ -557,24 +557,27 @@ bool pos_collides(struct object * o1, struct object * o2)
                                     coord_z_min_2,
                                     coord_z_max_2);
 
-    return overlaps_x && overlaps_y && overlaps_z;
+    bool overlapping = overlaps_x && overlaps_y && overlaps_z;
+    return overlapping;
 }
 
 void obj_update_next_pos(struct object * object)
     /* Generate and store next position in object data. */
 {
-    object->next_pos.x = object->coords.x + object->velocity.x;
-    object->next_pos.y = object->coords.y + object->velocity.y;
-    object->next_pos.z = object->coords.z + object->velocity.z;
+    object->next_pos.x = object->coords.x + object->velocity.x*time_delta;
+    object->next_pos.y = object->coords.y + object->velocity.y*time_delta;
+    object->next_pos.z = object->coords.z + object->velocity.z*time_delta;
 }
 
 void pos_update(struct object * object)
     /* Determine if object collides with floor, if not, update. */
 {
     obj_update_next_pos(object);
+    obj_update_next_pos(&obj_floor);
     if (pos_collides(object, &obj_floor)) {
-        return;
+        object->velocity.y = 0;
     }
+    obj_update_next_pos(&obj_floor);
     object->coords.x = object->next_pos.x;
     object->coords.y = object->next_pos.y;
     object->coords.z = object->next_pos.z;
@@ -627,6 +630,7 @@ int main(void)
     load_vertices(&vertices_floor, dynamic_data_floor);
     obj_floor.vertices = vertices_floor;
     obj_floor.bound = pos_box_get(&vertices_floor);
+    obj_floor.coords.y = -2.0f;
 
     // Set up cube.
     GLuint VBO_cube, VAO_cube;
@@ -768,7 +772,7 @@ int main(void)
         obj_cube.velocity.y -= GRAVITY * time_delta;
 
         struct m4 mat_model = m4_eye();
-        m4_translate(&mat_model, obj_cube.velocity);
+        m4_translate(&mat_model, obj_cube.coords);
 
         pos_update(&obj_cube);
 
@@ -782,9 +786,9 @@ int main(void)
 
         glBindVertexArray(VAO_floor);
 
-        struct m4 mat_model_neutral = m4_eye();
-        m4_translate(&mat_model_neutral, (struct v3){0.0f, -2.0f, 0.0f});
-        glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(mat_model_neutral));
+        struct m4 mat_model_floor = m4_eye();
+        m4_translate(&mat_model_floor, obj_floor.coords);
+        glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(mat_model_floor));
 
         glUniform4fv(uniform_color, 1, DATv(color_floor));
         glDrawArrays(GL_TRIANGLES, 0, vertices_floor.vertices);

@@ -18,6 +18,10 @@
 #define DATm(x) &(x.data[0][0])
 #define UNUSED(x) (void)x
 
+#define GRAVITY 9.806f * 0.1f
+
+double time_delta = 0;
+
 struct vertices {
     size_t size;
     size_t vertices;
@@ -139,13 +143,13 @@ char data_cube[] =\
 struct vertices vertices_floor = {0};
 
 char data_floor[] =\
-"-4.0f, -1.0f, -4.0f,\n"
-" 4.0f, -1.0f, -4.0f,\n"
-" 4.0f, -1.0f,  4.0f,\n"
+"-1.0f,  0.0f, -1.0f,\n"
+" 1.0f,  0.0f, -1.0f,\n"
+" 1.0f,  0.0f,  1.0f,\n"
  // Second part.
-"-4.0f, -1.0f, -4.0f,\n"
-"-4.0f, -1.0f,  4.0f,\n"
-" 4.0f, -1.0f,  4.0f,\n";
+"-1.0f,  0.0f, -1.0f,\n"
+" 1.0f,  0.0f,  1.0f,\n"
+"-1.0f,  0.0f,  1.0f,\n";
 
 struct v3 {
     GLfloat x;
@@ -344,12 +348,15 @@ struct pos_box {
 struct object {
     struct pos_box bound;
     struct vertices vertices;
-    struct v3 * coords;
+    struct v3 coords;
+    struct v3 velocity;
+    struct v3 next_pos;
 };
+
+struct object obj_floor = {0};
 
 struct pos_box pos_box_get(struct vertices * vertices)
 {
-
     float * pointer = vertices->data;
     float * end = pointer + vertices->size;
 
@@ -455,6 +462,124 @@ void callback_keys(GLFWwindow * window, int key, int scancode, int action, int m
 
 }
 
+bool coords_ovelap(double min1, double max1, double min2, double max2)
+    /* Check overlap of 4 values. */
+{
+    // 1: x-----x
+    // 2:   x-------
+    if (min2 >= min1 && min2 <= max1) {
+        return true;
+    }
+
+    // 1:     x-----x
+    // 2:  -------x
+    if (max2 <= max1 && max2 >= min1) {
+        return true;
+    }
+
+    // 1:   x-------
+    // 2: x-----x
+    if (min1 >= min2 && min1 <= max2) {
+        return true;
+    }
+
+    // 1:  -------x
+    // 2:     x-----x
+    if (max1 <= max2 && max1 >= min2) {
+        return true;
+    }
+
+    // 1: x------x
+    // 2:   x--x
+    if (min1 <= min2 && max1 >= max2) {
+        return true;
+    }
+
+    // 1:    x--x
+    // 2:   x-----x
+    if (min2 <= min1 && max2 >= max1) {
+        return true;
+    }
+
+    return false;
+}
+
+bool pos_collides(struct object * o1, struct object * o2)
+    /* Take two pointers to object structs, return boolean signaling if they
+     * collide or not. */
+{
+    /* Get bound box pointers. */
+    struct pos_box * pos_o1 = &o1->bound;
+    struct pos_box * pos_o2 = &o2->bound;
+
+    double half_range_x_1 = (pos_o1->x.max - pos_o1->x.min) * 0.5f;
+    double half_range_x_2 = (pos_o2->x.max - pos_o2->x.min) * 0.5f;
+
+    double half_range_y_1 = (pos_o1->y.max - pos_o1->y.min) * 0.5f;
+    double half_range_y_2 = (pos_o2->y.max - pos_o2->y.min) * 0.5f;
+
+    double half_range_z_1 = (pos_o1->z.max - pos_o1->z.min) * 0.5f;
+    double half_range_z_2 = (pos_o2->z.max - pos_o2->z.min) * 0.5f;
+
+    struct v3 * coords_1 = &o1->next_pos;
+    struct v3 * coords_2 = &o2->next_pos;
+
+    double coord_x_min_1 = coords_1->x - half_range_x_1;
+    double coord_x_max_1 = coords_1->x + half_range_x_1;
+
+    double coord_y_min_1 = coords_1->y - half_range_y_1;
+    double coord_y_max_1 = coords_1->y + half_range_y_1;
+
+    double coord_z_min_1 = coords_1->z - half_range_z_1;
+    double coord_z_max_1 = coords_1->z + half_range_z_1;
+
+    double coord_x_min_2 = coords_2->x - half_range_x_2;
+    double coord_x_max_2 = coords_2->x + half_range_x_2;
+
+    double coord_y_min_2 = coords_2->y - half_range_y_2;
+    double coord_y_max_2 = coords_2->y + half_range_y_2;
+
+    double coord_z_min_2 = coords_2->z - half_range_z_2;
+    double coord_z_max_2 = coords_2->z + half_range_z_2;
+
+    bool overlaps_x = coords_ovelap(coord_x_min_1,
+                                    coord_x_max_1,
+                                    coord_x_min_2,
+                                    coord_x_max_2);
+
+    bool overlaps_y = coords_ovelap(coord_y_min_1,
+                                    coord_y_max_1,
+                                    coord_y_min_2,
+                                    coord_y_max_2);
+
+    bool overlaps_z = coords_ovelap(coord_z_min_1,
+                                    coord_z_max_1,
+                                    coord_z_min_2,
+                                    coord_z_max_2);
+
+    return overlaps_x && overlaps_y && overlaps_z;
+}
+
+void obj_update_next_pos(struct object * object)
+    /* Generate and store next position in object data. */
+{
+    object->next_pos.x = object->coords.x + object->velocity.x;
+    object->next_pos.y = object->coords.y + object->velocity.y;
+    object->next_pos.z = object->coords.z + object->velocity.z;
+}
+
+void pos_update(struct object * object)
+    /* Determine if object collides with floor, if not, update. */
+{
+    obj_update_next_pos(object);
+    if (pos_collides(object, &obj_floor)) {
+        return;
+    }
+    object->coords.x = object->next_pos.x;
+    object->coords.y = object->next_pos.y;
+    object->coords.z = object->next_pos.z;
+}
+
 int main(void)
 {
     GLFWwindow * window;
@@ -500,7 +625,6 @@ int main(void)
     char * dynamic_data_floor = malloc(size_data_floor);
     memcpy(dynamic_data_floor, data_floor, size_data_floor);
     load_vertices(&vertices_floor, dynamic_data_floor);
-    struct object obj_floor = {0};
     obj_floor.vertices = vertices_floor;
     obj_floor.bound = pos_box_get(&vertices_floor);
 
@@ -596,16 +720,11 @@ int main(void)
 
     glEnable(GL_DEPTH_TEST);
 
-    struct v3 coords_cube = {0};
-    obj_cube.coords = &coords_cube;
-
     glfwSwapInterval(0);
 
     double time_prev = glfwGetTime();
     double time_current = 0;
-    double time_delta = 0;
 
-    double val_gravity = 0.4f;
     double val_cube_speed = 0.4f;
 
     struct m4 mat_projection = m4_perspective(0.1f, 100.0f, M_PI*0.5f, (double)WIDTH/(double)HEIGHT);
@@ -634,27 +753,24 @@ int main(void)
 
         double val_delta_speed = val_cube_speed * time_delta;
         if (key_down[GLFW_KEY_W]) {
-            coords_cube.z -= val_delta_speed;
+            obj_cube.velocity.z -= val_delta_speed;
         }
         if (key_down[GLFW_KEY_S]) {
-            coords_cube.z += val_delta_speed;
+            obj_cube.velocity.z += val_delta_speed;
         }
         if (key_down[GLFW_KEY_D]) {
-            coords_cube.x += val_delta_speed;
+            obj_cube.velocity.x += val_delta_speed;
         }
         if (key_down[GLFW_KEY_A]) {
-            coords_cube.x -= val_delta_speed;
+            obj_cube.velocity.x -= val_delta_speed;
         }
+
+        obj_cube.velocity.y -= GRAVITY * time_delta;
 
         struct m4 mat_model = m4_eye();
-        m4_translate(&mat_model, coords_cube);
+        m4_translate(&mat_model, obj_cube.velocity);
 
-        float next_cube_y = coords_cube.y - val_gravity * time_delta;
-        if (next_cube_y + obj_cube.bound.y.min < -1.0 &&
-            pos_collides(&obj_cube, &obj_floor)) {
-        } else {
-            coords_cube.y = next_cube_y;
-        }
+        pos_update(&obj_cube);
 
         glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(mat_model));
         glUniformMatrix4fv(uniform_view, 1, TRANSPOSE, DATm(mat_view));
@@ -667,6 +783,7 @@ int main(void)
         glBindVertexArray(VAO_floor);
 
         struct m4 mat_model_neutral = m4_eye();
+        m4_translate(&mat_model_neutral, (struct v3){0.0f, -2.0f, 0.0f});
         glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(mat_model_neutral));
 
         glUniform4fv(uniform_color, 1, DATv(color_floor));

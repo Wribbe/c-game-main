@@ -93,7 +93,7 @@ char * strtok_r(
 
 struct vertices vertices_cube  = {0};
 
-const char data_cube[] =\
+char data_cube[] =\
 "-0.5f, -0.5f, -0.5f,\n"
 " 0.5f, -0.5f, -0.5f,\n"
 " 0.5f,  0.5f, -0.5f,\n"
@@ -136,15 +136,16 @@ const char data_cube[] =\
 "-0.5f,  0.5f,  0.5f,\n"
 "-0.5f,  0.5f, -0.5f,\n";
 
-GLfloat vertices_floor[] = {
-    -4.0f, -1.0f, -4.0f,
-     4.0f, -1.0f, -4.0f,
-     4.0f, -1.0f,  4.0f,
-     // Second part.
-    -4.0f, -1.0f, -4.0f,
-    -4.0f, -1.0f,  4.0f,
-     4.0f, -1.0f,  4.0f,
-};
+struct vertices vertices_floor = {0};
+
+char data_floor[] =\
+"-4.0f, -1.0f, -4.0f,\n"
+" 4.0f, -1.0f, -4.0f,\n"
+" 4.0f, -1.0f,  4.0f,\n"
+ // Second part.
+"-4.0f, -1.0f, -4.0f,\n"
+"-4.0f, -1.0f,  4.0f,\n"
+" 4.0f, -1.0f,  4.0f,\n";
 
 struct v3 {
     GLfloat x;
@@ -484,7 +485,7 @@ int main(void)
     // Set key callback for window.
     glfwSetKeyCallback(window, callback_keys);
 
-    // Load data into vertices structs.
+    // Load cube data into vertices structs.
     size_t size_data_cube = sizeof(data_cube);
     char * dynamic_data_cube = malloc(size_data_cube);
     memcpy(dynamic_data_cube, data_cube, size_data_cube);
@@ -492,6 +493,15 @@ int main(void)
     struct object obj_cube = {0};
     obj_cube.vertices = vertices_cube;
     obj_cube.bound = pos_box_get(&vertices_cube);
+
+    // Load floor data into vertices structs.
+    size_t size_data_floor = sizeof(data_floor);
+    char * dynamic_data_floor = malloc(size_data_floor);
+    memcpy(dynamic_data_floor, data_floor, size_data_floor);
+    load_vertices(&vertices_floor, dynamic_data_floor);
+    struct object obj_floor = {0};
+    obj_floor.vertices = vertices_floor;
+    obj_floor.bound = pos_box_get(&vertices_floor);
 
     // Set up cube.
     GLuint VBO_cube, VAO_cube;
@@ -517,7 +527,7 @@ int main(void)
     glBindVertexArray(VAO_floor);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO_floor);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_floor), vertices_floor, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices_floor.size*sizeof(float), vertices_floor.data, GL_STATIC_DRAW);
 
     // Set up vertex attribute pointers.
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
@@ -639,7 +649,7 @@ int main(void)
         glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(mat_model_neutral));
 
         glUniform4fv(uniform_color, 1, DATv(color_floor));
-        glDrawArrays(GL_TRIANGLES, 0, SIZE(vertices_floor));
+        glDrawArrays(GL_TRIANGLES, 0, vertices_floor.vertices);
 
         glBindVertexArray(0);
 
@@ -653,6 +663,7 @@ int main(void)
 
     // Free object data.
     free(dynamic_data_cube);
+    free(dynamic_data_floor);
 
     return 0;
     // check:  http://www.dyn4j.org/2010/01/sat/ for SAT

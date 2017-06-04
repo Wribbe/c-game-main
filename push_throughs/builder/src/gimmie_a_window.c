@@ -21,6 +21,9 @@
 #define GRAVITY 9.806f * 0.1f
 
 double time_delta = 0;
+double val_cube_speed = 4.2f;
+double val_cube_max_speed = 4.2f;
+double val_cube_friction = 4.0f;
 
 struct vertices {
     size_t size;
@@ -729,8 +732,6 @@ int main(void)
     double time_prev = glfwGetTime();
     double time_current = 0;
 
-    double val_cube_speed = 0.4f;
-
     struct m4 mat_projection = m4_perspective(0.1f, 100.0f, M_PI*0.5f, (double)WIDTH/(double)HEIGHT);
 
     while(!glfwWindowShouldClose(window)) {
@@ -756,18 +757,56 @@ int main(void)
         }
 
         double val_delta_speed = val_cube_speed * time_delta;
+        double val_delta_friction = val_cube_friction * time_delta;
+        double next_velocity_z = 0;
         if (key_down[GLFW_KEY_W]) {
-            obj_cube.velocity.z -= val_delta_speed;
+            next_velocity_z = obj_cube.velocity.z - val_delta_speed;
+        } else if (key_down[GLFW_KEY_S]) {
+            next_velocity_z = obj_cube.velocity.z + val_delta_speed;
+        } else {
+            double velocity_new_z = 0;
+            double velocity_current_z = obj_cube.velocity.z;
+            if (velocity_current_z > 0) {
+                velocity_new_z = velocity_current_z - val_delta_friction;
+            } else if (velocity_current_z < 0) {
+                velocity_new_z = velocity_current_z + val_delta_friction;
+            }
+            if (velocity_new_z * velocity_current_z < 0) { // Changed sign.
+                velocity_new_z = 0;
+            }
+            next_velocity_z = velocity_new_z;
         }
-        if (key_down[GLFW_KEY_S]) {
-            obj_cube.velocity.z += val_delta_speed;
+        if (next_velocity_z < -val_cube_max_speed) {
+            next_velocity_z = -val_cube_max_speed;
+        } else if (next_velocity_z > val_cube_max_speed) {
+            next_velocity_z = val_cube_max_speed;
         }
+        obj_cube.velocity.z = next_velocity_z;
+
+        double next_velocity_x = 0;
         if (key_down[GLFW_KEY_D]) {
-            obj_cube.velocity.x += val_delta_speed;
+            next_velocity_x = obj_cube.velocity.x + val_delta_speed;
+        } else if (key_down[GLFW_KEY_A]) {
+            next_velocity_x = obj_cube.velocity.x - val_delta_speed;
+        } else {
+            double velocity_new_x = 0;
+            double velocity_current_x = obj_cube.velocity.x;
+            if (velocity_current_x > 0) {
+                velocity_new_x = velocity_current_x - val_delta_friction;
+            } else if (velocity_current_x < 0) {
+                velocity_new_x = velocity_current_x + val_delta_friction;
+            }
+            if (velocity_new_x * velocity_current_x < 0) { // Changed sign.
+                velocity_new_x = 0;
+            }
+            next_velocity_x = velocity_new_x;
         }
-        if (key_down[GLFW_KEY_A]) {
-            obj_cube.velocity.x -= val_delta_speed;
+        if (next_velocity_x < -val_cube_max_speed) {
+            next_velocity_x = -val_cube_max_speed;
+        } else if (next_velocity_x > val_cube_max_speed) {
+            next_velocity_x = val_cube_max_speed;
         }
+        obj_cube.velocity.x = next_velocity_x;
 
         obj_cube.velocity.y -= GRAVITY * time_delta;
 

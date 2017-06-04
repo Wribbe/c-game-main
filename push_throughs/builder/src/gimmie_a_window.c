@@ -344,6 +344,7 @@ struct pos_box {
 struct object {
     struct pos_box bound;
     struct vertices vertices;
+    struct v3 * coords;
 };
 
 struct pos_box pos_box_get(struct vertices * vertices)
@@ -596,12 +597,16 @@ int main(void)
     glEnable(GL_DEPTH_TEST);
 
     struct v3 coords_cube = {0};
+    obj_cube.coords = &coords_cube;
 
     glfwSwapInterval(0);
 
     double time_prev = glfwGetTime();
     double time_current = 0;
     double time_delta = 0;
+
+    double val_gravity = 0.4f;
+    double val_cube_speed = 0.4f;
 
     struct m4 mat_projection = m4_perspective(0.1f, 100.0f, M_PI*0.5f, (double)WIDTH/(double)HEIGHT);
 
@@ -617,21 +622,37 @@ int main(void)
         struct m4 mat_view = m4_eye();
         m4_translate(&mat_view, (struct v3){0.0f, 0.0f, -3.0f});
 
-        struct m4 mat_model = m4_eye();
-//        m4_rotate(&mat_model, -M_PI*0.4*(GLfloat)glfwGetTime(), (struct v3){0.5f, 1.0f, 0.0f});
-        m4_translate(&mat_model, coords_cube);
-
-        if (key_down[GLFW_KEY_ESCAPE]) {
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
-        }
-
         // Set up time delta.
         time_current = glfwGetTime();
         time_delta = time_current - time_prev;
         time_prev = time_current;
 
-        float next_cube_y = coords_cube.y - 0.4f * time_delta;
-        if (next_cube_y + obj_cube.bound.y.min >= -1.0) {
+        // Check keys.
+        if (key_down[GLFW_KEY_ESCAPE]) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+
+        double val_delta_speed = val_cube_speed * time_delta;
+        if (key_down[GLFW_KEY_W]) {
+            coords_cube.z -= val_delta_speed;
+        }
+        if (key_down[GLFW_KEY_S]) {
+            coords_cube.z += val_delta_speed;
+        }
+        if (key_down[GLFW_KEY_D]) {
+            coords_cube.x += val_delta_speed;
+        }
+        if (key_down[GLFW_KEY_A]) {
+            coords_cube.x -= val_delta_speed;
+        }
+
+        struct m4 mat_model = m4_eye();
+        m4_translate(&mat_model, coords_cube);
+
+        float next_cube_y = coords_cube.y - val_gravity * time_delta;
+        if (next_cube_y + obj_cube.bound.y.min < -1.0 &&
+            pos_collides(&obj_cube, &obj_floor)) {
+        } else {
             coords_cube.y = next_cube_y;
         }
 

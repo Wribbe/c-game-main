@@ -18,12 +18,12 @@
 #define DATm(x) &(x.data[0][0])
 #define UNUSED(x) (void)x
 
-#define GRAVITY 9.806f * 0.1f
+#define GRAVITY 9.806f * 0.8f
 
 double time_delta = 0;
 double val_cube_speed = 4.2f;
 double val_cube_max_speed = 4.2f;
-double val_cube_friction = 4.0f;
+double val_cube_friction = 6.0f;
 
 struct vertices {
     size_t size;
@@ -254,6 +254,13 @@ void m4_translate(struct m4 * m, struct v3 v_translate)
     m->data[2][3] = v_translate.z;
 }
 
+void m4_scale(struct m4 * m, struct v3 v_scale)
+{
+    m->data[0][0] *= v_scale.x;
+    m->data[1][1] *= v_scale.y;
+    m->data[2][2] *= v_scale.z;
+}
+
 struct m3 {
     float data[3][3];
 };
@@ -354,6 +361,7 @@ struct object {
     struct v3 coords;
     struct v3 velocity;
     struct v3 next_pos;
+    struct v3 scale;
 };
 
 struct object obj_floor = {0};
@@ -515,14 +523,17 @@ bool pos_collides(struct object * o1, struct object * o2)
     struct pos_box * pos_o1 = &o1->bound;
     struct pos_box * pos_o2 = &o2->bound;
 
-    double half_range_x_1 = (pos_o1->x.max - pos_o1->x.min) * 0.5f;
-    double half_range_x_2 = (pos_o2->x.max - pos_o2->x.min) * 0.5f;
+    struct v3 scale_o1 = o1->scale;
+    struct v3 scale_o2 = o2->scale;
 
-    double half_range_y_1 = (pos_o1->y.max - pos_o1->y.min) * 0.5f;
-    double half_range_y_2 = (pos_o2->y.max - pos_o2->y.min) * 0.5f;
+    double half_range_x_1 = (pos_o1->x.max - pos_o1->x.min) * 0.5f * scale_o1.x;
+    double half_range_x_2 = (pos_o2->x.max - pos_o2->x.min) * 0.5f * scale_o2.x;
 
-    double half_range_z_1 = (pos_o1->z.max - pos_o1->z.min) * 0.5f;
-    double half_range_z_2 = (pos_o2->z.max - pos_o2->z.min) * 0.5f;
+    double half_range_y_1 = (pos_o1->y.max - pos_o1->y.min) * 0.5f * scale_o1.y;
+    double half_range_y_2 = (pos_o2->y.max - pos_o2->y.min) * 0.5f * scale_o2.y;
+
+    double half_range_z_1 = (pos_o1->z.max - pos_o1->z.min) * 0.5f * scale_o1.z;
+    double half_range_z_2 = (pos_o2->z.max - pos_o2->z.min) * 0.5f * scale_o2.z;
 
     struct v3 * coords_1 = &o1->next_pos;
     struct v3 * coords_2 = &o2->next_pos;
@@ -580,7 +591,7 @@ void pos_update(struct object * object)
     if (pos_collides(object, &obj_floor)) {
         object->velocity.y = 0;
     }
-    obj_update_next_pos(&obj_floor);
+    obj_update_next_pos(object);
     object->coords.x = object->next_pos.x;
     object->coords.y = object->next_pos.y;
     object->coords.z = object->next_pos.z;
@@ -625,6 +636,9 @@ int main(void)
     struct object obj_cube = {0};
     obj_cube.vertices = vertices_cube;
     obj_cube.bound = pos_box_get(&vertices_cube);
+    obj_cube.scale.x = 1.0f;
+    obj_cube.scale.y = 1.0f;
+    obj_cube.scale.z = 1.0f;
 
     // Load floor data into vertices structs.
     size_t size_data_floor = sizeof(data_floor);
@@ -634,6 +648,9 @@ int main(void)
     obj_floor.vertices = vertices_floor;
     obj_floor.bound = pos_box_get(&vertices_floor);
     obj_floor.coords.y = -2.0f;
+    obj_floor.scale.x = 4.0f;
+    obj_floor.scale.y = 1.0f;
+    obj_floor.scale.z = 1.0f;
 
     // Set up cube.
     GLuint VBO_cube, VAO_cube;
@@ -812,6 +829,7 @@ int main(void)
 
         struct m4 mat_model = m4_eye();
         m4_translate(&mat_model, obj_cube.coords);
+        m4_scale(&mat_model, obj_cube.scale);
 
         pos_update(&obj_cube);
 
@@ -827,6 +845,7 @@ int main(void)
 
         struct m4 mat_model_floor = m4_eye();
         m4_translate(&mat_model_floor, obj_floor.coords);
+        m4_scale(&mat_model_floor, obj_floor.scale);
         glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(mat_model_floor));
 
         glUniform4fv(uniform_color, 1, DATv(color_floor));

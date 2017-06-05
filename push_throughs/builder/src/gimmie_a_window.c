@@ -352,7 +352,7 @@ struct pos_box {
 
 struct object {
     struct pos_box bound;
-    struct vertices vertices;
+    struct vertices * vertices;
     struct m4 transformation;
     struct v3 coords;
     struct v3 velocity;
@@ -361,7 +361,7 @@ struct object {
 };
 
 
-struct object floors[1];
+struct object floors[2];
 
 struct pos_box pos_box_get(struct vertices * vertices)
 {
@@ -609,7 +609,7 @@ void object_init(struct object * object)
     object->transformation = m4_eye();
 
     /* Calculate object bounds.*/
-    object->bound = pos_box_get(&object->vertices);
+    object->bound = pos_box_get(object->vertices);
 }
 
 int main(void)
@@ -649,7 +649,7 @@ int main(void)
     memcpy(dynamic_data_cube, data_cube, size_data_cube);
     load_vertices(&vertices_cube, dynamic_data_cube);
     struct object obj_cube = {0};
-    obj_cube.vertices = vertices_cube;
+    obj_cube.vertices = &vertices_cube;
     object_init(&obj_cube);
 
     // Load floor data into vertices structs.
@@ -657,7 +657,7 @@ int main(void)
     char * dynamic_data_floor = malloc(size_data_floor);
     memcpy(dynamic_data_floor, data_floor, size_data_floor);
     load_vertices(&vertices_floor, dynamic_data_floor);
-    floors[0].vertices = vertices_floor;
+    floors[0].vertices = &vertices_floor;
     object_init(&floors[0]);
     floors[0].coords.y = -2.0f;
     floors[0].scale.x = 4.0f;
@@ -665,6 +665,17 @@ int main(void)
     floors[0].transformation = m4_eye();
     m4_translate(&floors[0].transformation, floors[0].coords);
     m4_scale(&floors[0].transformation, floors[0].scale);
+
+    // Make second floor tile.
+    floors[1].vertices = &vertices_floor;
+    object_init(&floors[1]);
+    floors[1].coords.y = -2.5f;
+    floors[1].coords.z = -2.0f;
+    floors[1].scale.x = 4.0f;
+
+    floors[1].transformation = m4_eye();
+    m4_translate(&floors[1].transformation, floors[1].coords);
+    m4_scale(&floors[1].transformation, floors[1].scale);
 
     // Set up cube.
     GLuint VBO_cube, VAO_cube;
@@ -857,10 +868,11 @@ int main(void)
 
         glBindVertexArray(VAO_floor);
 
-        glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(floors[0].transformation));
-
-        glUniform4fv(uniform_color, 1, DATv(color_floor));
-        glDrawArrays(GL_TRIANGLES, 0, vertices_floor.vertices);
+        for (size_t i = 0; i<SIZE(floors); i++) {
+            glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(floors[i].transformation));
+            glUniform4fv(uniform_color, 1, DATv(color_floor));
+            glDrawArrays(GL_TRIANGLES, 0, floors[i].vertices->size);
+        }
 
         glBindVertexArray(0);
 

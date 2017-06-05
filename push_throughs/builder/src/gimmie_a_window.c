@@ -353,6 +353,7 @@ struct pos_box {
 struct object {
     struct pos_box bound;
     struct vertices vertices;
+    struct m4 transformation;
     struct v3 coords;
     struct v3 velocity;
     struct v3 next_pos;
@@ -832,13 +833,13 @@ int main(void)
 
         obj_cube.velocity.y -= GRAVITY * time_delta;
 
-        struct m4 mat_model = m4_eye();
-        m4_translate(&mat_model, obj_cube.coords);
-        m4_scale(&mat_model, obj_cube.scale);
+        obj_cube.transformation = m4_eye();
+        m4_translate(&obj_cube.transformation, obj_cube.coords);
+        m4_scale(&obj_cube.transformation, obj_cube.scale);
 
         pos_update(&obj_cube);
 
-        glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(mat_model));
+        glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(obj_cube.transformation));
         glUniformMatrix4fv(uniform_view, 1, TRANSPOSE, DATm(mat_view));
         glUniformMatrix4fv(uniform_projection, 1, TRANSPOSE, DATm(mat_projection));
 

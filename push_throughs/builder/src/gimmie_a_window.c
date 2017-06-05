@@ -592,6 +592,21 @@ void pos_update(struct object * object)
     object->coords.z = object->next_pos.z;
 }
 
+void object_init(struct object * object)
+    /* Initialize object with sane values. */
+{
+    /* Set scale. */
+    object->scale.x = 1.0f;
+    object->scale.y = 1.0f;
+    object->scale.z = 1.0f;
+
+    /* Set transformation matrix. */
+    object->transformation = m4_eye();
+
+    /* Calculate object bounds.*/
+    object->bound = pos_box_get(&object->vertices);
+}
+
 int main(void)
 {
     GLFWwindow * window;
@@ -630,10 +645,7 @@ int main(void)
     load_vertices(&vertices_cube, dynamic_data_cube);
     struct object obj_cube = {0};
     obj_cube.vertices = vertices_cube;
-    obj_cube.bound = pos_box_get(&vertices_cube);
-    obj_cube.scale.x = 1.0f;
-    obj_cube.scale.y = 1.0f;
-    obj_cube.scale.z = 1.0f;
+    object_init(&obj_cube);
 
     // Load floor data into vertices structs.
     size_t size_data_floor = sizeof(data_floor);
@@ -641,11 +653,9 @@ int main(void)
     memcpy(dynamic_data_floor, data_floor, size_data_floor);
     load_vertices(&vertices_floor, dynamic_data_floor);
     obj_floor.vertices = vertices_floor;
-    obj_floor.bound = pos_box_get(&vertices_floor);
+    object_init(&obj_floor);
     obj_floor.coords.y = -2.0f;
     obj_floor.scale.x = 4.0f;
-    obj_floor.scale.y = 1.0f;
-    obj_floor.scale.z = 1.0f;
 
     // Set up cube.
     GLuint VBO_cube, VAO_cube;

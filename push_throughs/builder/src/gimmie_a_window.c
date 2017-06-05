@@ -360,7 +360,8 @@ struct object {
     struct v3 scale;
 };
 
-struct object obj_floor = {0};
+
+struct object floors[1];
 
 struct pos_box pos_box_get(struct vertices * vertices)
 {
@@ -583,9 +584,12 @@ void pos_update(struct object * object)
     /* Determine if object collides with floor, if not, update. */
 {
     obj_update_next_pos(object);
-    obj_update_next_pos(&obj_floor);
-    if (pos_collides(object, &obj_floor)) {
-        object->velocity.y = 0;
+    for (size_t i = 0; i<SIZE(floors); i++) {
+        obj_update_next_pos(&floors[i]);
+        if (pos_collides(object, &floors[i])) {
+            object->velocity.y = 0;
+            break;
+        }
     }
     obj_update_next_pos(object);
     object->coords.x = object->next_pos.x;
@@ -653,14 +657,14 @@ int main(void)
     char * dynamic_data_floor = malloc(size_data_floor);
     memcpy(dynamic_data_floor, data_floor, size_data_floor);
     load_vertices(&vertices_floor, dynamic_data_floor);
-    obj_floor.vertices = vertices_floor;
-    object_init(&obj_floor);
-    obj_floor.coords.y = -2.0f;
-    obj_floor.scale.x = 4.0f;
+    floors[0].vertices = vertices_floor;
+    object_init(&floors[0]);
+    floors[0].coords.y = -2.0f;
+    floors[0].scale.x = 4.0f;
 
-    obj_floor.transformation = m4_eye();
-    m4_translate(&obj_floor.transformation, obj_floor.coords);
-    m4_scale(&obj_floor.transformation, obj_floor.scale);
+    floors[0].transformation = m4_eye();
+    m4_translate(&floors[0].transformation, floors[0].coords);
+    m4_scale(&floors[0].transformation, floors[0].scale);
 
     // Set up cube.
     GLuint VBO_cube, VAO_cube;
@@ -853,7 +857,7 @@ int main(void)
 
         glBindVertexArray(VAO_floor);
 
-        glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(obj_floor.transformation));
+        glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(floors[0].transformation));
 
         glUniform4fv(uniform_color, 1, DATv(color_floor));
         glDrawArrays(GL_TRIANGLES, 0, vertices_floor.vertices);

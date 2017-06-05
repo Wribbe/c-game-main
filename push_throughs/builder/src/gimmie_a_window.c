@@ -658,6 +658,10 @@ int main(void)
     obj_floor.coords.y = -2.0f;
     obj_floor.scale.x = 4.0f;
 
+    obj_floor.transformation = m4_eye();
+    m4_translate(&obj_floor.transformation, obj_floor.coords);
+    m4_scale(&obj_floor.transformation, obj_floor.scale);
+
     // Set up cube.
     GLuint VBO_cube, VAO_cube;
     glGenBuffers(1, &VBO_cube);
@@ -849,10 +853,7 @@ int main(void)
 
         glBindVertexArray(VAO_floor);
 
-        struct m4 mat_model_floor = m4_eye();
-        m4_translate(&mat_model_floor, obj_floor.coords);
-        m4_scale(&mat_model_floor, obj_floor.scale);
-        glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(mat_model_floor));
+        glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(obj_floor.transformation));
 
         glUniform4fv(uniform_color, 1, DATv(color_floor));
         glDrawArrays(GL_TRIANGLES, 0, vertices_floor.vertices);

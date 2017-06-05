@@ -470,7 +470,7 @@ void callback_keys(GLFWwindow * window, int key, int scancode, int action, int m
 
 }
 
-bool coords_ovelap(double min1, double max1, double min2, double max2)
+bool coords_overlap(double min1, double max1, double min2, double max2)
     /* Check overlap of 4 values. */
 {
     // 1: x-----x
@@ -512,65 +512,72 @@ bool coords_ovelap(double min1, double max1, double min2, double max2)
     return false;
 }
 
-bool pos_collides(struct object * o1, struct object * o2)
-    /* Take two pointers to object structs, return boolean signaling if they
-     * collide or not. */
+void get_ranges(double * ranges, struct object * o1, struct object * o2)
 {
-    /* Get bound box pointers. */
-    struct pos_box * pos_o1 = &o1->bound;
-    struct pos_box * pos_o2 = &o2->bound;
+   struct pos_box * box1 = &o1->bound;
+   struct pos_box * box2 = &o2->bound;
 
-    struct v3 scale_o1 = o1->scale;
-    struct v3 scale_o2 = o2->scale;
+   struct v3 * scale1 = &o1->scale;
+   struct v3 * scale2 = &o2->scale;
 
-    double half_range_x_1 = (pos_o1->x.max - pos_o1->x.min) * 0.5f * scale_o1.x;
-    double half_range_x_2 = (pos_o2->x.max - pos_o2->x.min) * 0.5f * scale_o2.x;
+   double local_ranges[][3] = {
+       {
+           (box1->x.max - box1->x.min) * 0.5f * scale1->x,
+           (box1->y.max - box1->y.min) * 0.5f * scale1->y,
+           (box1->z.max - box1->z.min) * 0.5f * scale1->z
+       },
 
-    double half_range_y_1 = (pos_o1->y.max - pos_o1->y.min) * 0.5f * scale_o1.y;
-    double half_range_y_2 = (pos_o2->y.max - pos_o2->y.min) * 0.5f * scale_o2.y;
-
-    double half_range_z_1 = (pos_o1->z.max - pos_o1->z.min) * 0.5f * scale_o1.z;
-    double half_range_z_2 = (pos_o2->z.max - pos_o2->z.min) * 0.5f * scale_o2.z;
-
-    struct v3 * coords_1 = &o1->next_pos;
-    struct v3 * coords_2 = &o2->next_pos;
-
-    double coord_x_min_1 = coords_1->x - half_range_x_1;
-    double coord_x_max_1 = coords_1->x + half_range_x_1;
-
-    double coord_y_min_1 = coords_1->y - half_range_y_1;
-    double coord_y_max_1 = coords_1->y + half_range_y_1;
-
-    double coord_z_min_1 = coords_1->z - half_range_z_1;
-    double coord_z_max_1 = coords_1->z + half_range_z_1;
-
-    double coord_x_min_2 = coords_2->x - half_range_x_2;
-    double coord_x_max_2 = coords_2->x + half_range_x_2;
-
-    double coord_y_min_2 = coords_2->y - half_range_y_2;
-    double coord_y_max_2 = coords_2->y + half_range_y_2;
-
-    double coord_z_min_2 = coords_2->z - half_range_z_2;
-    double coord_z_max_2 = coords_2->z + half_range_z_2;
-
-    bool overlaps_x = coords_ovelap(coord_x_min_1,
-                                    coord_x_max_1,
-                                    coord_x_min_2,
-                                    coord_x_max_2);
-
-    bool overlaps_y = coords_ovelap(coord_y_min_1,
-                                    coord_y_max_1,
-                                    coord_y_min_2,
-                                    coord_y_max_2);
-
-    bool overlaps_z = coords_ovelap(coord_z_min_1,
-                                    coord_z_max_1,
-                                    coord_z_min_2,
-                                    coord_z_max_2);
-
-    bool overlapping = overlaps_x && overlaps_y && overlaps_z;
-    return overlapping;
+       {
+           (box2->x.max - box2->x.min) * 0.5f * scale2->x,
+           (box2->y.max - box2->y.min) * 0.5f * scale2->y,
+           (box2->z.max - box2->z.min) * 0.5f * scale2->z
+       },
+   };
+   memcpy(ranges, local_ranges, sizeof(local_ranges));
 }
+
+void v3_to_array(struct v3 * v3, double * array) {
+    array[0] = v3->x;
+    array[1] = v3->y;
+    array[2] = v3->z;
+}
+
+bool pos_collides(struct object * o1, struct object * o2, int coord)
+{
+    /* TODO[optimize]: Store the ranges one level up, they don't change between
+     * checks along different axes. */
+
+    double ranges[2][3] = {0};
+    get_ranges(ranges[0], o1, o2);
+
+    bool collides[3] = {0};
+
+    struct v3 * current_coords = NULL;
+
+    double o1_coords[3] = {0};
+    double o2_coords[3] = {0};
+
+    v3_to_array(&o2->coords, o2_coords);
+
+    for (size_t i=0; i<3; i++) {
+        if (i == coord) {
+            current_coords = &o1->next_pos;
+        } else {
+            current_coords = &o1->coords;
+        }
+        v3_to_array(current_coords, o1_coords);
+        collides[i] = coords_overlap(
+            o1_coords[i]-ranges[0][i],
+            o1_coords[i]+ranges[0][i],
+            o2_coords[i]-ranges[1][i],
+            o2_coords[i]+ranges[1][i]
+        );
+    }
+
+    return collides[0] && collides[1] && collides[2];
+}
+
+
 
 void obj_update_next_pos(struct object * object)
     /* Generate and store next position in object data. */
@@ -584,11 +591,17 @@ void pos_update(struct object * object)
     /* Determine if object collides with floor, if not, update. */
 {
     obj_update_next_pos(object);
+    struct v3 offsets = {0};
     for (size_t i = 0; i<SIZE(floors); i++) {
         obj_update_next_pos(&floors[i]);
-        if (pos_collides(object, &floors[i])) {
-            object->velocity.y = 0;
-            break;
+        if (pos_collides(object, &floors[i], 0)) {
+            object->velocity.x += -object->velocity.x;
+        }
+        if (pos_collides(object, &floors[i], 1)) {
+            object->velocity.y += -object->velocity.y;
+        }
+        if (pos_collides(object, &floors[i], 2)) {
+            object->velocity.z += -object->velocity.z;
         }
     }
     obj_update_next_pos(object);

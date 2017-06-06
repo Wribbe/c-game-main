@@ -389,10 +389,26 @@ struct v3 v3_add(struct v3 * v1, struct v3 * v2)
     };
 }
 
-#define BOUND_SIZE 4*8
+uint16_t bound_order[] = {
+    // First face.
+    0, 1,
+    1, 2,
+    2, 3,
+    3, 0,
+    // Connect everything "back".
+    0, 6,
+    1, 7,
+    2, 5,
+    3, 4,
+    // Draw opposite face.
+    6, 7,
+    7, 5,
+    5, 4,
+    4, 6
+};
 
 struct bound_box {
-    GLfloat data[BOUND_SIZE];
+    GLfloat data[8][3];
 };
 
 struct object {
@@ -470,14 +486,14 @@ struct bound_box bound_box_get(struct object * object)
     }
 
     return (struct bound_box){{
-        x_min, y_min, z_max, 1.0f, // bottom front left
-        x_max, y_min, z_max, 1.0f, // bottom front right
-        x_max, y_max, z_max, 1.0f, // top from right
-        x_min, y_max, z_max, 1.0f, // top front left
-        x_min, y_max, z_min, 1.0f, // top back left
-        x_max, y_max, z_min, 1.0f, // top back right
-        x_min, y_min, z_min, 1.0f, // bottom back left
-        x_min, y_min, z_min, 1.0f  // bottom back right
+        {x_min, y_min, z_max}, // bottom front left   #0
+        {x_max, y_min, z_max}, // bottom front right  #1
+        {x_max, y_max, z_max}, // top front right     #2
+        {x_min, y_max, z_max}, // top front left      #3
+        {x_min, y_max, z_min}, // top back left       #4
+        {x_max, y_max, z_min}, // top back right      #5
+        {x_min, y_min, z_min}, // bottom back left    #6
+        {x_max, y_min, z_min}, // bottom back right   #7
     }};
 }
 
@@ -1047,19 +1063,30 @@ int main(void)
         glUniformMatrix4fv(uniform_view, 1, TRANSPOSE, DATm(mat_view));
         glUniformMatrix4fv(uniform_projection, 1, TRANSPOSE, DATm(mat_projection));
 
-//        glBindVertexArray(VAO_cube);
+        glBindVertexArray(VAO_cube);
         glUniform4fv(uniform_color, 1, DATv(color_cube));
-//        glDrawArrays(GL_TRIANGLES, 0, vertices_cube.vertices);
+        glDrawArrays(GL_TRIANGLES, 0, vertices_cube.vertices);
 
-//        glBindVertexArray(VAO_floor);
+        glBindVertexArray(VAO_floor);
 
-//        for (size_t i = 0; i<SIZE(floors); i++) {
-//            glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(floors[i].transformation));
-//            glUniform4fv(uniform_color, 1, DATv(color_floor));
-//            glDrawArrays(GL_TRIANGLES, 0, floors[i].vertices->size);
-//        }
+        for (size_t i = 0; i<SIZE(floors); i++) {
+            glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(floors[i].transformation));
+            glUniform4fv(uniform_color, 1, DATv(color_floor));
+            glDrawArrays(GL_TRIANGLES, 0, floors[i].vertices->size);
+        }
 
         glBindVertexArray(VAO_temp);
+
+        GLfloat cube_wireframe_data[SIZE(bound_order)*3];
+
+        for (size_t i=0; i<SIZE(bound_order); i += 2) {
+
+            int first = bound_order[i];
+            int second = bound_order[i+1];
+
+            memcpy(&cube_wireframe_data[3*i], obj_cube.bounds.data[first], 3*sizeof(GLfloat));
+            memcpy(&cube_wireframe_data[3*(i+1)], obj_cube.bounds.data[second], 3*sizeof(GLfloat));
+        }
 
         struct m4 eye = m4_eye();
         glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(eye));
@@ -1069,13 +1096,11 @@ int main(void)
         glUniform4fv(uniform_color, 1, DATv(color_line));
 
         glBindBuffer(GL_ARRAY_BUFFER, VBO_temp);
-        GLfloat test[] = {-1.0f, 1.0f, -1.0f,
-                           1.0f, 1.0f, -1.0f};
-        glBufferData(GL_ARRAY_BUFFER, 6*sizeof(GLfloat), test, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, SIZE(bound_order)*3*sizeof(GLfloat), cube_wireframe_data, GL_STATIC_DRAW);
 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_TRUE, 3*sizeof(GLfloat), (GLvoid*)0);
         glEnableVertexAttribArray(0);
-        glDrawArrays(GL_LINES, 0, 2);
+        glDrawArrays(GL_LINES, 0, SIZE(bound_order));
 
         glfwSwapBuffers(window);
         glfwPollEvents();

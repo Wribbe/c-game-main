@@ -23,10 +23,11 @@
 double time_delta = 0;
 double val_cube_speed = 4.2f;
 double val_cube_max_speed = 4.2f;
-double val_cube_friction = 6.0f;
+double val_cube_friction = 16.0f;
 
 struct vertices {
     size_t size;
+    size_t points;
     size_t vertices;
     GLfloat * data;
 };
@@ -155,6 +156,13 @@ struct v3 {
     GLfloat z;
 };
 
+struct v4 {
+    GLfloat x;
+    GLfloat y;
+    GLfloat z;
+    GLfloat w;
+};
+
 struct v3 v3_sub(struct v3 v1, struct v3 v2)
 {
     return (struct v3){v1.x - v2.x, v1.y - v2.y, v1.z - v2.z};
@@ -195,6 +203,18 @@ struct m4 m4_mul(struct m4 * A, struct m4 * B)
         }
     }
     return result;
+}
+
+struct v4 m4_mul_v4(struct m4 * m, struct v4 * v)
+{
+    GLfloat results[4] = {0};
+    GLfloat vector_data[4] = {v->x, v->y, v->z, v->w};
+    for (size_t i = 0; i<4; i++) {
+        for (size_t j = 0; j<4; j++) {
+            results[i] += m->data[i][j] * vector_data[j];
+        }
+    }
+    return (struct v4){results[0], results[1], results[2], results[3]};
 }
 
 struct m4 look_at(struct v3 * right,
@@ -339,34 +359,78 @@ void m4_rotate(struct m4 * m, float rad_angle, struct v3 axis)
 
 }
 
-struct min_max {
-    float min;
-    float max;
-};
+struct v3 v3_mul(struct v3 * v1, struct v3 * v2)
+{
+    return (struct v3){
+        v1->x * v2->x,
+        v1->y * v2->y,
+        v1->z * v2->z,
+    };
+}
 
-struct pos_box {
-    struct min_max x;
-    struct min_max y;
-    struct min_max z;
+struct v3 v3_scale(struct v3 * v1, struct v3 * v2)
+{
+    float v2x = fabsf(v2->x);
+    float v2y = fabsf(v2->y);
+    float v2z = fabsf(v2->z);
+    return (struct v3){
+        v1->x * v2x,
+        v1->y * v2y,
+        v1->z * v2z,
+    };
+}
+
+struct v3 v3_add(struct v3 * v1, struct v3 * v2)
+{
+    return (struct v3){
+        v1->x + v2->x,
+        v1->y + v2->y,
+        v1->z + v2->z,
+    };
+}
+
+#define BOUND_SIZE 4*8
+
+struct bound_box {
+    GLfloat data[BOUND_SIZE];
 };
 
 struct object {
-    struct pos_box bound;
+    struct bound_box bounds;
     struct vertices * vertices;
     struct m4 transformation;
     struct v3 coords;
     struct v3 velocity;
     struct v3 next_pos;
     struct v3 scale;
+    struct v3 normal;
+    struct v3 rotation_axis;
+    float rotation_rad;
 };
 
 
-struct object floors[2];
+struct object floors[3];
 
-struct pos_box pos_box_get(struct vertices * vertices)
+struct bound_box bound_box_get(struct object * object)
 {
-    float * pointer = vertices->data;
-    float * end = pointer + vertices->size;
+    struct vertices * vertices = object->vertices;
+
+    GLfloat local_copy[vertices->points];
+    memcpy(&local_copy, vertices->data, vertices->size);
+
+    for (size_t i=0; i<vertices->vertices; i += 3) {
+        struct v4 temp_vector = {
+                                 local_copy[i],
+                                 local_copy[i+1],
+                                 local_copy[i+2],
+                                 1.0f
+                                };
+        struct v4 result = m4_mul_v4(&object->transformation, &temp_vector);
+        memcpy(&local_copy[i], &result, 3*sizeof(GLfloat));
+    }
+
+    float * pointer = local_copy;
+    float * end = pointer + vertices->points;
 
     float x_min = *pointer;
     float x_max = *pointer++;
@@ -405,11 +469,16 @@ struct pos_box pos_box_get(struct vertices * vertices)
         }
     }
 
-    return (struct pos_box){
-        {x_min, x_max},
-        {y_min, y_max},
-        {z_min, z_max},
-    };
+    return (struct bound_box){{
+        x_min, y_min, z_max, 1.0f, // bottom front left
+        x_max, y_min, z_max, 1.0f, // bottom front right
+        x_max, y_max, z_max, 1.0f, // top from right
+        x_min, y_max, z_max, 1.0f, // top front left
+        x_min, y_max, z_min, 1.0f, // top back left
+        x_max, y_max, z_min, 1.0f, // top back right
+        x_min, y_min, z_min, 1.0f, // bottom back left
+        x_min, y_min, z_min, 1.0f  // bottom back right
+    }};
 }
 
 void load_vertices(struct vertices * vertices, char * string)
@@ -422,12 +491,12 @@ void load_vertices(struct vertices * vertices, char * string)
     size_t data_size = 512;
     size_t num_points = 0;
 
-    vertices->data = malloc(data_size*sizeof(float));
+    vertices->data = malloc(data_size*sizeof(GLfloat));
     if (!vertices->data) {
         fprintf(stderr, "Could not allocate enough data for loading vertices.\n");
         exit(EXIT_FAILURE);
     }
-    float * last_entry = vertices->data;
+    GLfloat * last_entry = vertices->data;
 
     while (token != NULL) {
         *last_entry = strtof(token, NULL);
@@ -435,7 +504,7 @@ void load_vertices(struct vertices * vertices, char * string)
         num_points++;
         if (num_points >= data_size) {
             data_size *= 2;
-            vertices->data = realloc(vertices->data, data_size*sizeof(float));
+            vertices->data = realloc(vertices->data, data_size*sizeof(GLfloat));
             if (!vertices->data) {
                 fprintf(stderr, "Not enough memory to reallocate data.\n");
                 exit(EXIT_FAILURE);
@@ -444,9 +513,10 @@ void load_vertices(struct vertices * vertices, char * string)
         token = strtok_r(NULL, delimiter, &saveptr);
     }
     if (num_points < data_size) {
-        vertices->data = realloc(vertices->data, num_points*sizeof(float));
+        vertices->data = realloc(vertices->data, num_points*sizeof(GLfloat));
     }
-    vertices->size = num_points;
+    vertices->size = num_points * sizeof(GLfloat);
+    vertices->points = num_points;
     vertices->vertices = num_points/3;
 }
 
@@ -514,26 +584,74 @@ bool coords_overlap(double min1, double max1, double min2, double max2)
 
 void get_ranges(double * ranges, struct object * o1, struct object * o2)
 {
-   struct pos_box * box1 = &o1->bound;
-   struct pos_box * box2 = &o2->bound;
+   //struct bound_box * box1 = &o1->bounds;
+   //struct bound_box * box2 = &o2->bounds;
 
-   struct v3 * scale1 = &o1->scale;
-   struct v3 * scale2 = &o2->scale;
+   //struct v3 * scale1 = &o1->scale;
+   //struct v3 * scale2 = &o2->scale;
 
-   double local_ranges[][3] = {
-       {
-           (box1->x.max - box1->x.min) * 0.5f * scale1->x,
-           (box1->y.max - box1->y.min) * 0.5f * scale1->y,
-           (box1->z.max - box1->z.min) * 0.5f * scale1->z
-       },
+   //double xrange1 = (box1->x.max - box1->x.min);
+   //double yrange1 = (box1->y.max - box1->y.min);
+   //double zrange1 = (box1->z.max - box1->z.min);
 
-       {
-           (box2->x.max - box2->x.min) * 0.5f * scale2->x,
-           (box2->y.max - box2->y.min) * 0.5f * scale2->y,
-           (box2->z.max - box2->z.min) * 0.5f * scale2->z
-       },
-   };
-   memcpy(ranges, local_ranges, sizeof(local_ranges));
+   //double xrange2 = (box2->x.max - box2->x.min);
+   //double yrange2 = (box2->y.max - box2->y.min);
+   //double zrange2 = (box2->z.max - box2->z.min);
+
+   //double rot_xrange1;
+   //double rot_yrange1;
+   //double rot_zrange1;
+
+   //double rot_xrange2;
+   //double rot_yrange2;
+   //double rot_zrange2;
+
+   //if (o1->rotation_rad != 0) {
+   //    rot_xrange1 = sin(o1->rotation_rad) * o1->rotation_axis.x * xrange1;
+   //    rot_yrange1 = sin(o1->rotation_rad) * o1->rotation_axis.y * yrange1;
+   //    rot_zrange1 = sin(o1->rotation_rad) * o1->rotation_axis.z * zrange1;
+   //}
+
+   //if (o2->rotation_rad != 0) {
+   //    rot_xrange2 = sin(o2->rotation_rad) * o2->rotation_axis.x * xrange2;
+   //    rot_yrange2 = sin(o2->rotation_rad) * o2->rotation_axis.y * yrange2;
+   //    rot_zrange2 = sin(o2->rotation_rad) * o2->rotation_axis.z * zrange2;
+   //}
+
+   //if (rot_xrange1 != 0) {
+   //    xrange1 = rot_xrange1;
+   //}
+   //if (rot_yrange1 != 0) {
+   //    yrange1 = rot_yrange1;
+   //}
+   //if (rot_zrange1 != 0) {
+   //    zrange1 = rot_zrange1;
+   //}
+
+   //if (rot_xrange2 != 0) {
+   //    xrange2 = rot_xrange2;
+   //}
+   //if (rot_yrange2 != 0) {
+   //    yrange2 = rot_yrange2;
+   //}
+   //if (rot_zrange2 != 0) {
+   //    zrange2 = rot_zrange2;
+   //}
+
+   //double local_ranges[][3] = {
+   //    {
+   //         xrange1 * 0.5f * scale1->x,
+   //         yrange1 * 0.5f * scale1->y,
+   //         zrange1 * 0.5f * scale1->z,
+   //    },
+
+   //    {
+   //         xrange2 * 0.5f * scale2->x,
+   //         yrange2 * 0.5f * scale2->y,
+   //         zrange2 * 0.5f * scale2->z,
+   //    },
+   //};
+   //memcpy(ranges, local_ranges, sizeof(local_ranges));
 }
 
 void v3_to_array(struct v3 * v3, double * array) {
@@ -547,34 +665,35 @@ bool pos_collides(struct object * o1, struct object * o2, int coord)
     /* TODO[optimize]: Store the ranges one level up, they don't change between
      * checks along different axes. */
 
-    double ranges[2][3] = {0};
-    get_ranges(ranges[0], o1, o2);
+    //double ranges[2][3] = {0};
+    //get_ranges(ranges[0], o1, o2);
 
     bool collides[3] = {0};
 
-    struct v3 * current_coords = NULL;
+    //struct v3 * current_coords = NULL;
 
-    double o1_coords[3] = {0};
-    double o2_coords[3] = {0};
+    //double o1_coords[3] = {0};
+    //double o2_coords[3] = {0};
 
-    v3_to_array(&o2->coords, o2_coords);
+    //v3_to_array(&o2->coords, o2_coords);
 
-    for (size_t i=0; i<3; i++) {
-        if (i == coord) {
-            current_coords = &o1->next_pos;
-        } else {
-            current_coords = &o1->coords;
-        }
-        v3_to_array(current_coords, o1_coords);
-        collides[i] = coords_overlap(
-            o1_coords[i]-ranges[0][i],
-            o1_coords[i]+ranges[0][i],
-            o2_coords[i]-ranges[1][i],
-            o2_coords[i]+ranges[1][i]
-        );
-    }
+    //for (size_t i=0; i<3; i++) {
+    //    if (i == coord) {
+    //        current_coords = &o1->next_pos;
+    //    } else {
+    //        current_coords = &o1->coords;
+    //    }
+    //    v3_to_array(current_coords, o1_coords);
+    //    collides[i] = coords_overlap(
+    //        o1_coords[i]-ranges[0][i],
+    //        o1_coords[i]+ranges[0][i],
+    //        o2_coords[i]-ranges[1][i],
+    //        o2_coords[i]+ranges[1][i]
+    //    );
+    //}
 
-    return collides[0] && collides[1] && collides[2];
+    //return collides[0] && collides[1] && collides[2];
+    return true;
 }
 
 
@@ -594,14 +713,30 @@ void pos_update(struct object * object)
     struct v3 offsets = {0};
     for (size_t i = 0; i<SIZE(floors); i++) {
         obj_update_next_pos(&floors[i]);
+        bool collides = false;
         if (pos_collides(object, &floors[i], 0)) {
-            object->velocity.x += -object->velocity.x;
+//            object->velocity.x += -object->velocity.x;
+            collides = true;
+        } else if (pos_collides(object, &floors[i], 1)) {
+//            object->velocity.y += -object->velocity.y;
+            collides = true;
+        } else if (pos_collides(object, &floors[i], 2)) {
+//            object->velocity.z += -object->velocity.z;
+            collides = true;
         }
-        if (pos_collides(object, &floors[i], 1)) {
-            object->velocity.y += -object->velocity.y;
-        }
-        if (pos_collides(object, &floors[i], 2)) {
-            object->velocity.z += -object->velocity.z;
+        if (collides) {
+
+            struct v3 scaled_normal = v3_scale(&floors[i].normal, &object->velocity);
+            struct v3 result_vector = v3_add(&scaled_normal, &object->velocity);
+
+            object->rotation_rad = floors[i].rotation_rad;
+            object->rotation_axis.x = floors[i].rotation_axis.x;
+            object->rotation_axis.y = floors[i].rotation_axis.y;
+            object->rotation_axis.z = floors[i].rotation_axis.z;
+
+            object->velocity.x = result_vector.x;
+            object->velocity.y = result_vector.y;
+            object->velocity.z = result_vector.z;
         }
     }
     obj_update_next_pos(object);
@@ -621,8 +756,20 @@ void object_init(struct object * object)
     /* Set transformation matrix. */
     object->transformation = m4_eye();
 
-    /* Calculate object bounds.*/
-    object->bound = pos_box_get(object->vertices);
+    /* Calculate object bounding box.*/
+    object->bounds = bound_box_get(object);
+
+    /* Default rotation axis. */
+    object->rotation_axis.x = 0.0f;
+    object->rotation_axis.y = 1.0f;
+    object->rotation_axis.z = 0.0f;
+
+    object->rotation_rad = 0.0f;
+
+    /* Default normal. */
+    object->normal.x = 0.0f;
+    object->normal.y = 1.0f;
+    object->normal.z = 0.0f;
 }
 
 int main(void)
@@ -683,12 +830,31 @@ int main(void)
     floors[1].vertices = &vertices_floor;
     object_init(&floors[1]);
     floors[1].coords.y = -2.5f;
-    floors[1].coords.z = -2.0f;
+    floors[1].coords.z = -20.0f;
     floors[1].scale.x = 4.0f;
 
     floors[1].transformation = m4_eye();
     m4_translate(&floors[1].transformation, floors[1].coords);
     m4_scale(&floors[1].transformation, floors[1].scale);
+
+    // Make third floor tile.
+    floors[2].vertices = &vertices_floor;
+    object_init(&floors[2]);
+    floors[2].coords.y = -2.0f;
+    floors[2].coords.z = -20.0f;
+    floors[2].coords.x =  2.0f;
+    floors[2].scale.x = 4.0f;
+    floors[2].rotation_rad = M_PI * 0.25;
+    floors[2].rotation_axis.z = 1.0f;
+
+    floors[2].transformation = m4_eye();
+    m4_rotate(&floors[2].transformation,
+               floors[2].rotation_rad,
+               floors[2].rotation_axis);
+    floors[2].normal.x = -sqrtf(0.5f);
+    floors[2].normal.y = sqrtf(0.5f);
+    m4_translate(&floors[2].transformation, floors[2].coords);
+    m4_scale(&floors[2].transformation, floors[2].scale);
 
     // Set up cube.
     GLuint VBO_cube, VAO_cube;
@@ -698,7 +864,7 @@ int main(void)
     glBindVertexArray(VAO_cube);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO_cube);
-    glBufferData(GL_ARRAY_BUFFER, vertices_cube.size*sizeof(float), vertices_cube.data, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices_cube.size, vertices_cube.data, GL_STATIC_DRAW);
 
     // Set up vertex attribute pointers.
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
@@ -714,7 +880,7 @@ int main(void)
     glBindVertexArray(VAO_floor);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO_floor);
-    glBufferData(GL_ARRAY_BUFFER, vertices_floor.size*sizeof(float), vertices_floor.data, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices_floor.size, vertices_floor.data, GL_STATIC_DRAW);
 
     // Set up vertex attribute pointers.
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
@@ -788,6 +954,11 @@ int main(void)
     double time_current = 0;
 
     struct m4 mat_projection = m4_perspective(0.1f, 100.0f, M_PI*0.5f, (double)WIDTH/(double)HEIGHT);
+
+    /* Generate temp buffer. */
+    GLuint VBO_temp, VAO_temp;
+    glGenBuffers(1, &VBO_temp);
+    glGenVertexArrays(1, &VAO_temp);
 
     while(!glfwWindowShouldClose(window)) {
 
@@ -866,8 +1037,9 @@ int main(void)
         obj_cube.velocity.y -= GRAVITY * time_delta;
 
         obj_cube.transformation = m4_eye();
-        m4_translate(&obj_cube.transformation, obj_cube.coords);
         m4_scale(&obj_cube.transformation, obj_cube.scale);
+        m4_translate(&obj_cube.transformation, obj_cube.coords);
+        m4_rotate(&obj_cube.transformation, obj_cube.rotation_rad, obj_cube.rotation_axis);
 
         pos_update(&obj_cube);
 
@@ -875,19 +1047,35 @@ int main(void)
         glUniformMatrix4fv(uniform_view, 1, TRANSPOSE, DATm(mat_view));
         glUniformMatrix4fv(uniform_projection, 1, TRANSPOSE, DATm(mat_projection));
 
-        glBindVertexArray(VAO_cube);
+//        glBindVertexArray(VAO_cube);
         glUniform4fv(uniform_color, 1, DATv(color_cube));
-        glDrawArrays(GL_TRIANGLES, 0, vertices_cube.vertices);
+//        glDrawArrays(GL_TRIANGLES, 0, vertices_cube.vertices);
 
-        glBindVertexArray(VAO_floor);
+//        glBindVertexArray(VAO_floor);
 
-        for (size_t i = 0; i<SIZE(floors); i++) {
-            glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(floors[i].transformation));
-            glUniform4fv(uniform_color, 1, DATv(color_floor));
-            glDrawArrays(GL_TRIANGLES, 0, floors[i].vertices->size);
-        }
+//        for (size_t i = 0; i<SIZE(floors); i++) {
+//            glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(floors[i].transformation));
+//            glUniform4fv(uniform_color, 1, DATv(color_floor));
+//            glDrawArrays(GL_TRIANGLES, 0, floors[i].vertices->size);
+//        }
 
-        glBindVertexArray(0);
+        glBindVertexArray(VAO_temp);
+
+        struct m4 eye = m4_eye();
+        glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(eye));
+        glUniformMatrix4fv(uniform_view, 1, TRANSPOSE, DATm(mat_view));
+        glUniformMatrix4fv(uniform_projection, 1, TRANSPOSE, DATm(mat_projection));
+        GLfloat color_line[] = {0.0f, 0.0f, 1.0f, 1.0f};
+        glUniform4fv(uniform_color, 1, DATv(color_line));
+
+        glBindBuffer(GL_ARRAY_BUFFER, VBO_temp);
+        GLfloat test[] = {-1.0f, 1.0f, -1.0f,
+                           1.0f, 1.0f, -1.0f};
+        glBufferData(GL_ARRAY_BUFFER, 6*sizeof(GLfloat), test, GL_STATIC_DRAW);
+
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_TRUE, 3*sizeof(GLfloat), (GLvoid*)0);
+        glEnableVertexAttribArray(0);
+        glDrawArrays(GL_LINES, 0, 2);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

@@ -262,18 +262,18 @@ struct m4 m4_perspective(GLfloat near, GLfloat far, GLfloat rad_fov, GLfloat asp
     return perspective;
 }
 
-void m4_translate(struct m4 * m, struct v3 v_translate)
+void m4_translate(struct m4 * m, struct v3 * v_translate)
 {
-    m->data[0][3] = v_translate.x;
-    m->data[1][3] = v_translate.y;
-    m->data[2][3] = v_translate.z;
+    m->data[0][3] = v_translate->x;
+    m->data[1][3] = v_translate->y;
+    m->data[2][3] = v_translate->z;
 }
 
-void m4_scale(struct m4 * m, struct v3 v_scale)
+void m4_scale(struct m4 * m, struct v3 * v_scale)
 {
-    m->data[0][0] *= v_scale.x;
-    m->data[1][1] *= v_scale.y;
-    m->data[2][2] *= v_scale.z;
+    m->data[0][0] *= v_scale->x;
+    m->data[1][1] *= v_scale->y;
+    m->data[2][2] *= v_scale->z;
 }
 
 struct m3 {
@@ -340,73 +340,6 @@ void m3_write(struct m3 * dest, struct m3 * source)
     }
 }
 
-void m4_rotate(struct m4 * m, float rad_angle, struct v3 axis)
-{
-    float s = sinf(rad_angle);
-    float c = cosf(rad_angle);
-
-    struct v3 na = v3_normalize(axis);
-
-    struct m4 rotation = {{
-        {c + na.x*na.x*(1 - c),     na.x*na.y*(1 - c) - na.z*s, na.x*na.z*(1-c)+na.y*s,  0.0f},
-        {na.y*na.x*(1-c)+na.z*s,    c+na.y*na.y*(1-c),          na.y*na.z*(1-c)-na.x*s,  0.0f},
-        {na.z*na.x*(1-c)-na.y*s,    na.z*na.y*(1-c)+na.x*s,     c+na.z*na.z*(1-c),       0.0f},
-        {0.0f,                      0.0f,                       0.0f,                    1.0f}
-    }};
-
-    struct m4 result = m4_mul(m, &rotation);
-    m4_write(m, &result);
-
-}
-
-struct v3 v3_mul(struct v3 * v1, struct v3 * v2)
-{
-    return (struct v3){
-        v1->x * v2->x,
-        v1->y * v2->y,
-        v1->z * v2->z,
-    };
-}
-
-struct v3 v3_scale(struct v3 * v1, struct v3 * v2)
-{
-    float v2x = fabsf(v2->x);
-    float v2y = fabsf(v2->y);
-    float v2z = fabsf(v2->z);
-    return (struct v3){
-        v1->x * v2x,
-        v1->y * v2y,
-        v1->z * v2z,
-    };
-}
-
-struct v3 v3_add(struct v3 * v1, struct v3 * v2)
-{
-    return (struct v3){
-        v1->x + v2->x,
-        v1->y + v2->y,
-        v1->z + v2->z,
-    };
-}
-
-uint16_t bound_order[] = {
-    // First face.
-    0, 1,
-    1, 2,
-    2, 3,
-    3, 0,
-    // Connect everything "back".
-    0, 6,
-    1, 7,
-    2, 5,
-    3, 4,
-    // Draw opposite face.
-    6, 7,
-    7, 5,
-    5, 4,
-    4, 6
-};
-
 struct bound_box {
     GLfloat data[8][3];
 };
@@ -424,9 +357,6 @@ struct object {
     float rotation_rad;
 };
 
-
-struct object floors[3];
-
 struct bound_box bound_box_get(struct object * object)
 {
     struct vertices * vertices = object->vertices;
@@ -434,7 +364,7 @@ struct bound_box bound_box_get(struct object * object)
     GLfloat local_copy[vertices->points];
     memcpy(&local_copy, vertices->data, vertices->size);
 
-    for (size_t i=0; i<vertices->vertices; i += 3) {
+    for (size_t i=0; i<vertices->points; i += 3) {
         struct v4 temp_vector = {
                                  local_copy[i],
                                  local_copy[i+1],
@@ -496,6 +426,107 @@ struct bound_box bound_box_get(struct object * object)
         {x_max, y_min, z_min}, // bottom back right   #7
     }};
 }
+
+
+
+
+void m4_rotate(struct m4 * m, float rad_angle, struct v3 axis)
+{
+    float s = sinf(rad_angle);
+    float c = cosf(rad_angle);
+
+    struct v3 na = v3_normalize(axis);
+
+    struct m4 rotation = {{
+        {c + na.x*na.x*(1 - c),     na.x*na.y*(1 - c) - na.z*s, na.x*na.z*(1-c)+na.y*s,  0.0f},
+        {na.y*na.x*(1-c)+na.z*s,    c+na.y*na.y*(1-c),          na.y*na.z*(1-c)-na.x*s,  0.0f},
+        {na.z*na.x*(1-c)-na.y*s,    na.z*na.y*(1-c)+na.x*s,     c+na.z*na.z*(1-c),       0.0f},
+        {0.0f,                      0.0f,                       0.0f,                    1.0f}
+    }};
+
+    struct m4 result = m4_mul(m, &rotation);
+    m4_write(m, &result);
+
+}
+
+void obj_rotate(struct object * object)
+{
+    // Rotate object.
+    m4_rotate(&object->transformation, object->rotation_rad, object->rotation_axis);
+    // Update bounds.
+    object->bounds = bound_box_get(object);
+}
+
+void obj_translate_v3(struct object * object, struct v3 * coords)
+{
+    // Translate object.
+    m4_translate(&object->transformation, coords);
+}
+
+void obj_translate(struct object * object)
+{
+    obj_translate_v3(object, &object->coords);
+}
+
+void obj_update_bounds(struct object * object)
+{
+    object->bounds = bound_box_get(object);
+}
+
+void obj_scale(struct object *object)
+{
+    m4_scale(&object->transformation, &object->scale);
+}
+
+struct v3 v3_mul(struct v3 * v1, struct v3 * v2)
+{
+    return (struct v3){
+        v1->x * v2->x,
+        v1->y * v2->y,
+        v1->z * v2->z,
+    };
+}
+
+struct v3 v3_scale(struct v3 * v1, struct v3 * v2)
+{
+    float v2x = fabsf(v2->x);
+    float v2y = fabsf(v2->y);
+    float v2z = fabsf(v2->z);
+    return (struct v3){
+        v1->x * v2x,
+        v1->y * v2y,
+        v1->z * v2z,
+    };
+}
+
+struct v3 v3_add(struct v3 * v1, struct v3 * v2)
+{
+    return (struct v3){
+        v1->x + v2->x,
+        v1->y + v2->y,
+        v1->z + v2->z,
+    };
+}
+
+uint16_t bound_order[] = {
+    // First face.
+    0, 1,
+    1, 2,
+    2, 3,
+    3, 0,
+    // Connect everything "back".
+    0, 6,
+    1, 7,
+    2, 5,
+    3, 4,
+    // Draw opposite face.
+    6, 7,
+    7, 5,
+    5, 4,
+    4, 6
+};
+
+struct object floors[3];
 
 void load_vertices(struct vertices * vertices, char * string)
 {
@@ -598,121 +629,61 @@ bool coords_overlap(double min1, double max1, double min2, double max2)
     return false;
 }
 
-void get_ranges(double * ranges, struct object * o1, struct object * o2)
+bool pos_collides(struct object * o1, struct object * o2)
 {
-   //struct bound_box * box1 = &o1->bounds;
-   //struct bound_box * box2 = &o2->bounds;
+    struct bound_box * b1 = &o1->bounds;
+    struct bound_box * b2 = &o2->bounds;
 
-   //struct v3 * scale1 = &o1->scale;
-   //struct v3 * scale2 = &o2->scale;
+    struct v3 * s1 = &o1->scale;
+    struct v3 * s2 = &o2->scale;
 
-   //double xrange1 = (box1->x.max - box1->x.min);
-   //double yrange1 = (box1->y.max - box1->y.min);
-   //double zrange1 = (box1->z.max - box1->z.min);
+    struct v3 c1 = o1->coords;
+    struct v3 c2 = o2->coords;
 
-   //double xrange2 = (box2->x.max - box2->x.min);
-   //double yrange2 = (box2->y.max - box2->y.min);
-   //double zrange2 = (box2->z.max - box2->z.min);
+    double xrange1 = (b1->data[1][0] - b1->data[0][0])*0.5f*s1->x;
+    double xrange2 = (b2->data[1][0] - b2->data[0][0])*0.5f*s2->x;
 
-   //double rot_xrange1;
-   //double rot_yrange1;
-   //double rot_zrange1;
+    double xmax1 = c1.x + xrange1;
+    double xmin1 = c1.x - xrange1;
 
-   //double rot_xrange2;
-   //double rot_yrange2;
-   //double rot_zrange2;
+    double xmax2 = c2.x + xrange2;
+    double xmin2 = c2.x - xrange2;
 
-   //if (o1->rotation_rad != 0) {
-   //    rot_xrange1 = sin(o1->rotation_rad) * o1->rotation_axis.x * xrange1;
-   //    rot_yrange1 = sin(o1->rotation_rad) * o1->rotation_axis.y * yrange1;
-   //    rot_zrange1 = sin(o1->rotation_rad) * o1->rotation_axis.z * zrange1;
-   //}
+    bool collides_x = coords_overlap(xmin1, xmax1, xmin2, xmax2);
+    if (!collides_x) {
+        return false;
+    }
 
-   //if (o2->rotation_rad != 0) {
-   //    rot_xrange2 = sin(o2->rotation_rad) * o2->rotation_axis.x * xrange2;
-   //    rot_yrange2 = sin(o2->rotation_rad) * o2->rotation_axis.y * yrange2;
-   //    rot_zrange2 = sin(o2->rotation_rad) * o2->rotation_axis.z * zrange2;
-   //}
+    double yrange1 = (b1->data[2][1] - b1->data[0][1])*0.5f*s1->y;
+    double yrange2 = (b2->data[2][1] - b2->data[0][1])*0.5f*s2->y;
 
-   //if (rot_xrange1 != 0) {
-   //    xrange1 = rot_xrange1;
-   //}
-   //if (rot_yrange1 != 0) {
-   //    yrange1 = rot_yrange1;
-   //}
-   //if (rot_zrange1 != 0) {
-   //    zrange1 = rot_zrange1;
-   //}
+    double ymax1 = c1.y + yrange1;
+    double ymin1 = c1.y - yrange1;
 
-   //if (rot_xrange2 != 0) {
-   //    xrange2 = rot_xrange2;
-   //}
-   //if (rot_yrange2 != 0) {
-   //    yrange2 = rot_yrange2;
-   //}
-   //if (rot_zrange2 != 0) {
-   //    zrange2 = rot_zrange2;
-   //}
+    double ymax2 = c2.y + yrange2;
+    double ymin2 = c2.y - yrange2;
 
-   //double local_ranges[][3] = {
-   //    {
-   //         xrange1 * 0.5f * scale1->x,
-   //         yrange1 * 0.5f * scale1->y,
-   //         zrange1 * 0.5f * scale1->z,
-   //    },
+    bool collides_y = coords_overlap(ymin1, ymax1, ymin2, ymax2);
+    if (!collides_y) {
+        return false;
+    }
 
-   //    {
-   //         xrange2 * 0.5f * scale2->x,
-   //         yrange2 * 0.5f * scale2->y,
-   //         zrange2 * 0.5f * scale2->z,
-   //    },
-   //};
-   //memcpy(ranges, local_ranges, sizeof(local_ranges));
-}
+    double zrange1 = (b1->data[0][2] - b1->data[4][2])*0.5f*s1->z;
+    double zrange2 = (b2->data[0][2] - b2->data[4][2])*0.5f*s2->z;
 
-void v3_to_array(struct v3 * v3, double * array) {
-    array[0] = v3->x;
-    array[1] = v3->y;
-    array[2] = v3->z;
-}
+    double zmax1 = c1.z + zrange1;
+    double zmin1 = c1.z - zrange1;
 
-bool pos_collides(struct object * o1, struct object * o2, int coord)
-{
-    /* TODO[optimize]: Store the ranges one level up, they don't change between
-     * checks along different axes. */
+    double zmax2 = c2.z + zrange2;
+    double zmin2 = c2.z - zrange2;
 
-    //double ranges[2][3] = {0};
-    //get_ranges(ranges[0], o1, o2);
+    bool collides_z = coords_overlap(zmin1, zmax1, zmin2, zmax2);
+    if (!collides_z) {
+        return false;
+    }
 
-    bool collides[3] = {0};
-
-    //struct v3 * current_coords = NULL;
-
-    //double o1_coords[3] = {0};
-    //double o2_coords[3] = {0};
-
-    //v3_to_array(&o2->coords, o2_coords);
-
-    //for (size_t i=0; i<3; i++) {
-    //    if (i == coord) {
-    //        current_coords = &o1->next_pos;
-    //    } else {
-    //        current_coords = &o1->coords;
-    //    }
-    //    v3_to_array(current_coords, o1_coords);
-    //    collides[i] = coords_overlap(
-    //        o1_coords[i]-ranges[0][i],
-    //        o1_coords[i]+ranges[0][i],
-    //        o2_coords[i]-ranges[1][i],
-    //        o2_coords[i]+ranges[1][i]
-    //    );
-    //}
-
-    //return collides[0] && collides[1] && collides[2];
     return true;
 }
-
-
 
 void obj_update_next_pos(struct object * object)
     /* Generate and store next position in object data. */
@@ -728,27 +699,10 @@ void pos_update(struct object * object)
     obj_update_next_pos(object);
     struct v3 offsets = {0};
     for (size_t i = 0; i<SIZE(floors); i++) {
-        obj_update_next_pos(&floors[i]);
-        bool collides = false;
-        if (pos_collides(object, &floors[i], 0)) {
-//            object->velocity.x += -object->velocity.x;
-            collides = true;
-        } else if (pos_collides(object, &floors[i], 1)) {
-//            object->velocity.y += -object->velocity.y;
-            collides = true;
-        } else if (pos_collides(object, &floors[i], 2)) {
-//            object->velocity.z += -object->velocity.z;
-            collides = true;
-        }
-        if (collides) {
+        if (pos_collides(object, &floors[i])) {
 
             struct v3 scaled_normal = v3_scale(&floors[i].normal, &object->velocity);
             struct v3 result_vector = v3_add(&scaled_normal, &object->velocity);
-
-            object->rotation_rad = floors[i].rotation_rad;
-            object->rotation_axis.x = floors[i].rotation_axis.x;
-            object->rotation_axis.y = floors[i].rotation_axis.y;
-            object->rotation_axis.z = floors[i].rotation_axis.z;
 
             object->velocity.x = result_vector.x;
             object->velocity.y = result_vector.y;
@@ -759,6 +713,8 @@ void pos_update(struct object * object)
     object->coords.x = object->next_pos.x;
     object->coords.y = object->next_pos.y;
     object->coords.z = object->next_pos.z;
+
+    obj_translate_v3(object, &object->next_pos);
 }
 
 void object_init(struct object * object)
@@ -839,8 +795,8 @@ int main(void)
     floors[0].scale.x = 4.0f;
 
     floors[0].transformation = m4_eye();
-    m4_translate(&floors[0].transformation, floors[0].coords);
-    m4_scale(&floors[0].transformation, floors[0].scale);
+    obj_translate(&floors[0]);
+    obj_scale(&floors[0]);
 
     // Make second floor tile.
     floors[1].vertices = &vertices_floor;
@@ -850,8 +806,8 @@ int main(void)
     floors[1].scale.x = 4.0f;
 
     floors[1].transformation = m4_eye();
-    m4_translate(&floors[1].transformation, floors[1].coords);
-    m4_scale(&floors[1].transformation, floors[1].scale);
+    obj_translate(&floors[1]);
+    obj_scale(&floors[1]);
 
     // Make third floor tile.
     floors[2].vertices = &vertices_floor;
@@ -864,13 +820,12 @@ int main(void)
     floors[2].rotation_axis.z = 1.0f;
 
     floors[2].transformation = m4_eye();
-    m4_rotate(&floors[2].transformation,
-               floors[2].rotation_rad,
-               floors[2].rotation_axis);
+    obj_rotate(&floors[2]);
     floors[2].normal.x = -sqrtf(0.5f);
     floors[2].normal.y = sqrtf(0.5f);
-    m4_translate(&floors[2].transformation, floors[2].coords);
-    m4_scale(&floors[2].transformation, floors[2].scale);
+    floors[2].transformation = m4_eye();
+    obj_translate(&floors[2]);
+    obj_scale(&floors[2]);
 
     // Set up cube.
     GLuint VBO_cube, VAO_cube;
@@ -986,7 +941,7 @@ int main(void)
         GLint uniform_color = glGetUniformLocation(program_shader_simple, "uniform_color");
 
         struct m4 mat_view = m4_eye();
-        m4_translate(&mat_view, (struct v3){0.0f, 0.0f, -3.0f});
+        m4_translate(&mat_view, &(struct v3){0.0f, 0.0f, -3.0f});
 
         // Set up time delta.
         time_current = glfwGetTime();
@@ -1053,9 +1008,10 @@ int main(void)
         obj_cube.velocity.y -= GRAVITY * time_delta;
 
         obj_cube.transformation = m4_eye();
-        m4_scale(&obj_cube.transformation, obj_cube.scale);
-        m4_translate(&obj_cube.transformation, obj_cube.coords);
-        m4_rotate(&obj_cube.transformation, obj_cube.rotation_rad, obj_cube.rotation_axis);
+        obj_scale(&obj_cube);
+        obj_rotate(&obj_cube);
+        obj_translate(&obj_cube);
+        obj_update_bounds(&obj_cube);
 
         pos_update(&obj_cube);
 
@@ -1092,7 +1048,7 @@ int main(void)
         glUniformMatrix4fv(uniform_model, 1, TRANSPOSE, DATm(eye));
         glUniformMatrix4fv(uniform_view, 1, TRANSPOSE, DATm(mat_view));
         glUniformMatrix4fv(uniform_projection, 1, TRANSPOSE, DATm(mat_projection));
-        GLfloat color_line[] = {0.0f, 0.0f, 1.0f, 1.0f};
+        GLfloat color_line[] = {0.0f, 1.0f, 0.0f, 1.0f};
         glUniform4fv(uniform_color, 1, DATv(color_line));
 
         glBindBuffer(GL_ARRAY_BUFFER, VBO_temp);

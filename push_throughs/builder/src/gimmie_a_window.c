@@ -350,11 +350,12 @@ struct object {
     struct m4 transformation;
     struct v3 coords;
     struct v3 velocity;
+    struct v3 rotation_velocity;
     struct v3 next_pos;
+    struct v3 next_rotation;
     struct v3 scale;
     struct v3 normal;
-    struct v3 rotation_axis;
-    float rotation_rad;
+    struct v3 rotation;
 };
 
 struct bound_box bound_box_get(struct object * object)
@@ -365,13 +366,13 @@ struct bound_box bound_box_get(struct object * object)
     memcpy(&local_copy, vertices->data, vertices->size);
 
     for (size_t i=0; i<vertices->points; i += 3) {
-        struct v4 temp_vector = {
-                                 local_copy[i],
-                                 local_copy[i+1],
-                                 local_copy[i+2],
-                                 1.0f
-                                };
-        struct v4 result = m4_mul_v4(&object->transformation, &temp_vector);
+        struct v4 temp_point = {
+                                local_copy[i],
+                                local_copy[i+1],
+                                local_copy[i+2],
+                                1.0f
+                               };
+        struct v4 result = m4_mul_v4(&object->transformation, &temp_point);
         memcpy(&local_copy[i], &result, 3*sizeof(GLfloat));
     }
 
@@ -452,9 +453,9 @@ void m4_rotate(struct m4 * m, float rad_angle, struct v3 axis)
 void obj_rotate(struct object * object)
 {
     // Rotate object.
-    m4_rotate(&object->transformation, object->rotation_rad, object->rotation_axis);
-    // Update bounds.
-    object->bounds = bound_box_get(object);
+    m4_rotate(&object->transformation, object->rotation.x, (struct v3){1.0f, 0.0f, 0.0f});
+    m4_rotate(&object->transformation, object->rotation.y, (struct v3){0.0f, 1.0f, 0.0f});
+    m4_rotate(&object->transformation, object->rotation.z, (struct v3){0.0f, 0.0f, 1.0f});
 }
 
 void obj_translate_v3(struct object * object, struct v3 * coords)
@@ -691,6 +692,10 @@ void obj_update_next_pos(struct object * object)
     object->next_pos.x = object->coords.x + object->velocity.x*time_delta;
     object->next_pos.y = object->coords.y + object->velocity.y*time_delta;
     object->next_pos.z = object->coords.z + object->velocity.z*time_delta;
+
+    object->next_rotation.x = object->rotation.x + object->rotation_velocity.x*time_delta;
+    object->next_rotation.y = object->rotation.y + object->rotation_velocity.y*time_delta;
+    object->next_rotation.z = object->rotation.z + object->rotation_velocity.z*time_delta;
 }
 
 void pos_update(struct object * object)
@@ -707,12 +712,24 @@ void pos_update(struct object * object)
             object->velocity.x = result_vector.x;
             object->velocity.y = result_vector.y;
             object->velocity.z = result_vector.z;
+
+            struct v3 * normal = &floors[i].normal;
+
+            object->rotation_velocity.x *= normal->x;
+            object->rotation_velocity.y *= normal->y;
+            object->rotation_velocity.z *= normal->z;
+
         }
     }
     obj_update_next_pos(object);
+
     object->coords.x = object->next_pos.x;
     object->coords.y = object->next_pos.y;
     object->coords.z = object->next_pos.z;
+
+    object->rotation.x = object->next_rotation.x;
+    object->rotation.y = object->next_rotation.y;
+    object->rotation.z = object->next_rotation.z;
 
     obj_translate_v3(object, &object->next_pos);
 }
@@ -732,11 +749,9 @@ void object_init(struct object * object)
     object->bounds = bound_box_get(object);
 
     /* Default rotation axis. */
-    object->rotation_axis.x = 0.0f;
-    object->rotation_axis.y = 1.0f;
-    object->rotation_axis.z = 0.0f;
-
-    object->rotation_rad = 0.0f;
+    object->rotation.x = 0.0f;
+    object->rotation.y = 0.0f;
+    object->rotation.z = 0.0f;
 
     /* Default normal. */
     object->normal.x = 0.0f;
@@ -816,8 +831,7 @@ int main(void)
     floors[2].coords.z = -20.0f;
     floors[2].coords.x =  2.0f;
     floors[2].scale.x = 4.0f;
-    floors[2].rotation_rad = M_PI * 0.25;
-    floors[2].rotation_axis.z = 1.0f;
+    floors[2].rotation.z = M_PI * 0.25;
 
     floors[2].transformation = m4_eye();
     obj_rotate(&floors[2]);
@@ -931,6 +945,8 @@ int main(void)
     glGenBuffers(1, &VBO_temp);
     glGenVertexArrays(1, &VAO_temp);
 
+    float * current_rotation_velocity = &obj_cube.rotation_velocity.y;
+
     while(!glfwWindowShouldClose(window)) {
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -951,6 +967,29 @@ int main(void)
         // Check keys.
         if (key_down[GLFW_KEY_ESCAPE]) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+
+        if (key_down[GLFW_KEY_SPACE]) {
+            obj_cube.velocity.y += 22.0f * time_delta;
+        }
+
+        float rotation_speed = 2.0f * time_delta;
+
+        if (key_down[GLFW_KEY_LEFT]) {
+            *current_rotation_velocity -= rotation_speed;
+        }
+        if (key_down[GLFW_KEY_RIGHT]) {
+            *current_rotation_velocity += rotation_speed;
+        }
+
+        if (key_down[GLFW_KEY_TAB]) {
+            if (*current_rotation_velocity == obj_cube.rotation_velocity.x) {
+                current_rotation_velocity = &obj_cube.rotation_velocity.y;
+            } else if (*current_rotation_velocity == obj_cube.rotation_velocity.y) {
+                current_rotation_velocity = &obj_cube.rotation_velocity.z;
+            } else if (*current_rotation_velocity == obj_cube.rotation_velocity.z) {
+                current_rotation_velocity = &obj_cube.rotation_velocity.x;
+            }
         }
 
         double val_delta_speed = val_cube_speed * time_delta;

@@ -168,14 +168,14 @@ struct v3 v3_sub(struct v3 v1, struct v3 v2)
     return (struct v3){v1.x - v2.x, v1.y - v2.y, v1.z - v2.z};
 }
 
-double v3_magnitude(struct v3 v)
+double v3_magnitude(struct v3 * v)
 {
-    return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    return sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
 }
 
 struct v3 v3_normalize(struct v3 v)
 {
-    double magnitude = v3_magnitude(v);
+    double magnitude = v3_magnitude(&v);
     return (struct v3){v.x/magnitude, v.y/magnitude, v.z/magnitude};
 }
 
@@ -187,6 +187,12 @@ struct v3 v3_cross(struct v3 v1, struct v3 v2)
         v1.x*v2.y - v1.y*v2.x
     };
 }
+
+double v3_dot(struct v3 * v1, struct v3 * v2)
+{
+    return v1->x*v2->x + v1->y*v2->y + v1->z*v2->z;
+}
+
 
 struct m4 {
     GLfloat data[4][4];
@@ -355,6 +361,8 @@ struct object {
     struct v3 next_rotation;
     struct v3 scale;
     struct v3 normal;
+    struct v3 local_x;
+    struct v3 local_z;
     struct v3 rotation;
 };
 
@@ -428,34 +436,71 @@ struct bound_box bound_box_get(struct object * object)
     }};
 }
 
-
-
-
-void m4_rotate(struct m4 * m, float rad_angle, struct v3 axis)
+struct m4 rotation_matrix(float rad_angle, struct v3 * axis)
 {
     float s = sinf(rad_angle);
     float c = cosf(rad_angle);
 
-    struct v3 na = v3_normalize(axis);
+    struct v3 na = v3_normalize(*axis);
 
-    struct m4 rotation = {{
+    return (struct m4){{
         {c + na.x*na.x*(1 - c),     na.x*na.y*(1 - c) - na.z*s, na.x*na.z*(1-c)+na.y*s,  0.0f},
         {na.y*na.x*(1-c)+na.z*s,    c+na.y*na.y*(1-c),          na.y*na.z*(1-c)-na.x*s,  0.0f},
         {na.z*na.x*(1-c)-na.y*s,    na.z*na.y*(1-c)+na.x*s,     c+na.z*na.z*(1-c),       0.0f},
         {0.0f,                      0.0f,                       0.0f,                    1.0f}
     }};
+}
 
-    struct m4 result = m4_mul(m, &rotation);
+
+void mv4_rotate(struct v3 * v, float rad_angle, struct v3 * axis)
+{
+    float result[4] = {0};
+    struct m4 m_rot = rotation_matrix(rad_angle, axis);
+
+    float data_buffer[3] = {v->x, v->y, v->z};
+
+    for (size_t i=0; i<4; i++) {
+        for (size_t j=0; j<4; j++) {
+            result[i] += m_rot.data[i][j] * data_buffer[j];
+        }
+    }
+    v->x = result[0];
+    v->y = result[1];
+    v->z = result[2];
+}
+
+
+void m4_rotate(struct m4 * m, float rad_angle, struct v3 * axis)
+{
+    struct m4 m_rot = rotation_matrix(rad_angle, axis);
+    struct m4 result = m4_mul(m, &m_rot);
     m4_write(m, &result);
-
 }
 
 void obj_rotate(struct object * object)
 {
+
+    struct v3 x_axis = {1.0f, 0.0f, 0.0f};
+    struct v3 y_axis = {0.0f, 1.0f, 0.0f};
+    struct v3 z_axis = {0.0f, 0.0f, 1.0f};
+
     // Rotate object.
-    m4_rotate(&object->transformation, object->rotation.x, (struct v3){1.0f, 0.0f, 0.0f});
-    m4_rotate(&object->transformation, object->rotation.y, (struct v3){0.0f, 1.0f, 0.0f});
-    m4_rotate(&object->transformation, object->rotation.z, (struct v3){0.0f, 0.0f, 1.0f});
+    m4_rotate(&object->transformation, object->rotation.x, &x_axis);
+    m4_rotate(&object->transformation, object->rotation.y, &y_axis);
+    m4_rotate(&object->transformation, object->rotation.z, &z_axis);
+
+    // Rotate normal and other vectors.
+    //mv4_rotate(&object->normal, object->rotation.x, &x_axis);
+    //mv4_rotate(&object->normal, object->rotation.y, &y_axis);
+    //mv4_rotate(&object->normal, object->rotation.z, &z_axis);
+
+    //mv4_rotate(&object->local_x, object->rotation.x, &x_axis);
+    //mv4_rotate(&object->local_x, object->rotation.y, &y_axis);
+    //mv4_rotate(&object->local_x, object->rotation.z, &z_axis);
+
+    //mv4_rotate(&object->local_z, object->rotation.x, &x_axis);
+    //mv4_rotate(&object->local_z, object->rotation.y, &y_axis);
+    //mv4_rotate(&object->local_z, object->rotation.z, &z_axis);
 }
 
 void obj_translate_v3(struct object * object, struct v3 * coords)
@@ -588,49 +633,102 @@ void callback_keys(GLFWwindow * window, int key, int scancode, int action, int m
 
 }
 
-bool coords_overlap(double min1, double max1, double min2, double max2)
-    /* Check overlap of 4 values. */
+bool coords_overlap(double min1,
+                    double max1,
+                    double min2,
+                    double max2,
+                    float * offset,
+                    float o1_velocity,
+                    float normal_component)
+
+    /* Check overlap of 4 values.
+     *
+     * NOTE: The first set of coordinates will currently always be the "active"
+     *       object, which means that the distance to move 1 to avoid collision
+     *       should be returned.
+     *
+     * - <--- velocity ---> +
+     */
 {
-    // 1: x-----x
+
+    bool pos_velocity = o1_velocity > 0;
+    bool neg_velocity = !pos_velocity;
+
+    bool velocity_along_normal = o1_velocity * normal_component > 0;
+
+    // 1: x-----x -->
     // 2:   x-------
-    if (min2 >= min1 && min2 <= max1) {
+    // o:   |---|
+    if (min2 >= min1 && min2 <= max1 && pos_velocity) {
+        if (velocity_along_normal) {
+            *offset = min2 - min1;
+        } else {
+            *offset = max1 - min2;
+        }
         return true;
     }
 
-    // 1:     x-----x
+    // 1: <-- x-----x
     // 2:  -------x
-    if (max2 <= max1 && max2 >= min1) {
+    // o:     |---|
+    if (max2 <= max1 && max2 >= min1 && neg_velocity) {
+        *offset = max2 - min1;
         return true;
     }
 
     // 1:   x-------
     // 2: x-----x
+    // o:   |---|
     if (min1 >= min2 && min1 <= max2) {
+        *offset = max2 - min1;
         return true;
     }
 
     // 1:  -------x
     // 2:     x-----x
+    // o:     |---|
     if (max1 <= max2 && max1 >= min2) {
+        *offset = max1 - min2;
         return true;
     }
 
-    // 1: x------x
+    // 1: x----------x
     // 2:   x--x
+    //o1: |----|
+    //o2:   |--------|
+    //   return smallest offset.
     if (min1 <= min2 && max1 >= max2) {
+        double offset1 = max2 - min1;
+        double offset2 = max1 - min2;
+        if (offset1 < offset2) {
+            *offset = offset1;
+        } else {
+            *offset = offset2;
+        }
         return true;
     }
 
-    // 1:    x--x
-    // 2:   x-----x
+    // 1:     x--x
+    // 2:   x----------x
+    //o1:   |----|
+    //o2:      |-------|
+    //   return smallest offset
     if (min2 <= min1 && max2 >= max1) {
+        double offset1 = max1 - min2;
+        double offset2 = max2 - min1;
+        if (offset1 < offset2) {
+            *offset = offset1;
+        } else {
+            *offset = offset2;
+        }
         return true;
     }
 
+    *offset = 0;
     return false;
 }
 
-bool pos_collides(struct object * o1, struct object * o2)
+bool pos_collides(struct object * o1, struct object * o2, struct v3 * offset)
 {
     struct bound_box * b1 = &o1->bounds;
     struct bound_box * b2 = &o2->bounds;
@@ -638,8 +736,8 @@ bool pos_collides(struct object * o1, struct object * o2)
     struct v3 * s1 = &o1->scale;
     struct v3 * s2 = &o2->scale;
 
-    struct v3 c1 = o1->coords;
-    struct v3 c2 = o2->coords;
+    struct v3 c1 = o1->next_pos;
+    struct v3 c2 = o2->next_pos;
 
     double xrange1 = (b1->data[1][0] - b1->data[0][0])*0.5f*s1->x;
     double xrange2 = (b2->data[1][0] - b2->data[0][0])*0.5f*s2->x;
@@ -650,7 +748,7 @@ bool pos_collides(struct object * o1, struct object * o2)
     double xmax2 = c2.x + xrange2;
     double xmin2 = c2.x - xrange2;
 
-    bool collides_x = coords_overlap(xmin1, xmax1, xmin2, xmax2);
+    bool collides_x = coords_overlap(xmin1, xmax1, xmin2, xmax2, &offset->x, o1->velocity.x, o2->normal.x);
     if (!collides_x) {
         return false;
     }
@@ -664,10 +762,12 @@ bool pos_collides(struct object * o1, struct object * o2)
     double ymax2 = c2.y + yrange2;
     double ymin2 = c2.y - yrange2;
 
-    bool collides_y = coords_overlap(ymin1, ymax1, ymin2, ymax2);
+    bool collides_y = coords_overlap(ymin1, ymax1, ymin2, ymax2, &offset->y, o1->velocity.y, o2->normal.y);
     if (!collides_y) {
         return false;
     }
+
+    collides_y = coords_overlap(ymin1, ymax1, ymin2, ymax2, &offset->y, o1->velocity.y, o2->normal.y);
 
     double zrange1 = (b1->data[0][2] - b1->data[4][2])*0.5f*s1->z;
     double zrange2 = (b2->data[0][2] - b2->data[4][2])*0.5f*s2->z;
@@ -678,7 +778,7 @@ bool pos_collides(struct object * o1, struct object * o2)
     double zmax2 = c2.z + zrange2;
     double zmin2 = c2.z - zrange2;
 
-    bool collides_z = coords_overlap(zmin1, zmax1, zmin2, zmax2);
+    bool collides_z = coords_overlap(zmin1, zmax1, zmin2, zmax2, &offset->z, o1->velocity.z, o2->normal.z);
     if (!collides_z) {
         return false;
     }
@@ -704,21 +804,20 @@ void pos_update(struct object * object)
     obj_update_next_pos(object);
     struct v3 offsets = {0};
     for (size_t i = 0; i<SIZE(floors); i++) {
-        if (pos_collides(object, &floors[i])) {
+        obj_update_next_pos(&floors[i]);
 
-            struct v3 scaled_normal = v3_scale(&floors[i].normal, &object->velocity);
-            struct v3 result_vector = v3_add(&scaled_normal, &object->velocity);
-
-            object->velocity.x = result_vector.x;
-            object->velocity.y = result_vector.y;
-            object->velocity.z = result_vector.z;
+        if (pos_collides(object, &floors[i], &offsets)) {
 
             struct v3 * normal = &floors[i].normal;
+            struct v3 * velocity = &object->velocity;
 
-            object->rotation_velocity.x *= normal->x;
-            object->rotation_velocity.y *= normal->y;
-            object->rotation_velocity.z *= normal->z;
+            velocity->x += -1 * velocity->x * normal->x;
+            velocity->y += -1 * velocity->y * normal->y;
+            velocity->z += -1 * velocity->z * normal->z;
 
+            object->coords.x += (normal->x != 0.0f) ? offsets.x : 0;
+            object->coords.y += (normal->y != 0.0f) ? offsets.y : 0;
+            object->coords.z += (normal->z != 0.0f) ? offsets.z : 0;
         }
     }
     obj_update_next_pos(object);
@@ -727,9 +826,9 @@ void pos_update(struct object * object)
     object->coords.y = object->next_pos.y;
     object->coords.z = object->next_pos.z;
 
-    object->rotation.x = object->next_rotation.x;
-    object->rotation.y = object->next_rotation.y;
-    object->rotation.z = object->next_rotation.z;
+    object->rotation.x = fmodf(object->next_rotation.x, 2*M_PI);
+    object->rotation.y = fmodf(object->next_rotation.y, 2*M_PI);
+    object->rotation.z = fmodf(object->next_rotation.z, 2*M_PI);
 
     obj_translate_v3(object, &object->next_pos);
 }
@@ -757,6 +856,16 @@ void object_init(struct object * object)
     object->normal.x = 0.0f;
     object->normal.y = 1.0f;
     object->normal.z = 0.0f;
+
+    /* Default local_x. */
+    object->local_x.x = 1.0f;
+    object->local_x.y = 0.0f;
+    object->local_x.z = 0.0f;
+
+    /* Default local_z. */
+    object->local_z.x = 0.0f;
+    object->local_z.y = 0.0f;
+    object->local_z.z = 1.0f;
 }
 
 int main(void)
@@ -815,10 +924,10 @@ int main(void)
 
     // Make second floor tile.
     floors[1].vertices = &vertices_floor;
-    object_init(&floors[1]);
     floors[1].coords.y = -2.5f;
     floors[1].coords.z = -20.0f;
     floors[1].scale.x = 4.0f;
+    object_init(&floors[1]);
 
     floors[1].transformation = m4_eye();
     obj_translate(&floors[1]);
@@ -834,10 +943,9 @@ int main(void)
     floors[2].rotation.z = M_PI * 0.25;
 
     floors[2].transformation = m4_eye();
-    obj_rotate(&floors[2]);
-    floors[2].normal.x = -sqrtf(0.5f);
-    floors[2].normal.y = sqrtf(0.5f);
-    floors[2].transformation = m4_eye();
+//   floors[2].normal.x = -1.0f;
+//   floors[2].normal.y = 1.0f;
+//    obj_rotate(&floors[2]);
     obj_translate(&floors[2]);
     obj_scale(&floors[2]);
 
@@ -945,7 +1053,7 @@ int main(void)
     glGenBuffers(1, &VBO_temp);
     glGenVertexArrays(1, &VAO_temp);
 
-    float * current_rotation_velocity = &obj_cube.rotation_velocity.y;
+    float * current_rotation_velocity = &obj_cube.rotation_velocity.z;
 
     while(!glfwWindowShouldClose(window)) {
 
@@ -957,7 +1065,7 @@ int main(void)
         GLint uniform_color = glGetUniformLocation(program_shader_simple, "uniform_color");
 
         struct m4 mat_view = m4_eye();
-        m4_translate(&mat_view, &(struct v3){0.0f, 0.0f, -3.0f});
+        m4_translate(&mat_view, &(struct v3){0.0f, 1.0f, -3.0f});
 
         // Set up time delta.
         time_current = glfwGetTime();
@@ -970,7 +1078,11 @@ int main(void)
         }
 
         if (key_down[GLFW_KEY_SPACE]) {
-            obj_cube.velocity.y += 22.0f * time_delta;
+            obj_cube.velocity.y += (10.0f + GRAVITY) * time_delta;
+        }
+
+        if (key_down[GLFW_KEY_M]) {
+            obj_cube.coords.y = 0.0f;
         }
 
         float rotation_speed = 2.0f * time_delta;

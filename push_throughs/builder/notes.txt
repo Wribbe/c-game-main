@@ -1,0 +1,16 @@
+  * Can't jump when landed on the floor.
+    - velocity is set to the invers of itself * length of the normal (1.0f)
+    - Does not budge even when resulting velocity is positive along y-axis.
+    - Where does it collide?
+    - Collides the first thing it does.
+    - The floor appears to collide with the box due to coordinates not being
+      updated when the floor is set at lower coordinates.....
+
+
+  [ ] -
+  [ ] -
+  [ ] -
+  [ ] -
+  [ ] -
+  [ ] -
+  [ ] -

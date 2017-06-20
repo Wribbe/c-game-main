@@ -1,13 +1,140 @@
-  * Can't jump when landed on the floor.
+
+  [x] - Can't jump when landed on the floor.
     - velocity is set to the invers of itself * length of the normal (1.0f)
     - Does not budge even when resulting velocity is positive along y-axis.
     - Where does it collide?
     - Collides the first thing it does.
     - The floor appears to collide with the box due to coordinates not being
-      updated when the floor is set at lower coordinates.....
+      updated when the floor is set at lower coordinates.
+
+  [ ] - Possible to move on inclining surface.
+    - Cube disappears when moved to tilted surface, what happens?
+    - Set breakpoint at collision when floor[2].
+
+      (gdb) print *normal
+      $7 = {x = -0.707106769, y = 0.707106769, z = 0}
+
+      Normal seems fine.
+
+    - Cube has its x-coordinate set to 6 due to having the normals x-component
+      > 0 and the x-offset being ~6.
+
+    [x] - Check the collision.
+
+      Not much to see.
+
+    - Try to find the smallest offset, take that and move the cube that amount
+      along the normal, should be correct.
+    - Launches the cube way up in the air when on plane ground.
+    - Normal should not do anything, a * 1 is still a, and a <= 1.
+    - Assigning smallest in wrong order...
+    - Assigning smallest to actual offset works better then assigning all
+      offsets to offsets.x. (plane surface)
+    - Cube slides away to the right when trying to going up the incline.
+    - NOTE: smallest offset could potentially be a problem if the cube is right
+            on the edge of a floor, such that the offset for x is smaller than
+            the offset for y, which is currently the assumed smallest offset.
+    - Probably something to do with adding the negative multiple of the
+      velocity multiplied by the normal component? In this case it is negative
+      x. The velocity component x is positive, -> pos * -1 * neg = pos, adding
+      positive velocity to positive velocity = speedup.
+    - The main goal is to stop things from falling. The easy case is for
+      stopping a cube with negative y-velocity that is hitting a flat plane
+      with a positive y-normal. This is done by counteracting the velocity and
+      moving the cube so that it does no longer intersect the plane. Dependant
+      on the direction of the velocity. The same effect as setting all
+      velocities to 0? Nope, then the cube can't travel uphill at all, same as
+      the old problem.
+
+           ___                           ___
+          |   |                         |   |-->        /
+          |___|                         |___|     _   /
+            |                             |      |\ /
+            v                             v       /
+                        ^                       /
+          ______________|__________           /
 
 
-  [ ] -
+        What about projecting velocities along the planes local coordinate
+        system? That was something that was brought up before. All 3 of the
+        initial vectors for a plane are rotated accordingly when the plane is
+        rotated (normal,local_x,local_z).
+
+             normal--> ^
+                       |   a   b
+                       |_  v   v
+                       '-'->--->
+                        \  '
+                         _\| <---- velocity
+
+                      a - projection of velocity on b.
+                      b - axis perpendicular to normal.
+
+        Does it matter how the perpendicular axis is rotated as long as it is
+        in the plane? How does the direction of the normal factor into the
+        direction of the projection?
+
+          From above:
+
+                  0---->
+                  +
+                  v
+
+        The projection of the downward arrow (pointing up out of screen) on
+        the right arrow, perpendicular to the normal (O in picture) would be
+        0. Should the velocity be projected on all the local axes? What about
+        if the local axes have rotated out of sync with the original
+        coordinate system?
+
+        Scalar projection:
+
+          va1 = |va|cos(\omega)*vb_unit
+
+          struct v3_project(struct v3 * v, struct v3 * onto);
+
+            need, angle;
+              va \dot vb = ||va|| ||vb|| cos(\omega) ->
+              cos(\omega) = (va \dot vb) / (||va|| ||vb||) ->
+              \omega = arccos ((va \dot vb) / (||va|| ||vb||))
+
+        The velocities should be projected onto the new coordinate-system in the
+        plane?
+
+        Hmm, currently the velocity is separate scalars in x,y,z, a bit weird
+        to project? Project the whole velocity vector? against what? resulting
+        in what? Project the x-component as a vector against the new
+        plane-x-axis? maybe?
+
+        Trying this:
+
+            velocity->x = v3_project(&(struct v3){velocity->x, 0, 0}, local_x).x;
+            velocity->y = v3_project(&(struct v3){0, velocity->y, 0}, normal).y;
+            velocity->z = v3_project(&(struct v3){0, 0, velocity->z}, local_z).z;
+
+        Cube does not stay on flat ground, disappears.
+
+        What are the before and after velocity values?
+
+          before: velocity = {x = 0, y = -4.85003185, z = 0}
+          after: {x = -nan(0x400000), y = nan(0x400000), z = -nan(0x400000)}
+
+        not good, what happened?
+        don't check for 0, division with 0? Retuning 0 if velocity is zero,
+        still goes through.
+
+        The velocity is the same, omega is nan. angle goes from 0.025
+        nan(0x80000000) between angle assignment and 'return angle'???
+
+        if evaluation - 1e-4 < -1 set to -1, results in PI after acos.
+        cos(PI) = -1, subtract the resulting velocity? Works until we move,
+        disappears. Fixed by checking + eps > 1, can't move now though (any
+        axis).
+
+
+
+
+
+
   [ ] -
   [ ] -
   [ ] -

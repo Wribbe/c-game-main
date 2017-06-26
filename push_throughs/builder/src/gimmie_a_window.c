@@ -930,6 +930,82 @@ void object_init(struct object * object)
     object->local_z.z = 1.0f;
 }
 
+void construct_box(struct v3 * p,
+                   struct v3 * x,
+                   struct v3 * y,
+                   struct v3 * z,
+                   GLfloat * box_data)
+{
+    // Constructing the 'front' face.
+    struct v3 f_bottom_left = v3_add(p, &(struct v3){0,0,0});
+    struct v3 f_bottom_right = v3_add(&f_bottom_left,x);
+    struct v3 f_top_right = v3_add(&f_bottom_right,y);
+    struct v3 f_top_left = v3_sub(f_top_right,*x);
+    // Constructing the 'back' face.
+    struct v3 b_bottom_left = v3_add(p, z);
+    struct v3 b_bottom_right = v3_add(&b_bottom_left,x);
+    struct v3 b_top_right = v3_add(&b_bottom_right,y);
+    struct v3 b_top_left = v3_sub(b_top_right,*x);
+    // Set up data structure for copy.
+    struct v3 temp_data[] = {
+        // Front face.
+        f_bottom_left,
+        f_bottom_right,
+        f_top_right,
+
+        f_bottom_left,
+        f_top_right,
+        f_top_left,
+
+        // Back face.
+        b_bottom_left,
+        b_bottom_right,
+        b_top_right,
+
+        b_bottom_left,
+        b_top_right,
+        b_top_left,
+
+        // Right face.
+        f_bottom_right,
+        b_bottom_right,
+        b_top_right,
+
+        f_bottom_right,
+        b_top_right,
+        f_top_right,
+
+        // Left face.
+        f_bottom_left,
+        b_bottom_left,
+        b_top_left,
+
+        f_bottom_left,
+        b_top_left,
+        f_top_left,
+
+        // Top side.
+        f_top_left,
+        f_top_right,
+        b_top_right,
+
+        f_top_left,
+        b_top_right,
+        b_top_left,
+
+        // Bottom side.
+        f_bottom_left,
+        f_bottom_right,
+        b_bottom_right,
+
+        f_bottom_left,
+        b_bottom_right,
+        b_bottom_left,
+    };
+
+    memcpy(box_data, temp_data, sizeof(GLfloat)*6*6*3);
+}
+
 int main(void)
 {
     GLFWwindow * window;
@@ -962,10 +1038,22 @@ int main(void)
     glfwSetKeyCallback(window, callback_keys);
 
     // Load cube data into vertices structs.
-    size_t size_data_cube = sizeof(data_cube);
-    char * dynamic_data_cube = malloc(size_data_cube);
-    memcpy(dynamic_data_cube, data_cube, size_data_cube);
-    load_vertices(&vertices_cube, dynamic_data_cube);
+//    size_t size_data_cube = sizeof(data_cube);
+//    char * dynamic_data_cube = malloc(size_data_cube);
+//    memcpy(dynamic_data_cube, data_cube, size_data_cube);
+    GLfloat dynamic_data_cube[6*6*3];
+    construct_box(&(struct v3){0,0,0},
+                  &(struct v3){1,0,0},
+                  &(struct v3){0,1,0},
+                  &(struct v3){0,0,1},
+                  dynamic_data_cube);
+
+    vertices_cube.data = &dynamic_data_cube[0];
+    vertices_cube.size = sizeof(dynamic_data_cube);
+    vertices_cube.vertices = 6*6;
+    vertices_cube.points = 6*6*3;
+
+//    load_vertices(&vertices_cube, dynamic_data_cube);
     struct object obj_cube = {0};
     obj_cube.vertices = &vertices_cube;
     object_init(&obj_cube);
@@ -1284,7 +1372,7 @@ int main(void)
     glfwTerminate();
 
     // Free object data.
-    free(dynamic_data_cube);
+//    free(dynamic_data_cube);
     free(dynamic_data_floor);
 
     return 0;

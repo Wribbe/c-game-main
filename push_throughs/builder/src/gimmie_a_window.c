@@ -930,19 +930,28 @@ void object_init(struct object * object)
     object->local_z.z = 1.0f;
 }
 
-void construct_box(struct v3 * p,
+void construct_box(struct v3 * p_unshifted,
                    struct v3 * x,
                    struct v3 * y,
                    struct v3 * z,
                    GLfloat * box_data)
 {
+    double half_mag_x = v3_magnitude(x)*0.5f;
+    double half_mag_y = v3_magnitude(y)*0.5f;
+    double half_mag_z = v3_magnitude(z)*0.5f;
+
+    // Shift p, center around origo.
+    struct v3 p = v3_add(p_unshifted, &(struct v3){-half_mag_x,
+                                                   -half_mag_y,
+                                                   -half_mag_z});
+
     // Constructing the 'front' face.
-    struct v3 f_bottom_left = v3_add(p, &(struct v3){0,0,0});
+    struct v3 f_bottom_left = v3_add(&p, &(struct v3){0,0,0});
     struct v3 f_bottom_right = v3_add(&f_bottom_left,x);
     struct v3 f_top_right = v3_add(&f_bottom_right,y);
     struct v3 f_top_left = v3_sub(f_top_right,*x);
     // Constructing the 'back' face.
-    struct v3 b_bottom_left = v3_add(p, z);
+    struct v3 b_bottom_left = v3_add(&p, z);
     struct v3 b_bottom_right = v3_add(&b_bottom_left,x);
     struct v3 b_top_right = v3_add(&b_bottom_right,y);
     struct v3 b_top_left = v3_sub(b_top_right,*x);
@@ -1043,15 +1052,15 @@ int main(void)
 //    memcpy(dynamic_data_cube, data_cube, size_data_cube);
     GLfloat dynamic_data_cube[6*6*3];
     construct_box(&(struct v3){0,0,0},
-                  &(struct v3){1,0,0},
-                  &(struct v3){0,1,0},
-                  &(struct v3){0,0,1},
+                  &(struct v3){0.3,0,0},
+                  &(struct v3){0,0.7,0},
+                  &(struct v3){0,0,0.1},
                   dynamic_data_cube);
 
     vertices_cube.data = &dynamic_data_cube[0];
     vertices_cube.size = sizeof(dynamic_data_cube);
-    vertices_cube.vertices = 6*6;
     vertices_cube.points = 6*6*3;
+    vertices_cube.vertices = vertices_cube.points/3;
 
 //    load_vertices(&vertices_cube, dynamic_data_cube);
     struct object obj_cube = {0};

@@ -33,7 +33,14 @@ set_parsing_status(int c, int prev, bool * line, bool * mulline)
 }
 
 void
-main                            (int argc, const char ** argv)
+print_between (const char * a, const char * b)
+    /* Print the string between the two pointers. */
+{
+    printf("%.s", b-a, a);
+}
+
+void
+main (int argc, const char ** argv)
     /* Read text and spit it back again. */
 {
     if (argc < MINARGS) {
@@ -56,6 +63,9 @@ main                            (int argc, const char ** argv)
     char * buffer_stop = buffer_beginning;
     char * buffer_end = buffer_beginning + size_buffer_beginning;
 
+    char * last_whitsepace = buffer_beginning;
+    char * backtrack_from_space = buffer_beginning;
+
     bool IN_FUNCTION_COMMENT = false;
     bool IN_LINE_COMMENT = false;
     bool IN_MULLINE_COMMENT = false;
@@ -64,9 +74,9 @@ main                            (int argc, const char ** argv)
     if (current == EOF) {
         DIE("Was nothing to read in file: \"%s\"\n", filename);
     }
-
+    int prev = current; // Doesn't really matter.
     int next = fgetc(filep);
-    for (; current != EOF; current=next, next=fgetc(filep)) {
+    for (; current != EOF; prev=current, current=next, next=fgetc(filep)) {
         // Character manipulations.
         if (isspace(next) && isspace(current)) {
             // Compress whitespace.
@@ -79,42 +89,38 @@ main                            (int argc, const char ** argv)
             current = ' ';
         }
 
+        // Keep track of last whiespace.
+        if (current == ' ') {
+            last_whitsepace = buffer_stop;
+        }
+
+        // Hit a '(' where previous was not a space.
+        if (current == '(' && !isspace(prev)) {
+            // Iterate backwards until return value is found.
+            backtrack_from_space = last_whitsepace;
+            while (!isspace(*backtrack_from_space)) {
+                if (backtrack_from_space-1 < buffer_start) {
+                    // Wrapping around.
+                    backtrack_from_space = buffer_end;
+                }
+                backtrack_from_space--;
+            }
+            print_between(backtrack_from_space, buffer_stop);
+        }
+
+        // Write current char to buffer and advance.
         *buffer_stop++ = current;
         if (buffer_stop+1 >= buffer_end) {
-            printf("%.*s", buffer_stop-buffer_start, buffer_start);
+            print_between(buffer_start, buffer_stop);
+            // Realign buffer pointers.
             buffer_start = buffer_stop = buffer_beginning;
         }
-//        if (current == '\n' ) {
-//           if (buffer_stop < buffer_start) {
-//               printf("%*c", buffer_end-buffer_stop, buffer_stop);
-//               printf("%*c", buffer_start-buffer_beginning, buffer_beginning);
-//           } else {
-//               *buffer_stop = '\0';
-//               printf("%s", buffer_start);
-//           }
-//           buffer_stop = buffer_start;
-//           current = ' ';
-//        }
-
-//        set_parsing_status(c, prev, &IN_LINE_COMMENT, &IN_MULLINE_COMMENT);
-//
-//        if (IN_LINE_COMMENT || IN_MULLINE_COMMENT) {
-//            *buffer_stop++ = c;
-//            if (buffer_stop > buffer_beginning + size_buffer_beginning) {
-//                buffer_stop = buffer_beginning;
-//            }
-//        } else if (pos_buffer > buffer_line) {
-//            *buffer_stop = '\0';
-//            printf("\n ---> Found comment: \n%s\n", buffer_line);
-//            pos_buffer = buffer_line;
-//        }
-//        if (IN_LINE_COMMENT && c == '\n') {
-//            IN_LINE_COMMENT = false;
-//        }
     }
 
+    // Flush anything left in buffer.
     if (buffer_stop > buffer_start) {
-        printf("%.*s", buffer_stop-buffer_start, buffer_start);
+        print_between(buffer_start, buffer_stop);
+        // Realign buffer pointers.
         buffer_start = buffer_stop = buffer_beginning;
     }
 

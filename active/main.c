@@ -4,7 +4,7 @@
 #include "gl3w.h"
 #include <GLFW/glfw3.h>
 
-char *
+GLchar *
 read_file(const char * filepath)
 {
     FILE * fpointer =  fopen(filepath, "r");
@@ -14,10 +14,10 @@ read_file(const char * filepath)
     }
 
     fseek(fpointer, 0, SEEK_END);
-    size_t size = ftell(fpointer)+1;
+    size_t size = ftell(fpointer);
     rewind(fpointer);
 
-    char * data = malloc(size);
+    GLchar * data = malloc(size+1);
     if (data == NULL) {
         fprintf(stderr, "Could not allocate memory for reading file,"
                 " aborting.\n");
@@ -25,9 +25,73 @@ read_file(const char * filepath)
     }
 
     fread(data, size, 1, fpointer);
-    data[size-1] = '\0';
+    data[size] = '\0';
 
     return data;
+}
+
+GLuint
+create_shader_program(const char * vertex_source_path,
+                      const char * fragment_source_path)
+{
+    GLchar * source_vertex = read_file(vertex_source_path);
+    GLchar * source_fragment = read_file(fragment_source_path);
+
+    GLuint shader_vert = glCreateShader(GL_VERTEX_SHADER);
+    GLuint shader_frag = glCreateShader(GL_FRAGMENT_SHADER);
+
+    glShaderSource(shader_vert, 1, (const GLchar **)&source_vertex, NULL);
+    glShaderSource(shader_frag, 1, (const GLchar **)&source_fragment, NULL);
+
+    size_t size_buffer = 1024;
+    char buffer_log[size_buffer];
+    GLint success = 0;
+
+    glCompileShader(shader_vert);
+    glGetShaderiv(shader_vert, GL_COMPILE_STATUS, &success);
+    if (success != GL_TRUE) {
+        glGetShaderInfoLog(shader_vert, size_buffer, NULL, buffer_log);
+        fprintf(stderr,
+                "Compilation of vertex shader failed, aborting: \n%s\n",
+                buffer_log);
+        fprintf(stderr, "Shader data:\n\n%s\n", source_vertex);
+        exit(EXIT_FAILURE);
+    }
+
+    glCompileShader(shader_frag);
+    glGetShaderiv(shader_frag, GL_COMPILE_STATUS, &success);
+    if (success != GL_TRUE) {
+        glGetShaderInfoLog(shader_frag, size_buffer, NULL, buffer_log);
+        fprintf(stderr,
+                "Compilation of fragment shader failed, aborting: \n%s\n",
+                buffer_log);
+        fprintf(stderr, "Shader data:\n\n%s\n", source_fragment);
+        exit(EXIT_FAILURE);
+    }
+
+    GLuint program = glCreateProgram();
+
+    glAttachShader(program, shader_vert);
+    glAttachShader(program, shader_frag);
+
+    glLinkProgram(program);
+    glGetProgramiv(program, GL_LINK_STATUS, &success);
+
+    if (success != GL_TRUE) {
+        glGetProgramInfoLog(program, size_buffer, NULL, buffer_log);
+        fprintf(stderr,
+                "Linking of program failed, aborting: \n%s\n",
+                buffer_log);
+        exit(EXIT_FAILURE);
+    }
+
+    glDeleteShader(shader_vert);
+    glDeleteShader(shader_frag);
+
+    free(source_vertex);
+    free(source_fragment);
+
+    return program;
 }
 
 int
@@ -67,8 +131,9 @@ main(void)
     printf("OpenGL %s, GLSL %s\n", glGetString(GL_VERSION),
             glGetString(GL_SHADING_LANGUAGE_VERSION));
 
-    char * test = read_file("vert_simple.glsl");
-    printf("test: %s\n", test);
+    GLuint program = create_shader_program("vert_simple.glsl",
+                                           "frag_simple.glsl");
+    glUseProgram(program);
 
     /* Loop until the user closes window. */
     while (!glfwWindowShouldClose(window)) {
@@ -84,7 +149,6 @@ main(void)
     }
 
     glfwTerminate();
-    free(test);
 
     return EXIT_SUCCESS;
 }

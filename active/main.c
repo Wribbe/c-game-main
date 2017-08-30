@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -94,6 +95,45 @@ create_shader_program(const char * vertex_source_path,
     return program;
 }
 
+size_t
+get_data(const char * filepath, GLfloat ** float_data)
+{
+    char * data = read_file(filepath);
+    size_t num_values = 1;
+    char * pointer = data;
+    for (;*pointer != '\0'; pointer++) {
+        if (*pointer == ',') {
+            num_values++;
+        }
+    }
+
+    *float_data = malloc(num_values*sizeof(GLfloat));
+    if (*float_data == NULL) {
+        fprintf(stderr,
+                "Could not allocate enough memory for float data, "
+                "aborting.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    char * data_pointer = data;
+    float * current_float = *float_data;
+
+    for(;;data_pointer++) {
+        char c = *data_pointer;
+        if (c == '\0') {
+            break;
+        }
+        if(!isdigit(c)) {
+            continue;
+        }
+        *current_float++ = strtof(data_pointer, &data_pointer);
+    }
+
+    free(data);
+
+    return num_values;
+}
+
 int
 main(void)
 {
@@ -134,6 +174,12 @@ main(void)
     GLuint program = create_shader_program("vert_simple.glsl",
                                            "frag_simple.glsl");
     glUseProgram(program);
+    GLfloat * data_triangle = NULL;
+    size_t num_elements = get_data("triangle.txt", &data_triangle);
+    printf("Got %zu elements,\n", num_elements);
+    for (size_t i=0; i<num_elements; i++) {
+        printf("Data[%zu] = %.2f\n", i, data_triangle[i]);
+    }
 
     /* Loop until the user closes window. */
     while (!glfwWindowShouldClose(window)) {

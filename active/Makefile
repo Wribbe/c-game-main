@@ -13,3 +13,7 @@ gl3w.o : gl3w.c
 
 main : main.o gl3w.o
 	gcc $^ -o main ${CFLAGS} ${GRAPHICS_FLAGS} ${GENERAL_LIBRARIES}
+
+clean:
+	@rm -rf *.o
+	@rm -rf vgcore*

@@ -6,10 +6,10 @@ GRAPHICS_FLAGS := -lGLEW -lglfw3 -lGL -lX11 -lXrandr -lXi -lXxf86vm \
 all: main
 
 main.o : main.c
-	gcc -c $^
+	gcc -c $^ ${CFLAGS}
 
 gl3w.o : gl3w.c
-	gcc -c $^
+	gcc -c $^ ${CFLAGS}
 
 main : main.o gl3w.o
 	gcc $^ -o main ${CFLAGS} ${GRAPHICS_FLAGS} ${GENERAL_LIBRARIES}

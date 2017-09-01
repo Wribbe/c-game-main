@@ -123,7 +123,7 @@ get_data(const char * filepath, GLfloat ** float_data)
         if (c == '\0') {
             break;
         }
-        if(!isdigit(c)) {
+        if(c != '-' && c != '+' && !isdigit(c)) {
             continue;
         }
         *current_float++ = strtof(data_pointer, &data_pointer);
@@ -176,15 +176,29 @@ main(void)
     glUseProgram(program);
     GLfloat * data_triangle = NULL;
     size_t num_elements = get_data("triangle.txt", &data_triangle);
-    for (size_t i=0; i<num_elements; i++) {
-        printf("Data[%zu] = %.2f\n", i, data_triangle[i]);
-    }
+
+    GLuint array_buffer;
+    glGenVertexArrays(1, &array_buffer);
+    glBindVertexArray(array_buffer);
+
+    GLuint buffer;
+    glGenBuffers(1, &buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer);
+    glBufferData(GL_ARRAY_BUFFER, num_elements*sizeof(GLfloat), data_triangle,
+            GL_STATIC_DRAW);
+
+    GLuint vPosition = 0;
+    glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    glEnableVertexAttribArray(vPosition);
 
     /* Loop until the user closes window. */
     while (!glfwWindowShouldClose(window)) {
 
         /* Render. */
         glClear(GL_COLOR_BUFFER_BIT);
+
+        /* Draw. */
+        glDrawArrays(GL_TRIANGLES, 0, 3);
 
         /* Swap. */
         glfwSwapBuffers(window);

@@ -234,11 +234,16 @@ main(void)
     glEnableVertexAttribArray(loc_vertex_color);
     glVertexAttribPointer(loc_vertex_color, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
+    // Enable depth test.
+    glEnable(GL_DEPTH_TEST);
+    // Accept fragments that are closer to the camera than other ones.
+    glDepthFunc(GL_LESS);
+
     /* Loop until the user closes window. */
     while (!glfwWindowShouldClose(window)) {
 
         /* Render. */
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         /* Draw. */
         glDrawArrays(GL_TRIANGLES, 0, num_elements/3);

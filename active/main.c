@@ -180,8 +180,8 @@ main(void)
     GLuint program = create_shader_program("vert_simple.glsl",
                                            "frag_simple.glsl");
     glUseProgram(program);
-    GLfloat * data_elements = NULL;
-    size_t num_elements = get_data("cube.dat", &data_elements);
+    GLfloat * data_vertices = NULL;
+    size_t num_vertices = get_data("cube.dat", &data_vertices);
 
     GLuint array_buffer;
     glGenVertexArrays(1, &array_buffer);
@@ -190,7 +190,7 @@ main(void)
     GLuint buffer;
     glGenBuffers(1, &buffer);
     glBindBuffer(GL_ARRAY_BUFFER, buffer);
-    glBufferData(GL_ARRAY_BUFFER, num_elements*sizeof(GLfloat), data_elements,
+    glBufferData(GL_ARRAY_BUFFER, num_vertices*sizeof(GLfloat), data_vertices,
             GL_STATIC_DRAW);
 
     GLuint vPosition = 0;
@@ -220,13 +220,13 @@ main(void)
 
     // Get color data.
     GLfloat * data_color = NULL;
-    size_t num_color_elements = get_data("cube_colors.dat", &data_color);
+    size_t num_color_vertices = get_data("cube_colors.dat", &data_color);
 
     // Create buffer for color data.
     GLuint buffer_color;
     glGenBuffers(1, &buffer_color);
     glBindBuffer(GL_ARRAY_BUFFER, buffer_color);
-    glBufferData(GL_ARRAY_BUFFER, num_color_elements*sizeof(GLfloat),
+    glBufferData(GL_ARRAY_BUFFER, num_color_vertices*sizeof(GLfloat),
             data_color, GL_STATIC_DRAW);
 
     // Setup attribute for color.
@@ -246,7 +246,7 @@ main(void)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         /* Draw. */
-        glDrawArrays(GL_TRIANGLES, 0, num_elements/3);
+        glDrawArrays(GL_TRIANGLES, 0, num_vertices/3);
 
         /* Swap. */
         glfwSwapBuffers(window);
@@ -256,7 +256,7 @@ main(void)
     }
 
     glfwTerminate();
-    free(data_elements);
+    free(data_vertices);
     free(data_color);
 
     return EXIT_SUCCESS;

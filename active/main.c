@@ -3,7 +3,10 @@
 #include <stdlib.h>
 
 #include "gl3w.h"
+#include "linmath.h"
 #include <GLFW/glfw3.h>
+
+#define M_PI 3.14159265358979323846
 
 GLchar *
 read_file(const char * filepath)
@@ -148,7 +151,10 @@ main(void)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    window = glfwCreateWindow(640, 480, "HELLO WORLD", NULL, NULL);
+    GLuint WIDTH = 640;
+    GLuint HEIGHT = 480;
+
+    window = glfwCreateWindow(WIDTH, HEIGHT, "HELLO WORLD", NULL, NULL);
     if (!window) {
         fprintf(stderr, "Could not create window, aborting.\n");
         glfwTerminate();
@@ -175,7 +181,7 @@ main(void)
                                            "frag_simple.glsl");
     glUseProgram(program);
     GLfloat * data_triangle = NULL;
-    size_t num_elements = get_data("triangle.txt", &data_triangle);
+    size_t num_elements = get_data("triangle.dat", &data_triangle);
 
     GLuint array_buffer;
     glGenVertexArrays(1, &array_buffer);
@@ -190,6 +196,27 @@ main(void)
     GLuint vPosition = 0;
     glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glEnableVertexAttribArray(vPosition);
+
+    // Projection matrix; FOV: PI/4, RATIO: 4:3 , RANGE: 0.1 -> 100 units.
+    mat4x4 m4_projection = {0};
+    mat4x4_perspective(m4_projection, M_PI/4, (float)WIDTH/(float)HEIGHT, 0.1f,
+            100.f);
+
+    // Camera matrix.
+    mat4x4 m4_view = {0};
+    mat4x4_look_at(m4_view, (vec3){4,3,3}, (vec3){0,0,0}, (vec3){0,1,0});
+
+    // Model matrix.
+    mat4x4 m4_model = {0};
+    mat4x4_identity(m4_model);
+
+    // MVP matrix.
+    mat4x4 m4_mvp = {0};
+    mat4x4_mul(m4_mvp, m4_view, m4_model);
+    mat4x4_mul(m4_mvp, m4_projection, m4_mvp);
+
+    GLuint uniform_mvp = glGetUniformLocation(program, "mvp");
+    glUniformMatrix4fv(uniform_mvp, 1, GL_FALSE, &m4_mvp[0][0]);
 
     /* Loop until the user closes window. */
     while (!glfwWindowShouldClose(window)) {

@@ -99,7 +99,7 @@ size_t
 get_data(const char * filepath, GLfloat ** float_data)
 {
     char * data = read_file(filepath);
-    size_t num_values = 1;
+    size_t num_values = 0;
     char * pointer = data;
     for (;*pointer != '\0'; pointer++) {
         if (*pointer == ',') {
@@ -176,7 +176,6 @@ main(void)
     glUseProgram(program);
     GLfloat * data_triangle = NULL;
     size_t num_elements = get_data("triangle.txt", &data_triangle);
-    printf("Got %zu elements,\n", num_elements);
     for (size_t i=0; i<num_elements; i++) {
         printf("Data[%zu] = %.2f\n", i, data_triangle[i]);
     }
@@ -195,6 +194,7 @@ main(void)
     }
 
     glfwTerminate();
+    free(data_triangle);
 
     return EXIT_SUCCESS;
 }

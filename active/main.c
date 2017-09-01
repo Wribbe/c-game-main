@@ -218,6 +218,22 @@ main(void)
     GLuint uniform_mvp = glGetUniformLocation(program, "mvp");
     glUniformMatrix4fv(uniform_mvp, 1, GL_FALSE, &m4_mvp[0][0]);
 
+    // Get color data.
+    GLfloat * data_color = NULL;
+    size_t num_color_elements = get_data("cube_colors.dat", &data_color);
+
+    // Create buffer for color data.
+    GLuint buffer_color;
+    glGenBuffers(1, &buffer_color);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer_color);
+    glBufferData(GL_ARRAY_BUFFER, num_color_elements*sizeof(GLfloat),
+            data_color, GL_STATIC_DRAW);
+
+    // Setup attribute for color.
+    GLuint loc_vertex_color = 1;
+    glEnableVertexAttribArray(loc_vertex_color);
+    glVertexAttribPointer(loc_vertex_color, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
     /* Loop until the user closes window. */
     while (!glfwWindowShouldClose(window)) {
 
@@ -236,6 +252,7 @@ main(void)
 
     glfwTerminate();
     free(data_elements);
+    free(data_color);
 
     return EXIT_SUCCESS;
 }

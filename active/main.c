@@ -180,8 +180,8 @@ main(void)
     GLuint program = create_shader_program("vert_simple.glsl",
                                            "frag_simple.glsl");
     glUseProgram(program);
-    GLfloat * data_triangle = NULL;
-    size_t num_elements = get_data("triangle.dat", &data_triangle);
+    GLfloat * data_elements = NULL;
+    size_t num_elements = get_data("cube.dat", &data_elements);
 
     GLuint array_buffer;
     glGenVertexArrays(1, &array_buffer);
@@ -190,7 +190,7 @@ main(void)
     GLuint buffer;
     glGenBuffers(1, &buffer);
     glBindBuffer(GL_ARRAY_BUFFER, buffer);
-    glBufferData(GL_ARRAY_BUFFER, num_elements*sizeof(GLfloat), data_triangle,
+    glBufferData(GL_ARRAY_BUFFER, num_elements*sizeof(GLfloat), data_elements,
             GL_STATIC_DRAW);
 
     GLuint vPosition = 0;
@@ -225,7 +225,7 @@ main(void)
         glClear(GL_COLOR_BUFFER_BIT);
 
         /* Draw. */
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawArrays(GL_TRIANGLES, 0, num_elements/3);
 
         /* Swap. */
         glfwSwapBuffers(window);
@@ -235,7 +235,7 @@ main(void)
     }
 
     glfwTerminate();
-    free(data_triangle);
+    free(data_elements);
 
     return EXIT_SUCCESS;
 }

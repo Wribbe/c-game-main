@@ -137,6 +137,63 @@ get_data(const char * filepath, GLfloat ** float_data)
     return num_values;
 }
 
+size_t
+load_bmp(const char * filepath, unsigned char ** data)
+{
+    FILE * fp = fopen(filepath, "rb");
+    if (fp == NULL) {
+        fprintf(stderr, "No such file %s, aborting.\n", filepath);
+        exit(EXIT_FAILURE);
+    }
+
+    // Read the header of the BMP file.
+    size_t size_header = 54;
+    unsigned char header[size_header];
+    size_t bytes_read = fread(header, 1, size_header, fp);
+    if (bytes_read != size_header) {
+        fprintf(stderr,
+                "Mismatch header size, read: %zu != header: %zu, aborting.\n",
+                bytes_read, size_header);
+        exit(EXIT_FAILURE);
+    }
+
+    // Check first bytes of header file.
+    if (header[0] != 'B' || header[1] != 'M') {
+        fprintf(stderr, "Not a correct BMP file, aborting.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Extract data from header.
+    uint32_t pos_data = *(uint32_t*)&(header[0x0A]);
+    uint32_t size_image = *(uint32_t*)&(header[0x22]);
+    uint32_t image_width = *(uint32_t*)&(header[0x12]);
+    uint32_t image_height = *(uint32_t*)&(header[0x16]);
+
+    // Correct any missing information.
+    if (size_image == 0) {
+        size_image = image_width*image_height*3;
+    }
+    if (pos_data == 0) {
+        pos_data = size_header;
+    }
+
+    // Allocate memory for image data.
+    *data = malloc(size_image*sizeof(char));
+    if (*data == NULL) {
+        fprintf(stderr,
+                "Not enough memory to allocate BMP data for image %s, "
+                " aborting.\n", filepath);
+        exit(EXIT_FAILURE);
+    }
+
+    // Read data to allocated space.
+    fread(*data, 1, size_image, fp);
+    // Close file.
+    fclose(fp);
+
+    return size_image;
+}
+
 int
 main(void)
 {
@@ -239,6 +296,12 @@ main(void)
     // Accept fragments that are closer to the camera than other ones.
     glDepthFunc(GL_LESS);
 
+    // Read texture-data from file.
+    const char * filepath_texture = "uvtemplate.bmp";
+    unsigned char * data_bmp = NULL;
+    size_t size_data_bmp = load_bmp(filepath_texture, &data_bmp);
+    printf("Got bmp data of size: %zu\n", size_data_bmp);
+
     /* Loop until the user closes window. */
     while (!glfwWindowShouldClose(window)) {
 
@@ -258,6 +321,7 @@ main(void)
     glfwTerminate();
     free(data_vertices);
     free(data_color);
+    free(data_bmp);
 
     return EXIT_SUCCESS;
 }

@@ -138,7 +138,7 @@ get_data(const char * filepath, GLfloat ** float_data)
 }
 
 size_t
-load_bmp(const char * filepath, unsigned char ** data)
+load_bmp(const char * filepath, unsigned char ** data, size_t * width, size_t * height)
 {
     FILE * fp = fopen(filepath, "rb");
     if (fp == NULL) {
@@ -191,6 +191,14 @@ load_bmp(const char * filepath, unsigned char ** data)
     // Close file.
     fclose(fp);
 
+    // Write width and height if specified.
+    if (width != NULL) {
+        *width = image_width;
+    }
+    if (height != NULL) {
+        *height = image_height;
+    }
+
     return size_image;
 }
 
@@ -234,8 +242,8 @@ main(void)
     printf("OpenGL %s, GLSL %s\n", glGetString(GL_VERSION),
             glGetString(GL_SHADING_LANGUAGE_VERSION));
 
-    GLuint program = create_shader_program("vert_simple.glsl",
-                                           "frag_simple.glsl");
+    GLuint program = create_shader_program("vert_texture.glsl",
+                                           "frag_texture.glsl");
     glUseProgram(program);
     GLfloat * data_vertices = NULL;
     size_t num_vertices = get_data("cube.dat", &data_vertices);
@@ -250,9 +258,10 @@ main(void)
     glBufferData(GL_ARRAY_BUFFER, num_vertices*sizeof(GLfloat), data_vertices,
             GL_STATIC_DRAW);
 
-    GLuint vPosition = 0;
-    glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-    glEnableVertexAttribArray(vPosition);
+    GLuint layout_vPosition = 0;
+    glVertexAttribPointer(layout_vPosition, 3, GL_FLOAT, GL_FALSE, 0,
+            (void*)0);
+    glEnableVertexAttribArray(layout_vPosition);
 
     // Projection matrix; FOV: PI/4, RATIO: 4:3 , RANGE: 0.1 -> 100 units.
     mat4x4 m4_projection = {0};
@@ -299,8 +308,49 @@ main(void)
     // Read texture-data from file.
     const char * filepath_texture = "uvtemplate.bmp";
     unsigned char * data_bmp = NULL;
-    size_t size_data_bmp = load_bmp(filepath_texture, &data_bmp);
+    size_t bmp_widht, bmp_height;
+    size_t size_data_bmp = load_bmp(filepath_texture, &data_bmp, &bmp_widht,
+            &bmp_height);
     printf("Got bmp data of size: %zu\n", size_data_bmp);
+
+    // Create one OpenGL texture.
+    GLuint texture_bmp;
+    glGenTextures(1, &texture_bmp);
+
+    // Bind created texture.
+    glBindTexture(GL_TEXTURE_2D, texture_bmp);
+    // Give the texture data to OpenGL.
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, bmp_widht, bmp_height, 0, GL_BGR,
+            GL_UNSIGNED_BYTE, data_bmp);
+    // Set up texture properties.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+    // Load uv-coordinates.
+    GLfloat * data_uv_coords = NULL;
+    size_t num_uv_coords = get_data("cube_UV.dat", &data_uv_coords);
+
+    // Generate buffer for UV-coordinates.
+    GLuint buffer_uv;
+    glGenBuffers(1, &buffer_uv);
+    // Bind buffer and load data.
+    glBindBuffer(GL_ARRAY_BUFFER, buffer_uv);
+    glBufferData(GL_ARRAY_BUFFER, num_uv_coords*sizeof(GLfloat),
+            data_uv_coords, GL_STATIC_DRAW);
+    GLuint layout_vUV = 1;
+    glVertexAttribPointer(layout_vUV, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    glEnableVertexAttribArray(layout_vUV);
+
+    // Get texture sampler position.
+    GLuint uniform_textureSampler = glGetUniformLocation(program,
+            "textureSampler");
+
+    // Activate texture.
+    glActiveTexture(GL_TEXTURE0);
+    // Bind texture.
+    glBindTexture(GL_TEXTURE_2D, texture_bmp);
+    // Set sampler to use texture unit 0.
+    glUniform1i(uniform_textureSampler, 0);
 
     /* Loop until the user closes window. */
     while (!glfwWindowShouldClose(window)) {
@@ -322,6 +372,7 @@ main(void)
     free(data_vertices);
     free(data_color);
     free(data_bmp);
+    free(data_uv_coords);
 
     return EXIT_SUCCESS;
 }

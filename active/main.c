@@ -323,8 +323,13 @@ main(void)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, bmp_widht, bmp_height, 0, GL_BGR,
             GL_UNSIGNED_BYTE, data_bmp);
     // Set up texture properties.
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+    // Generate mipmaps.
+    glGenerateMipmap(GL_TEXTURE_2D);
+    // Magnifying beyond largest available mapmap -> use linear filtering.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // Minifying, blend two mipmaps linearly.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 
     // Load uv-coordinates.
     GLfloat * data_uv_coords = NULL;

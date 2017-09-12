@@ -270,7 +270,7 @@ main(void)
 
     // Camera matrix.
     mat4x4 m4_view = {0};
-    mat4x4_look_at(m4_view, (vec3){4,3,-3}, (vec3){0,0,0}, (vec3){0,1,0});
+    mat4x4_look_at(m4_view, (vec3){4,3,3}, (vec3){0,0,0}, (vec3){0,1,0});
 
     // Model matrix.
     mat4x4 m4_model = {0};

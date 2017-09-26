@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "gl3w.h"
 #include "linmath.h"
@@ -202,6 +203,22 @@ load_bmp(const char * filepath, unsigned char ** data, size_t * width, size_t * 
     return size_image;
 }
 
+void
+vec3_copy(vec3 * to, vec3 * from)
+{
+    *to[0] = *from[0];
+    *to[1] = *from[1];
+    *to[2] = *from[2];
+}
+
+void
+vec3_add_float(vec3 * v, float * f)
+{
+    *v[0] += *f;
+    *v[1] += *f;
+    *v[2] += *f;
+}
+
 int
 main(void)
 {
@@ -357,8 +374,55 @@ main(void)
     // Set sampler to use texture unit 0.
     glUniform1i(uniform_textureSampler, 0);
 
+    // Set up position, angels and FoV for view.
+    vec3 position = {0.0f, 0.0f, 5.0f};
+    float angle_horizontal = M_PI;
+    float angle_vertical = 0.0f;
+    float initial_fov = 0.5f*M_PI;
+
+    // Set up speed.
+    float speed_general = 3.0f;
+    float speed_mouse = 0.005f;
+
+    // Get mouse position.
+    double xpos = 0;
+    double ypos = 0;
+    glfwGetCursorPos(window, &xpos, &ypos);
+
+    // Set mouse position.
+    double half_width = (double)WIDTH/2.0f;
+    double half_height = (double)HEIGHT/2.0f;
+
+    double time_current = glfwGetTime();
+    double time_previous = glfwGetTime();
+    float time_delta = 0.0f;
+
+    glfwSetCursorPos(window, half_width, half_height);
+
+    // Compute new orientation.
+    angle_horizontal += speed_mouse * time_delta * half_width;
+    angle_vertical += speed_mouse * time_delta * half_height;
+
+    vec3 direction = {
+        cos(angle_vertical) * sin(angle_horizontal),
+        sin(angle_vertical),
+        cos(angle_vertical) * cos(angle_horizontal)
+    };
+
+    vec3 right = {
+        sin(angle_horizontal - M_PI*0.5f),
+        0,
+        cos(angle_horizontal - M_PI*0.5f)
+    };
+
+    vec3 up = {0};
+    vec3_mul_cross(up, right, direction);
+
     /* Loop until the user closes window. */
     while (!glfwWindowShouldClose(window)) {
+
+        time_current = glfwGetTime();
+        time_delta = time_current - time_previous;
 
         /* Render. */
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -371,9 +435,18 @@ main(void)
 
         /* Poll events. */
         glfwPollEvents();
+
+        /* Input actions. */
+        vec3 mod_direction = {0};
+        if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+            printf("Hello!\n");
+        }
+
+        time_previous = time_current;
     }
 
     glfwTerminate();
+
     free(data_vertices);
     free(data_color);
     free(data_bmp);

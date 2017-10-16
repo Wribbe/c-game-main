@@ -21,5 +21,11 @@ vgcore.*
 # Ignore *.d files.
 *.d
 
+# Ignore *.o files.
+*.o
+
 # Ignore glfw folder.
 **/glfw
+
+# Ignore main executable.
+*/main

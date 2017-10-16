@@ -1,0 +1,85 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "gl3w.h"
+#include <GLFW/glfw3.h>
+
+#define M_PI 3.14159265358979323846
+#define UNUSED(x) (void)x
+
+static void
+key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
+{
+    UNUSED(scancode);
+    UNUSED(mods);
+
+    if (action == GLFW_PRESS) {
+        switch (key) {
+            case GLFW_KEY_ESCAPE: glfwSetWindowShouldClose(window, GLFW_TRUE); break;
+        }
+    }
+}
+
+int
+main(void) {
+
+    GLFWwindow * window;
+
+    if (!glfwInit()) {
+        fprintf(stderr, "Could not initialize glfw, aborting.\n");
+        return EXIT_FAILURE;
+    }
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    GLuint WIDTH = 640;
+    GLuint HEIGHT = 480;
+
+    window = glfwCreateWindow(WIDTH, HEIGHT, "HELLO WORLD", NULL, NULL);
+    if (!window) {
+        fprintf(stderr, "Could not create window, aborting.\n");
+        glfwTerminate();
+        return EXIT_FAILURE;
+    }
+
+    /* Make window context current one. */
+   glfwMakeContextCurrent(window);
+
+    if (gl3wInit()) {
+        fprintf(stderr, "Could not initialize gl3w, aborting.\n");
+        return EXIT_FAILURE;
+    }
+
+    if (!gl3wIsSupported(3, 3)) {
+        fprintf(stderr, "Profile 3.3 not supported, aborting.\n");
+        return EXIT_FAILURE;
+    }
+
+    printf("OpenGL %s, GLSL %s\n", glGetString(GL_VERSION),
+            glGetString(GL_SHADING_LANGUAGE_VERSION));
+
+    /* Set key callback function for main window. */
+    glfwSetKeyCallback(window, key_callback);
+
+    while (!glfwWindowShouldClose(window)) {
+
+        /* Render. */
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        /* Draw. */
+        //glDrawArrays(GL_TRIANGLES, 0, num_vertices/3);
+
+        /* Swap. */
+        glfwSwapBuffers(window);
+
+        /* Poll events. */
+        glfwPollEvents();
+
+    }
+
+    glfwTerminate();
+}
+
+

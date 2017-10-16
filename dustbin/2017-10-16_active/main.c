@@ -435,8 +435,6 @@ main(void)
     /* Set key callback function for main window. */
     glfwSetKeyCallback(window, key_callback);
 
-
-
     /* Loop until the user closes window. */
     while (!glfwWindowShouldClose(window)) {
 

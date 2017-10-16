@@ -8,6 +8,7 @@
 #include <GLFW/glfw3.h>
 
 #define M_PI 3.14159265358979323846
+#define UNUSED(x) (void)x
 
 GLchar *
 read_file(const char * filepath)
@@ -219,6 +220,19 @@ vec3_add_float(vec3 * v, float * f)
     *v[2] += *f;
 }
 
+static void
+key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
+{
+    UNUSED(scancode);
+    UNUSED(mods);
+
+    if (action == GLFW_PRESS) {
+        switch (key) {
+            case GLFW_KEY_ESCAPE: glfwSetWindowShouldClose(window, GLFW_TRUE); break;
+        }
+    }
+}
+
 int
 main(void)
 {
@@ -418,6 +432,11 @@ main(void)
     vec3 up = {0};
     vec3_mul_cross(up, right, direction);
 
+    /* Set key callback function for main window. */
+    glfwSetKeyCallback(window, key_callback);
+
+
+
     /* Loop until the user closes window. */
     while (!glfwWindowShouldClose(window)) {
 
@@ -438,9 +457,6 @@ main(void)
 
         /* Input actions. */
         vec3 mod_direction = {0};
-        if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
-            printf("Hello!\n");
-        }
 
         time_previous = time_current;
     }

@@ -154,13 +154,34 @@ main(void)
     glDeleteShader(shader_vertex);
     glDeleteShader(shader_fragment);
 
+    /* Set up OpenGL buffers. */
+    GLuint VBO = 0;
+    GLuint VAO = 0;
+    glGenBuffers(1, &VBO);
+    glGenVertexArrays(1, &VAO);
+
+    /* Bind vertex array and buffer. */
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+    /* Populate VBO with data. */
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_rectangle)*sizeof(GLfloat),
+            vertices_rectangle, GL_STATIC_DRAW);
+
+    /* Set and enable correct vertex attribute for vertex position (0). */
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    glEnableVertexAttribArray(0);
+
+    /* Use program. */
+    glUseProgram(program);
+
     while (!glfwWindowShouldClose(window)) {
 
         /* Render. */
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         /* Draw. */
-        //glDrawArrays(GL_TRIANGLES, 0, num_vertices/3);
+        glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices_rectangle)/3);
 
         /* Swap. */
         glfwSwapBuffers(window);

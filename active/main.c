@@ -150,6 +150,10 @@ main(void)
         return EXIT_FAILURE;
     }
 
+    /* Delete shaders. */
+    glDeleteShader(shader_vertex);
+    glDeleteShader(shader_fragment);
+
     while (!glfwWindowShouldClose(window)) {
 
         /* Render. */

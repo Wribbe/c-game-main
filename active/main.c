@@ -62,6 +62,25 @@ print_shader_error(GLuint id_shader) {
     fprintf(stderr, "Compilation of shader failed: %s\n", buffer_log);
 }
 
+void
+print_program_error(GLuint id_program) {
+    size_t size_buffer = 1024;
+    char buffer_log[size_buffer];
+    glGetProgramInfoLog(id_program, size_buffer, NULL, buffer_log);
+    fprintf(stderr, "Compilation of shader failed: %s\n", buffer_log);
+}
+
+GLint
+assmeble_program(GLuint id_program, GLuint sh1, GLuint sh2)
+{
+    glAttachShader(id_program, sh1);
+    glAttachShader(id_program, sh2);
+    glLinkProgram(id_program);
+    GLint success = 0;
+    glGetProgramiv(id_program, GL_LINK_STATUS, &success);
+    return success;
+}
+
 int
 main(void)
 {
@@ -121,6 +140,13 @@ main(void)
 
     if (compile_shader(shader_fragment) != GL_TRUE) {
         print_shader_error(shader_fragment);
+        return EXIT_FAILURE;
+    }
+
+    /*  Create shader program. */
+    GLuint program = glCreateProgram();
+    if (assmeble_program(program, shader_vertex, shader_fragment) != GL_TRUE) {
+        print_program_error(program);
         return EXIT_FAILURE;
     }
 

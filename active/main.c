@@ -6,6 +6,7 @@
 
 #define M_PI 3.14159265358979323846
 #define UNUSED(x) (void)x
+#define SIZE(x) sizeof(x)/sizeof(x[0])
 
 static void
 key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
@@ -30,6 +31,15 @@ GLfloat vertices_rectangle[] = {
      0.5f, -0.5f, 0.0f,
      0.5f,  0.5f, 0.0f,
 };
+
+void
+normalize_data(GLuint width, GLuint height, GLfloat * data, size_t size)
+{
+    GLfloat aspect_ratio = (float)width/(float)height;
+    for (size_t i=0; i<size; i += 3) {
+        data[i+1] *= aspect_ratio;
+    }
+}
 
 const GLchar * source_fragment = \
 "#version 330 core\n"
@@ -163,6 +173,9 @@ main(void)
     /* Bind vertex array and buffer. */
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+    /* Apply aspect ration do data. */
+    normalize_data(WIDTH, HEIGHT, vertices_rectangle, SIZE(vertices_rectangle));
 
     /* Populate VBO with data. */
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_rectangle)*sizeof(GLfloat),

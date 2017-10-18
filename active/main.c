@@ -32,6 +32,18 @@ GLfloat vertices_rectangle[] = {
      0.5f,  0.5f, 0.0f,
 };
 
+const GLchar * map = \
+"##############################\n"
+"#                            #\n"
+"#                            #\n"
+"#                            ###\n"
+"#                               #\n"
+"#                               #\n"
+"#                            ####\n"
+"#                            #\n"
+"#                            #\n"
+"##############################\n";
+
 void
 normalize_data(GLuint width, GLuint height, GLfloat * data, size_t size)
 {
@@ -40,6 +52,31 @@ normalize_data(GLuint width, GLuint height, GLfloat * data, size_t size)
         data[i+1] *= aspect_ratio;
     }
 }
+
+struct map_row {
+    size_t size;
+    GLuint * tiles;
+};
+
+void
+generate_map(GLuint WIDTH, GLuint HEIGHT, struct map_row * map_data)
+{
+    const GLchar * start = map;
+    const GLchar * end = map;
+
+    char c;
+    for (;;) {
+        c = *end++;
+        if (c == '\0') {
+            break;
+        } else if (c != '\n') {
+            continue;
+        }
+        printf("Length of current row: %zu\n", end-start);
+        start = end+1;
+    }
+}
+
 
 const GLchar * source_fragment = \
 "#version 330 core\n"
@@ -187,6 +224,9 @@ main(void)
 
     /* Use program. */
     glUseProgram(program);
+
+    /* Generate map structure. */
+    generate_map(WIDTH, HEIGHT, NULL);
 
     while (!glfwWindowShouldClose(window)) {
 

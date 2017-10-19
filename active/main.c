@@ -32,7 +32,7 @@ GLfloat vertices_rectangle[] = {
      0.5f,  0.5f, 0.0f,
 };
 
-const GLchar * map = \
+const GLchar * map_data = \
 "##############################\n"
 "#                            #\n"
 "#                            #\n"
@@ -54,15 +54,69 @@ normalize_data(GLuint width, GLuint height, GLfloat * data, size_t size)
 }
 
 struct map_row {
-    size_t size;
+    size_t length;
     GLuint * tiles;
 };
 
+struct map {
+    size_t num_rows;
+    size_t max_width;
+    struct map_row ** rows;
+};
+
 void
-generate_map(GLuint WIDTH, GLuint HEIGHT, struct map_row * map_data)
+die(const GLchar * message)
 {
-    const GLchar * start = map;
-    const GLchar * end = map;
+    fprintf(stderr, "[!]: %s, aborting.\n", message);
+    exit(EXIT_FAILURE);
+}
+
+void *
+malloc_or_die(size_t size, const char * error)
+{
+    void * mem_pointer = malloc(size);
+    if (mem_pointer == NULL) {
+        die(error);
+    }
+    return mem_pointer;
+}
+
+void
+populate_row(const GLchar * start, const GLchar * end, struct map_row * row)
+{
+    const GLchar * current = start;
+    size_t num_tiles = end-start;
+    row->tiles = malloc_or_die(sizeof(GLuint)*num_tiles,
+            "Could not allocate memory for row->tiles array");
+    GLuint * current_tile = row->tiles;
+    char c;
+    for (; current < end; current++, current_tile++) {
+        c = *current;
+        switch (c)
+        {
+            case '#':
+                *current_tile = 1;
+                break;;
+            default:
+                *current_tile = 0;
+                break;;
+        }
+    }
+    row->length = num_tiles;
+}
+
+struct map *
+generate_map()
+{
+    const GLchar * start = map_data;
+    const GLchar * end = map_data;
+
+    struct map * map = malloc_or_die(sizeof(struct map),
+            "Could not allocate memory for map struct");
+    map->rows = NULL;
+
+    size_t num_rows = 0;
+    size_t max_len = 0;
 
     char c;
     for (;;) {
@@ -72,9 +126,54 @@ generate_map(GLuint WIDTH, GLuint HEIGHT, struct map_row * map_data)
         } else if (c != '\n') {
             continue;
         }
-        printf("Length of current row: %zu\n", end-start);
-        start = end+1;
+        num_rows++;
+        size_t len_row = end-start;
+        if (map->rows == NULL) {
+            map->rows = malloc(sizeof(struct map_row *)*num_rows);
+        } else {
+            map->rows = realloc(map->rows, sizeof(struct map_row *)*num_rows);
+        }
+        if (map->rows == NULL) {
+            die("Could not re-allocate memory for map-row array");
+        }
+        map->rows[num_rows-1] = malloc_or_die(sizeof(struct map_row),
+                "Could not allocate memory for new map_row struct");
+        populate_row(start, end-1, map->rows[num_rows-1]);
+        start = end;
+        if (len_row > max_len) {
+            max_len = len_row;
+        }
     }
+    map->num_rows = num_rows;
+    map->max_width = max_len;
+    return map;
+}
+
+void
+print_map(struct map * map)
+{
+    struct map_row * current_row = NULL;
+    for (size_t i=0; i<map->num_rows; i++) {
+        current_row = map->rows[i];
+        for (size_t j=0; j<current_row->length; j++) {
+            printf("%d", current_row->tiles[j]);
+        }
+        printf("\n");
+    }
+}
+
+void
+deallocate_map(struct map * map)
+{
+    for (size_t i=0; i<map->num_rows; i++) {
+        struct map_row * current = map->rows[i];
+        if (current->tiles != NULL) {
+            free(current->tiles);
+        }
+        free(current);
+    }
+    free(map->rows);
+    free(map);
 }
 
 
@@ -226,7 +325,8 @@ main(void)
     glUseProgram(program);
 
     /* Generate map structure. */
-    generate_map(WIDTH, HEIGHT, NULL);
+    struct map * map = generate_map();
+    print_map(map);
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -243,6 +343,8 @@ main(void)
         glfwPollEvents();
 
     }
+
+    deallocate_map(map);
 
     glfwTerminate();
 }

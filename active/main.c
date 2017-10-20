@@ -46,11 +46,13 @@ GLfloat vertices_rectangle[] = {
 const GLchar * map_data = \
 "##############################\n"
 "#                            #\n"
-"#                            #\n"
 "#                            ###\n"
 "#                               #\n"
 "#                               #\n"
 "#                            ####\n"
+"#                            #\n"
+"#                            #\n"
+"#                            #\n"
 "#                            #\n"
 "#                            #\n"
 "##############################\n";
@@ -76,9 +78,9 @@ scale_data_to_map(struct map * map, GLfloat * data, size_t size_data)
 
     GLfloat modifier = 0.0f;
     if (num_width > num_height) {
-        modifier = 1.0f/(float)num_width;
+        modifier = 2.0f/(float)num_width;
     } else {
-        modifier = 1.0f/(float)num_height;
+        modifier = 2.0f/(float)num_height;
     }
 
     for (size_t i = 0; i<size_data; i++) {
@@ -251,6 +253,30 @@ assmeble_program(GLuint id_program, GLuint sh1, GLuint sh2)
     return success;
 }
 
+void
+draw_map(struct map * map, GLint program)
+{
+    GLfloat step_width = 2.0f/(float)map->max_width;
+    GLfloat step_height = 2.0f/(float)map->num_rows;
+
+    /* Grab uniform location for coords. */
+    GLint location_coords = glGetUniformLocation(program, "coords");
+
+    GLuint * tile_pointer = NULL;
+    for (size_t index_row = 0; index_row<map->num_rows; index_row++) {
+        struct map_row * row = map->rows[index_row];
+        tile_pointer = row->tiles;
+        for (size_t index_col = 0; index_col<row->length; index_col++) {
+            if (*tile_pointer == 1) {
+                glUniform2f(location_coords, -1.0f+index_col*step_width,
+                        1.0f-index_row*step_height);
+                glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices_rectangle)/3);
+            }
+            tile_pointer++;
+        }
+    }
+}
+
 int
 main(void)
 {
@@ -356,10 +382,6 @@ main(void)
     /* Use program. */
     glUseProgram(program);
 
-    /* Grab uniform location for coords. */
-    GLint location_coords = glGetUniformLocation(program, "coords");
-    glUniform2f(location_coords, 0.3f, 0.7f);
-
     while (!glfwWindowShouldClose(window)) {
 
         /* Render. */
@@ -367,6 +389,7 @@ main(void)
 
         /* Draw. */
         glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices_rectangle)/3);
+        draw_map(map, program);
 
         /* Swap. */
         glfwSwapBuffers(window);
@@ -380,5 +403,3 @@ main(void)
 
     glfwTerminate();
 }
-
-

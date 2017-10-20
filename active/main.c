@@ -45,7 +45,7 @@ const GLchar * map_data = \
 "##############################\n";
 
 void
-normalize_data(GLuint width, GLuint height, GLfloat * data, size_t size)
+adjust_to_aspect_ratio(GLuint width, GLuint height, GLfloat * data, size_t size)
 {
     GLfloat aspect_ratio = (float)width/(float)height;
     for (size_t i=0; i<size; i += 3) {
@@ -310,8 +310,9 @@ main(void)
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
-    /* Apply aspect ration do data. */
-    normalize_data(WIDTH, HEIGHT, vertices_rectangle, SIZE(vertices_rectangle));
+    /* Adjust data to current aspect ratio. */
+    adjust_to_aspect_ratio(WIDTH, HEIGHT, vertices_rectangle,
+            SIZE(vertices_rectangle));
 
     /* Populate VBO with data. */
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_rectangle)*sizeof(GLfloat),

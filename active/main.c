@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "gl3w.h"
 #include <GLFW/glfw3.h>
@@ -16,9 +17,10 @@ struct map_row {
 struct map {
     size_t num_rows;
     size_t max_width;
-    GLfloat offset;
     GLuint index_offest;
-    GLfloat tile_size;
+    GLfloat offset;
+    GLfloat tile_width;
+    GLfloat tile_height;
     struct map_row ** rows;
 };
 
@@ -64,14 +66,6 @@ void
 scale_tiles(struct map * map, GLuint width, GLuint height, GLfloat * data,
         size_t size_data)
 {
-
-    /* Figure out multiple that makes tiles square. */
-    GLfloat aspect_ratio = (float)width/(float)height;
-    GLint offset = 1; // Modifies the y-value.
-    if (aspect_ratio > 1) {
-        offset = 0; // Modify the x-value instead.
-    }
-
     GLfloat fit_size = 0.0f;
     GLint smaller_dim = 0;
     size_t num_other_dim = 0;
@@ -87,20 +81,48 @@ scale_tiles(struct map * map, GLuint width, GLuint height, GLfloat * data,
         num_other_dim = map->num_rows;
     }
 
-    /* Modify the tile data. */
-    for (size_t i=0; i<size_data; i += 3) {
-        /* Make square. */
-        data[i+offset] /= aspect_ratio;
-        /* Make fit. */
-        data[i] *= fit_size;
-        data[i+1] *= fit_size;
+    GLfloat aspect_corrected_fit[] = {fit_size, fit_size};
+
+    GLfloat aspect_ratio = (float)width/(float)height;
+    GLuint index_correction = 0;
+    if (aspect_ratio > 1.0f) { /* Width > Height. */
+        /* If width (0) is the largest map dimension, enlarge height (1)
+         * instead. */
+        if (smaller_dim != 0) { /* Width dominant map dimension. */
+            aspect_corrected_fit[1] *= aspect_ratio;
+        } else { /* Height dominant map dimension. */
+            aspect_corrected_fit[0] /= aspect_ratio;
+        }
+    } else { /* Height > Width. */
+        if (smaller_dim != 0) { /* Width dominant map dimension. */
+            aspect_corrected_fit[0] *= aspect_ratio;
+        } else { /* Height dominant map dimension. */
+            aspect_corrected_fit[1] /= aspect_ratio;
+        }
     }
+
+
+    /* Construct new tile. */
+    GLfloat fitted_tile[] = {
+        /* First triangle. */
+        -aspect_corrected_fit[0], -aspect_corrected_fit[1], 0.0f,
+        -aspect_corrected_fit[0],  aspect_corrected_fit[1], 0.0f,
+         aspect_corrected_fit[0],  aspect_corrected_fit[1], 0.0f,
+        /* Second triangle. */
+        -aspect_corrected_fit[0], -aspect_corrected_fit[1], 0.0f,
+         aspect_corrected_fit[0],  aspect_corrected_fit[1], 0.0f,
+         aspect_corrected_fit[0], -aspect_corrected_fit[1], 0.0f,
+    };
+    /* Write over old data. */
+    memcpy(vertices_rectangle, fitted_tile, sizeof(vertices_rectangle));
+
 
     /* Calculate difference on other axis. */
     GLfloat shorter_offset = (2.0f-(num_other_dim*fit_size))/2.0f;
     map->offset = shorter_offset;
     map->index_offest = smaller_dim;
-    map->tile_size = fit_size;
+    map->tile_height = aspect_corrected_fit[1];
+    map->tile_width = aspect_corrected_fit[0];
 }
 
 void
@@ -271,11 +293,14 @@ assmeble_program(GLuint id_program, GLuint sh1, GLuint sh2)
 void
 draw_map(struct map * map, GLint program)
 {
-    GLfloat step_width = 2.0f/(float)map->max_width;
-    GLfloat step_height = 2.0f/(float)map->num_rows;
+    GLfloat step_x = map->tile_width;
+    GLfloat step_y = map->tile_height;
 
     /* Grab uniform location for coords. */
     GLint location_coords = glGetUniformLocation(program, "coords");
+
+    GLfloat coords[] = {-1.0f+step_x/2.0f, -1.0f+step_y/2.0f};
+    coords[map->index_offest] += map->offset;
 
     GLuint * tile_pointer = NULL;
     for (size_t index_row = 0; index_row<map->num_rows; index_row++) {
@@ -283,8 +308,8 @@ draw_map(struct map * map, GLint program)
         tile_pointer = row->tiles;
         for (size_t index_col = 0; index_col<row->length; index_col++) {
             if (*tile_pointer == 1) {
-                glUniform2f(location_coords, -1.0f+index_col*step_width,
-                        1.0f-index_row*step_height);
+                glUniform2f(location_coords, coords[0]+step_x*index_col,
+                        -(coords[1]+step_y*index_row));
                 glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices_rectangle)/3);
             }
             tile_pointer++;
@@ -399,8 +424,8 @@ main(void)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         /* Draw. */
-        glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices_rectangle)/3);
-//        draw_map(map, program);
+//        glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices_rectangle)/3);
+        draw_map(map, program);
 
         /* Swap. */
         glfwSwapBuffers(window);

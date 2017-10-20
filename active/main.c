@@ -16,6 +16,9 @@ struct map_row {
 struct map {
     size_t num_rows;
     size_t max_width;
+    GLfloat offset;
+    GLuint index_offest;
+    GLfloat tile_size;
     struct map_row ** rows;
 };
 
@@ -34,13 +37,13 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
 
 GLfloat vertices_rectangle[] = {
     // First triangle.
-    -0.5f,  0.5f, 0.0f,
-    -0.5f, -0.5f, 0.0f,
-     0.5f, -0.5f, 0.0f,
+    -1.0f,  1.0f, 0.0f,
+    -1.0f, -1.0f, 0.0f,
+     1.0f, -1.0f, 0.0f,
     // Second triangle.
-    -0.5f,  0.5f, 0.0f,
-     0.5f, -0.5f, 0.0f,
-     0.5f,  0.5f, 0.0f,
+    -1.0f,  1.0f, 0.0f,
+     1.0f, -1.0f, 0.0f,
+     1.0f,  1.0f, 0.0f,
 };
 
 const GLchar * map_data = \
@@ -58,34 +61,46 @@ const GLchar * map_data = \
 "##############################\n";
 
 void
-adjust_to_aspect_ratio(GLuint width, GLuint height, GLfloat * data, size_t size)
+scale_tiles(struct map * map, GLuint width, GLuint height, GLfloat * data,
+        size_t size_data)
 {
+
+    /* Figure out multiple that makes tiles square. */
     GLfloat aspect_ratio = (float)width/(float)height;
-    GLint offset = 0; // Modifies the x-value.
+    GLint offset = 1; // Modifies the y-value.
     if (aspect_ratio > 1) {
-        offset = 1; // Modify the y-value instead.
+        offset = 0; // Modify the x-value instead.
     }
-    for (size_t i=0; i<size; i += 3) {
-        data[i+offset] *= aspect_ratio;
-    }
-}
 
-void
-scale_data_to_map(struct map * map, GLfloat * data, size_t size_data)
-{
-    size_t num_width = map->max_width;
-    size_t num_height = map->num_rows;
+    GLfloat fit_size = 0.0f;
+    GLint smaller_dim = 0;
+    size_t num_other_dim = 0;
 
-    GLfloat modifier = 0.0f;
-    if (num_width > num_height) {
-        modifier = 2.0f/(float)num_width;
+    /* Re-size tiles so they fit the largest map dimension. */
+    if (map->num_rows > map->max_width) {
+        fit_size = 2.0f/map->num_rows;
+        smaller_dim = 0;
+        num_other_dim = map->max_width;
     } else {
-        modifier = 2.0f/(float)num_height;
+        fit_size = 2.0f/map->max_width;
+        smaller_dim = 1;
+        num_other_dim = map->num_rows;
     }
 
-    for (size_t i = 0; i<size_data; i++) {
-        data[i] *= modifier;
+    /* Modify the tile data. */
+    for (size_t i=0; i<size_data; i += 3) {
+        /* Make square. */
+        data[i+offset] /= aspect_ratio;
+        /* Make fit. */
+        data[i] *= fit_size;
+        data[i+1] *= fit_size;
     }
+
+    /* Calculate difference on other axis. */
+    GLfloat shorter_offset = (2.0f-(num_other_dim*fit_size))/2.0f;
+    map->offset = shorter_offset;
+    map->index_offest = smaller_dim;
+    map->tile_size = fit_size;
 }
 
 void
@@ -302,7 +317,7 @@ main(void)
     }
 
     /* Make window context current one. */
-   glfwMakeContextCurrent(window);
+    glfwMakeContextCurrent(window);
 
     if (gl3wInit()) {
         fprintf(stderr, "Could not initialize gl3w, aborting.\n");
@@ -360,16 +375,12 @@ main(void)
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
-    /* Adjust data to current aspect ratio. */
-    adjust_to_aspect_ratio(WIDTH, HEIGHT, vertices_rectangle,
-            SIZE(vertices_rectangle));
-
     /* Generate map structure. */
     struct map * map = generate_map();
     print_map(map);
 
-    /* Scale vertex data to fit the map. */
-    scale_data_to_map(map, vertices_rectangle, SIZE(vertices_rectangle));
+    /* Scale vertex data to fit the map and screen. */
+    scale_tiles(map, WIDTH, HEIGHT, vertices_rectangle, SIZE(vertices_rectangle));
 
     /* Populate VBO with data. */
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_rectangle)*sizeof(GLfloat),
@@ -389,7 +400,7 @@ main(void)
 
         /* Draw. */
         glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices_rectangle)/3);
-        draw_map(map, program);
+//        draw_map(map, program);
 
         /* Swap. */
         glfwSwapBuffers(window);

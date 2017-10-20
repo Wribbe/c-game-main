@@ -17,7 +17,6 @@ struct map_row {
 struct map {
     size_t num_rows;
     size_t max_width;
-    GLuint index_offest;
     GLfloat offset;
     GLfloat tile_width;
     GLfloat tile_height;
@@ -55,6 +54,13 @@ const GLchar * map_data = \
 "#                               #\n"
 "#                               #\n"
 "#                            ####\n"
+"#    #         #             #\n"
+"#                            #\n"
+"#                            #\n"
+"#                            #\n"
+"#                            #\n"
+"#    #         #             #\n"
+"#                            #\n"
 "#                            #\n"
 "#                            #\n"
 "#                            #\n"
@@ -66,63 +72,32 @@ void
 scale_tiles(struct map * map, GLuint width, GLuint height, GLfloat * data,
         size_t size_data)
 {
-    GLfloat fit_size = 0.0f;
-    GLint smaller_dim = 0;
-    size_t num_other_dim = 0;
+    GLfloat pixel_width = 2.0f/(float)width;
+    GLfloat pixel_height = 2.0f/(float)height;
 
-    /* Re-size tiles so they fit the largest map dimension. */
-    if (map->num_rows > map->max_width) {
-        fit_size = 2.0f/map->num_rows;
-        smaller_dim = 0;
-        num_other_dim = map->max_width;
-    } else {
-        fit_size = 2.0f/map->max_width;
-        smaller_dim = 1;
-        num_other_dim = map->num_rows;
-    }
+    GLfloat tile_width = ((float)width/map->max_width)*pixel_width;
+    GLfloat tile_height = ((float)width/map->max_width)*pixel_height;
 
-    GLfloat aspect_corrected_fit[] = {fit_size, fit_size};
-
-    GLfloat aspect_ratio = (float)width/(float)height;
-    GLuint index_correction = 0;
-    if (aspect_ratio > 1.0f) { /* Width > Height. */
-        /* If width (0) is the largest map dimension, enlarge height (1)
-         * instead. */
-        if (smaller_dim != 0) { /* Width dominant map dimension. */
-            aspect_corrected_fit[1] *= aspect_ratio;
-        } else { /* Height dominant map dimension. */
-            aspect_corrected_fit[0] /= aspect_ratio;
-        }
-    } else { /* Height > Width. */
-        if (smaller_dim != 0) { /* Width dominant map dimension. */
-            aspect_corrected_fit[0] *= aspect_ratio;
-        } else { /* Height dominant map dimension. */
-            aspect_corrected_fit[1] /= aspect_ratio;
-        }
-    }
-
+    GLfloat tile_dim[] = {tile_width/2, tile_height/2};
 
     /* Construct new tile. */
     GLfloat fitted_tile[] = {
         /* First triangle. */
-        -aspect_corrected_fit[0], -aspect_corrected_fit[1], 0.0f,
-        -aspect_corrected_fit[0],  aspect_corrected_fit[1], 0.0f,
-         aspect_corrected_fit[0],  aspect_corrected_fit[1], 0.0f,
+        -tile_dim[0], -tile_dim[1], 0.0f,
+        -tile_dim[0],  tile_dim[1], 0.0f,
+         tile_dim[0],  tile_dim[1], 0.0f,
         /* Second triangle. */
-        -aspect_corrected_fit[0], -aspect_corrected_fit[1], 0.0f,
-         aspect_corrected_fit[0],  aspect_corrected_fit[1], 0.0f,
-         aspect_corrected_fit[0], -aspect_corrected_fit[1], 0.0f,
+        -tile_dim[0], -tile_dim[1], 0.0f,
+         tile_dim[0],  tile_dim[1], 0.0f,
+         tile_dim[0], -tile_dim[1], 0.0f,
     };
     /* Write over old data. */
     memcpy(vertices_rectangle, fitted_tile, sizeof(vertices_rectangle));
 
-
-    /* Calculate difference on other axis. */
-    GLfloat shorter_offset = (2.0f-(num_other_dim*fit_size))/2.0f;
-    map->offset = shorter_offset;
-    map->index_offest = smaller_dim;
-    map->tile_height = aspect_corrected_fit[1];
-    map->tile_width = aspect_corrected_fit[0];
+    GLfloat offset = (2.0f-(tile_height*map->num_rows))/2.0f;
+    map->offset = offset;
+    map->tile_width = tile_width;
+    map->tile_height = tile_height;
 }
 
 void
@@ -188,7 +163,7 @@ generate_map()
             continue;
         }
         num_rows++;
-        size_t len_row = end-start;
+        size_t len_row = end-start-1;
         if (map->rows == NULL) {
             map->rows = malloc(sizeof(struct map_row *)*num_rows);
         } else {
@@ -300,7 +275,7 @@ draw_map(struct map * map, GLint program)
     GLint location_coords = glGetUniformLocation(program, "coords");
 
     GLfloat coords[] = {-1.0f+step_x/2.0f, -1.0f+step_y/2.0f};
-    coords[map->index_offest] += map->offset;
+    coords[1] += map->offset;
 
     GLuint * tile_pointer = NULL;
     for (size_t index_row = 0; index_row<map->num_rows; index_row++) {

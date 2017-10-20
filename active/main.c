@@ -8,6 +8,17 @@
 #define UNUSED(x) (void)x
 #define SIZE(x) sizeof(x)/sizeof(x[0])
 
+struct map_row {
+    size_t length;
+    GLuint * tiles;
+};
+
+struct map {
+    size_t num_rows;
+    size_t max_width;
+    struct map_row ** rows;
+};
+
 static void
 key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
 {
@@ -57,16 +68,23 @@ adjust_to_aspect_ratio(GLuint width, GLuint height, GLfloat * data, size_t size)
     }
 }
 
-struct map_row {
-    size_t length;
-    GLuint * tiles;
-};
+void
+scale_data_to_map(struct map * map, GLfloat * data, size_t size_data)
+{
+    size_t num_width = map->max_width;
+    size_t num_height = map->num_rows;
 
-struct map {
-    size_t num_rows;
-    size_t max_width;
-    struct map_row ** rows;
-};
+    GLfloat modifier = 0.0f;
+    if (num_width > num_height) {
+        modifier = 1.0f/(float)num_width;
+    } else {
+        modifier = 1.0f/(float)num_height;
+    }
+
+    for (size_t i = 0; i<size_data; i++) {
+        data[i] *= modifier;
+    }
+}
 
 void
 die(const GLchar * message)
@@ -318,6 +336,13 @@ main(void)
     adjust_to_aspect_ratio(WIDTH, HEIGHT, vertices_rectangle,
             SIZE(vertices_rectangle));
 
+    /* Generate map structure. */
+    struct map * map = generate_map();
+    print_map(map);
+
+    /* Scale vertex data to fit the map. */
+    scale_data_to_map(map, vertices_rectangle, SIZE(vertices_rectangle));
+
     /* Populate VBO with data. */
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_rectangle)*sizeof(GLfloat),
             vertices_rectangle, GL_STATIC_DRAW);
@@ -328,10 +353,6 @@ main(void)
 
     /* Use program. */
     glUseProgram(program);
-
-    /* Generate map structure. */
-    struct map * map = generate_map();
-    print_map(map);
 
     while (!glfwWindowShouldClose(window)) {
 

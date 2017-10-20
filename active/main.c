@@ -48,8 +48,12 @@ void
 adjust_to_aspect_ratio(GLuint width, GLuint height, GLfloat * data, size_t size)
 {
     GLfloat aspect_ratio = (float)width/(float)height;
+    GLint offset = 0; // Modifies the x-value.
+    if (aspect_ratio > 1) {
+        offset = 1; // Modify the y-value instead.
+    }
     for (size_t i=0; i<size; i += 3) {
-        data[i+1] *= aspect_ratio;
+        data[i+offset] *= aspect_ratio;
     }
 }
 

@@ -209,8 +209,10 @@ const GLchar * source_vertex = \
 "#version 330 core\n"
 "layout (location = 0) in vec3 vPosition;\n"
 "\n"
+"uniform vec2 coords;\n"
+"\n"
 "void main() {\n"
-"   gl_Position = vec4(vPosition, 1.0f);\n"
+"   gl_Position = vec4(vPosition+vec3(coords, 0.0f), 1.0f);\n"
 "}\n";
 
 GLint
@@ -353,6 +355,10 @@ main(void)
 
     /* Use program. */
     glUseProgram(program);
+
+    /* Grab uniform location for coords. */
+    GLint location_coords = glGetUniformLocation(program, "coords");
+    glUniform2f(location_coords, 0.3f, 0.7f);
 
     while (!glfwWindowShouldClose(window)) {
 

@@ -24,6 +24,13 @@ struct map {
     struct map_row ** rows;
 };
 
+struct player_data {
+    GLuint row;
+    GLuint col;
+};
+
+struct player_data * player_data;
+
 static void
 key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
 {
@@ -284,6 +291,13 @@ assmeble_program(GLuint id_program, GLuint sh1, GLuint sh2)
 }
 
 void
+set_player_position(GLuint row, GLuint col)
+{
+    player_data->row = row;
+    player_data->col = col;
+}
+
+void
 draw_map(struct map * map, GLint program)
 {
     GLfloat step_x = map->tile_width;
@@ -306,7 +320,11 @@ draw_map(struct map * map, GLint program)
                     glUniform2f(location_coords, coords[0]+step_x*index_col,
                             -(coords[1]+step_y*index_row));
                     glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices_rectangle)/3);
-                    break;;
+                    break;
+                case 'p':
+                    set_player_position(index_row, index_col);
+                    *tile_pointer = ' ';
+                    break;
             }
             tile_pointer++;
         }
@@ -395,6 +413,9 @@ main(void)
     /* Bind vertex array and buffer. */
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+    /* Initialize player data. */
+    player_data = &(struct player_data){3,3};
 
     /* Generate map structure. */
     struct map * map = generate_map();

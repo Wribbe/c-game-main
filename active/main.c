@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,10 +26,11 @@ struct map {
 };
 
 struct player_data {
-    GLuint row;
-    GLuint col;
+    GLuint x;
+    GLuint y;
     GLboolean ready;
     double prev_move;
+    GLuint view_radius;
 };
 
 struct player_data * player_data;
@@ -48,8 +50,8 @@ GLboolean key_active[NUM_KEYS];
 void
 set_player_position(GLuint col, GLuint row)
 {
-    player_data->row = row;
-    player_data->col = col;
+    player_data->y = row;
+    player_data->x = col;
 }
 
 GLchar
@@ -102,8 +104,8 @@ perform_actions(void)
 
     if ((diff_x || diff_y) && player_data->ready == GL_TRUE) {
 
-        GLint cx = player_data->col;
-        GLint cy = player_data->row;
+        GLint cx = player_data->x;
+        GLint cy = player_data->y;
 
         GLint nx = cx+diff_x;
         GLint ny = cy+diff_y;
@@ -467,7 +469,19 @@ void
 draw_player(GLint program)
 {
     glUseProgram(program);
-    draw_at_grid_pos(current_map, program, player_data->row, player_data->col);
+    draw_at_grid_pos(current_map, program, player_data->y, player_data->x);
+}
+
+GLboolean
+inside_view_radius(GLuint x, GLuint y)
+{
+    GLfloat diff_x = player_data->x-x;
+    GLfloat diff_y = player_data->y-y;
+
+    if (sqrtf(powf(diff_x, 2)+powf(diff_y, 2)) > player_data->view_radius) {
+        return GL_FALSE;
+    }
+    return GL_TRUE;
 }
 
 void
@@ -482,7 +496,9 @@ draw_map(GLint program)
         for (size_t index_col = 0; index_col<row->length; index_col++) {
             switch (*tile_pointer) {
                 case '#':
-                    draw_at_grid_pos(map, program, index_row, index_col);
+                    if (inside_view_radius(index_col, index_row) == GL_TRUE) {
+                        draw_at_grid_pos(map, program, index_row, index_col);
+                    }
                     break;
                 case 'p':
                     set_player_position(index_col, index_row);
@@ -562,7 +578,7 @@ main(void)
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
     /* Initialize player data. */
-    player_data = &(struct player_data){3,3,GL_TRUE,0.0f};
+    player_data = &(struct player_data){3,3,GL_TRUE,0.0f,10};
 
     /* Generate map structure. */
     struct map * map = generate_map();

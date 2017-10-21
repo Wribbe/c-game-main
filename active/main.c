@@ -41,6 +41,7 @@ enum KEYS {
 };
 
 int key_mapping[NUM_KEYS];
+GLboolean key_active[NUM_KEYS];
 
 void
 set_player_position(GLuint col, GLuint row)
@@ -63,6 +64,28 @@ player_collides(GLint coordinates[2]) {
     return GL_TRUE;
 }
 
+void
+perform_actions(void)
+{
+    GLint new_player_coords[2] = {player_data->col,player_data->row};
+
+    if (key_active[UP]) {
+        new_player_coords[1] += 1;
+    }
+    if (key_active[DOWN]) {
+        new_player_coords[1] -= 1;
+    }
+    if (key_active[LEFT]) {
+        new_player_coords[0] -= 1;
+    }
+    if (key_active[RIGHT]) {
+        new_player_coords[0] += 1;
+    }
+    if (player_collides(new_player_coords) == GL_FALSE) {
+        set_player_position(new_player_coords[0], new_player_coords[1]);
+    }
+}
+
 static void
 key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
 {
@@ -70,20 +93,33 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
     UNUSED(mods);
 
     if (action == GLFW_PRESS) {
-        GLint new_player_coords[2] = {player_data->col,player_data->row};
         if (key == GLFW_KEY_ESCAPE) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
-        } else if (key == key_mapping[UP]) {
-            new_player_coords[1] += 1;
-        } else if (key == key_mapping[DOWN]) {
-            new_player_coords[1] -= 1;
-        } else if (key == key_mapping[LEFT]) {
-            new_player_coords[0] -= 1;
-        } else if (key == key_mapping[RIGHT]) {
-            new_player_coords[0] += 1;
         }
-        if (player_collides(new_player_coords) == GL_FALSE) {
-            set_player_position(new_player_coords[0], new_player_coords[1]);
+        if (key == key_mapping[UP]) {
+            key_active[UP] = GL_TRUE;
+        }
+        if (key == key_mapping[DOWN]) {
+            key_active[DOWN] = GL_TRUE;
+        }
+        if (key == key_mapping[LEFT]) {
+            key_active[LEFT] = GL_TRUE;
+        }
+        if (key == key_mapping[RIGHT]) {
+            key_active[RIGHT] = GL_TRUE;
+        }
+    } else if (action == GLFW_RELEASE) {
+        if (key == key_mapping[UP]) {
+            key_active[UP] = GL_FALSE;
+        }
+        if (key == key_mapping[DOWN]) {
+            key_active[DOWN] = GL_FALSE;
+        }
+        if (key == key_mapping[LEFT]) {
+            key_active[LEFT] = GL_FALSE;
+        }
+        if (key == key_mapping[RIGHT]) {
+            key_active[RIGHT] = GL_FALSE;
         }
     }
 }
@@ -502,6 +538,7 @@ main(void)
 
         /* Poll events. */
         glfwPollEvents();
+        perform_actions();
 
         /* Draw. */
         draw_map(program);

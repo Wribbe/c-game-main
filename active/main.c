@@ -31,6 +31,29 @@ struct player_data {
 
 struct player_data * player_data;
 
+enum KEYS {
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
+    NUM_KEYS,
+};
+
+int key_mapping[NUM_KEYS];
+
+void
+set_player_position(GLuint col, GLuint row, GLboolean relative)
+{
+    if (!relative) {
+        player_data->row = row;
+        player_data->col = col;
+    } else {
+        player_data->row -= row;
+        player_data->col += col;
+    }
+}
+
+
 static void
 key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
 {
@@ -38,8 +61,16 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
     UNUSED(mods);
 
     if (action == GLFW_PRESS) {
-        switch (key) {
-            case GLFW_KEY_ESCAPE: glfwSetWindowShouldClose(window, GLFW_TRUE); break;
+        if (key == GLFW_KEY_ESCAPE) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        } else if (key == key_mapping[UP]) {
+            set_player_position(0, 1, GL_TRUE);
+        } else if (key == key_mapping[DOWN]) {
+            set_player_position(0, -1, GL_TRUE);
+        } else if (key == key_mapping[LEFT]) {
+            set_player_position(-1, 0, GL_TRUE);
+        } else if (key == key_mapping[RIGHT]) {
+            set_player_position(1, 0, GL_TRUE);
         }
     }
 }
@@ -290,13 +321,6 @@ assmeble_program(GLuint id_program, GLuint sh1, GLuint sh2)
 }
 
 void
-set_player_position(GLuint row, GLuint col)
-{
-    player_data->row = row;
-    player_data->col = col;
-}
-
-void
 draw_at_grid_pos(struct map * map, GLuint program, GLuint row, GLuint col)
 {
     GLfloat step_x = map->tile_width;
@@ -337,7 +361,7 @@ draw_map(struct map * map, GLint program)
                     draw_at_grid_pos(map, program, index_row, index_col);
                     break;
                 case 'p':
-                    set_player_position(index_row, index_col);
+                    set_player_position(index_col, index_row, GL_FALSE);
                     *tile_pointer = ' ';
                     break;
             }
@@ -450,10 +474,19 @@ main(void)
     /* Use program. */
     glUseProgram(program);
 
+    /* Set up key bindings. */
+    key_mapping[UP] = GLFW_KEY_D;
+    key_mapping[DOWN] = GLFW_KEY_S;
+    key_mapping[LEFT] = GLFW_KEY_F;
+    key_mapping[RIGHT] = GLFW_KEY_G;
+
     while (!glfwWindowShouldClose(window)) {
 
         /* Render. */
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        /* Poll events. */
+        glfwPollEvents();
 
         /* Draw. */
         draw_map(map, program);
@@ -461,9 +494,6 @@ main(void)
 
         /* Swap. */
         glfwSwapBuffers(window);
-
-        /* Poll events. */
-        glfwPollEvents();
 
     }
 

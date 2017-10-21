@@ -30,6 +30,7 @@ struct player_data {
 };
 
 struct player_data * player_data;
+struct map * current_map;
 
 enum KEYS {
     UP,
@@ -42,17 +43,25 @@ enum KEYS {
 int key_mapping[NUM_KEYS];
 
 void
-set_player_position(GLuint col, GLuint row, GLboolean relative)
+set_player_position(GLuint col, GLuint row)
 {
-    if (!relative) {
-        player_data->row = row;
-        player_data->col = col;
-    } else {
-        player_data->row -= row;
-        player_data->col += col;
-    }
+    player_data->row = row;
+    player_data->col = col;
 }
 
+GLchar
+get_tile(GLuint col, GLuint row)
+{
+    return current_map->rows[row]->tiles[col];
+}
+
+GLboolean
+player_collides(GLint coordinates[2]) {
+    if (get_tile(coordinates[0], coordinates[1]) == ' ') {
+        return GL_FALSE;
+    }
+    return GL_TRUE;
+}
 
 static void
 key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
@@ -61,16 +70,20 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
     UNUSED(mods);
 
     if (action == GLFW_PRESS) {
+        GLint new_player_coords[2] = {player_data->col,player_data->row};
         if (key == GLFW_KEY_ESCAPE) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         } else if (key == key_mapping[UP]) {
-            set_player_position(0, 1, GL_TRUE);
+            new_player_coords[1] += 1;
         } else if (key == key_mapping[DOWN]) {
-            set_player_position(0, -1, GL_TRUE);
+            new_player_coords[1] -= 1;
         } else if (key == key_mapping[LEFT]) {
-            set_player_position(-1, 0, GL_TRUE);
+            new_player_coords[0] -= 1;
         } else if (key == key_mapping[RIGHT]) {
-            set_player_position(1, 0, GL_TRUE);
+            new_player_coords[0] += 1;
+        }
+        if (player_collides(new_player_coords) == GL_FALSE) {
+            set_player_position(new_player_coords[0], new_player_coords[1]);
         }
     }
 }
@@ -343,14 +356,15 @@ draw_at_grid_pos(struct map * map, GLuint program, GLuint row, GLuint col)
 }
 
 void
-draw_player(struct map * map, GLint program)
+draw_player(GLint program)
 {
-    draw_at_grid_pos(map, program, player_data->row, player_data->col);
+    draw_at_grid_pos(current_map, program, player_data->row, player_data->col);
 }
 
 void
-draw_map(struct map * map, GLint program)
+draw_map(GLint program)
 {
+    struct map * map = current_map;
     GLchar * tile_pointer = NULL;
     for (size_t index_row = 0; index_row<map->num_rows; index_row++) {
         struct map_row * row = map->rows[index_row];
@@ -361,7 +375,7 @@ draw_map(struct map * map, GLint program)
                     draw_at_grid_pos(map, program, index_row, index_col);
                     break;
                 case 'p':
-                    set_player_position(index_col, index_row, GL_FALSE);
+                    set_player_position(index_col, index_row);
                     *tile_pointer = ' ';
                     break;
             }
@@ -458,6 +472,7 @@ main(void)
 
     /* Generate map structure. */
     struct map * map = generate_map();
+    current_map = map;
     print_map(map);
 
     /* Scale vertex data to fit the map and screen. */
@@ -489,8 +504,8 @@ main(void)
         glfwPollEvents();
 
         /* Draw. */
-        draw_map(map, program);
-        draw_player(map, program);
+        draw_map(program);
+        draw_player(program);
 
         /* Swap. */
         glfwSwapBuffers(window);

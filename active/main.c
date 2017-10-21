@@ -33,6 +33,19 @@ struct player_data {
     GLuint view_radius;
 };
 
+struct light_source {
+    GLuint x;
+    GLuint y;
+    GLuint radius;
+};
+
+struct node {
+    void * data;
+    struct node * next;
+};
+
+struct node * light_sources;
+
 struct player_data * player_data;
 struct map * current_map;
 
@@ -183,18 +196,18 @@ const GLchar * map_data = \
 "#                                                                                        #\n"
 "#                                                                                        ###\n"
 "#                                                                                           #\n"
-"#                                                                                           #\n"
-"#                                                                                        ####\n"
-"#    #         #                                                                         #\n"
-"#                                                                                        #\n"
-"#                                                                                        #\n"
-"#                                                                                        #\n"
-"#                                                                                        #\n"
-"#    #         #                                                                         #\n"
-"#                                                                                        #\n"
-"#                                                                                        #\n"
-"#                                                                                        #\n"
-"#                                                                                        #\n"
+"#                  #                                                                        #\n"
+"#                  #                                                                     ####\n"
+"#    #l       l#   #                                                                     #\n"
+"#                  #                                                                     #\n"
+"#                  #                                                                     #\n"
+"#                  #                                                                     #\n"
+"#                  #                                                                     #\n"
+"#    #l       l#   #                                                                     #\n"
+"#                  #                                                                     #\n"
+"#                  #                                                                     #\n"
+"#                  #                                                                     #\n"
+"#                  #                                                                     #\n"
 "#                                                                                        #\n"
 "#                                                                                        #\n"
 "#                                                                                        #\n"
@@ -475,13 +488,74 @@ draw_player(GLint program)
 GLboolean
 inside_view_radius(GLuint x, GLuint y)
 {
-    GLfloat diff_x = player_data->x-x;
-    GLfloat diff_y = player_data->y-y;
+    GLfloat diff_x = (float)player_data->x-(float)x;
+    GLfloat diff_y = (float)player_data->y-(float)y;
 
-    if (sqrtf(powf(diff_x, 2)+powf(diff_y, 2)) > player_data->view_radius) {
-        return GL_FALSE;
+    GLfloat distance = sqrtf(powf(diff_x, 2)+powf(diff_y, 2));
+    if (distance < player_data->view_radius) {
+        return GL_TRUE;
     }
-    return GL_TRUE;
+    for (size_t i=0; i<current_map->num_rows; i++) {
+        struct node * node = &light_sources[i];
+        while (node != NULL && node->data != NULL) {
+            struct light_source * source = (struct light_source *)node->data;
+            diff_x = (float)source->x-(float)x;
+            diff_y = (float)source->y-(float)y;
+            if (sqrtf(powf(diff_x, 2)+powf(diff_y, 2)) < source->radius) {
+                return GL_TRUE;
+            }
+            node = node->next;
+        }
+    }
+    return GL_FALSE;
+}
+
+void
+add_light_source(GLuint x, GLint y, GLuint radius)
+{
+    struct node * node_p = &light_sources[y];
+    while (node_p->next != NULL) {
+        node_p = node_p->next;
+    }
+
+    struct light_source * source = malloc_or_die(sizeof(struct light_source),
+            "Could not allocate memory for new light struct.");
+    source->x = x;
+    source->y = y;
+    source->radius = radius;
+    node_p->data = (void*)source;
+
+    struct node * next = malloc_or_die(sizeof(struct node),
+            "Could not allocate memory for next node struct");
+    next->data = NULL;
+    next->next = NULL;
+    node_p->next = next;
+}
+
+void
+deallocate_lights(void)
+{
+    struct node * current_node = NULL;
+    struct node * next_node = NULL;
+    for (size_t i=0; i<current_map->num_rows; i++) {
+        current_node = &light_sources[i];
+        current_node = current_node->next;
+        if (current_node != NULL) {
+            next_node = current_node->next;
+        }
+        while (current_node != NULL) {
+            free(current_node->data);
+            free(current_node);
+            current_node = next_node;
+            if (current_node != NULL) {
+                next_node = current_node->next;
+            }
+        }
+        current_node = &light_sources[i];
+        if (current_node->data) {
+            free(current_node->data);
+        }
+    }
 }
 
 void
@@ -504,6 +578,9 @@ draw_map(GLint program)
                     set_player_position(index_col, index_row);
                     *tile_pointer = ' ';
                     break;
+                case 'l':
+                    add_light_source(index_col, index_row, 10);
+                    *tile_pointer = ' ';
             }
             tile_pointer++;
         }
@@ -602,6 +679,14 @@ main(void)
     key_mapping[LEFT] = GLFW_KEY_F;
     key_mapping[RIGHT] = GLFW_KEY_G;
 
+    /* Set up structure for light sources. */
+    struct node light_sources_data[map->num_rows];
+    for (size_t i=0; i<map->num_rows; i++) {
+        light_sources_data[i].data = NULL;
+        light_sources_data[i].next = NULL;
+    }
+    light_sources = light_sources_data;
+
     while (!glfwWindowShouldClose(window)) {
 
         /* Render. */
@@ -620,6 +705,7 @@ main(void)
 
     }
 
+    deallocate_lights();
     deallocate_map(map);
 
     glfwTerminate();

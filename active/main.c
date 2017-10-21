@@ -364,6 +364,12 @@ const GLchar * source_fragment = \
 "   gl_FragColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
 "}\n";
 
+const GLchar * source_fragment_player = \
+"#version 330 core\n"
+"void main() {\n"
+"   gl_FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);\n"
+"}\n";
+
 const GLchar * source_vertex = \
 "#version 330 core\n"
 "layout (location = 0) in vec3 vPosition;\n"
@@ -400,13 +406,38 @@ print_program_error(GLuint id_program) {
 }
 
 GLint
-assmeble_program(GLuint id_program, GLuint sh1, GLuint sh2)
+assemble_program(GLuint id_program, const GLchar * const source_vertex,
+        const GLchar * const source_fragment)
 {
-    glAttachShader(id_program, sh1);
-    glAttachShader(id_program, sh2);
+    /* Create shaders. */
+    GLuint shader_vertex = glCreateShader(GL_VERTEX_SHADER);
+    GLuint shader_fragment = glCreateShader(GL_FRAGMENT_SHADER);
+
+    /* Set sources. */
+    glShaderSource(shader_vertex, 1, &source_vertex, NULL);
+    glShaderSource(shader_fragment, 1, &source_fragment, NULL);
+
+    /* Compile shaders. */
+    if (compile_shader(shader_vertex) != GL_TRUE) {
+        print_shader_error(shader_vertex);
+        exit(EXIT_FAILURE);
+    }
+
+    if (compile_shader(shader_fragment) != GL_TRUE) {
+        print_shader_error(shader_fragment);
+        exit(EXIT_FAILURE);
+    }
+
+    glAttachShader(id_program, shader_vertex);
+    glAttachShader(id_program, shader_fragment);
     glLinkProgram(id_program);
     GLint success = 0;
     glGetProgramiv(id_program, GL_LINK_STATUS, &success);
+
+    /* Delete shaders. */
+    glDeleteShader(shader_vertex);
+    glDeleteShader(shader_fragment);
+
     return success;
 }
 
@@ -435,12 +466,14 @@ draw_at_grid_pos(struct map * map, GLuint program, GLuint row, GLuint col)
 void
 draw_player(GLint program)
 {
+    glUseProgram(program);
     draw_at_grid_pos(current_map, program, player_data->row, player_data->col);
 }
 
 void
 draw_map(GLint program)
 {
+    glUseProgram(program);
     struct map * map = current_map;
     GLchar * tile_pointer = NULL;
     for (size_t index_row = 0; index_row<map->num_rows; index_row++) {
@@ -504,35 +537,19 @@ main(void)
     /* Set key callback function for main window. */
     glfwSetKeyCallback(window, key_callback);
 
-    /* Create shaders. */
-    GLuint shader_vertex = glCreateShader(GL_VERTEX_SHADER);
-    GLuint shader_fragment = glCreateShader(GL_FRAGMENT_SHADER);
-
-    /* Set sources. */
-    glShaderSource(shader_vertex, 1, &source_vertex, NULL);
-    glShaderSource(shader_fragment, 1, &source_fragment, NULL);
-
-    /* Compile shaders. */
-    if (compile_shader(shader_vertex) != GL_TRUE) {
-        print_shader_error(shader_vertex);
+    /*  Create shader program for map. */
+    GLuint map_program = glCreateProgram();
+    if (assemble_program(map_program, source_vertex, source_fragment) != GL_TRUE) {
+        print_program_error(map_program);
         return EXIT_FAILURE;
     }
 
-    if (compile_shader(shader_fragment) != GL_TRUE) {
-        print_shader_error(shader_fragment);
+    /*  Create shader program for player. */
+    GLuint player_program = glCreateProgram();
+    if (assemble_program(player_program, source_vertex, source_fragment_player) != GL_TRUE) {
+        print_program_error(map_program);
         return EXIT_FAILURE;
     }
-
-    /*  Create shader program. */
-    GLuint program = glCreateProgram();
-    if (assmeble_program(program, shader_vertex, shader_fragment) != GL_TRUE) {
-        print_program_error(program);
-        return EXIT_FAILURE;
-    }
-
-    /* Delete shaders. */
-    glDeleteShader(shader_vertex);
-    glDeleteShader(shader_fragment);
 
     /* Set up OpenGL buffers. */
     GLuint VBO = 0;
@@ -563,9 +580,6 @@ main(void)
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glEnableVertexAttribArray(0);
 
-    /* Use program. */
-    glUseProgram(program);
-
     /* Set up key bindings. */
     key_mapping[UP] = GLFW_KEY_D;
     key_mapping[DOWN] = GLFW_KEY_S;
@@ -582,8 +596,8 @@ main(void)
         perform_actions();
 
         /* Draw. */
-        draw_map(program);
-        draw_player(program);
+        draw_map(map_program);
+        draw_player(player_program);
 
         /* Swap. */
         glfwSwapBuffers(window);

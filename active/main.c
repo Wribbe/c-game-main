@@ -27,6 +27,8 @@ struct map {
 struct player_data {
     GLuint row;
     GLuint col;
+    GLboolean ready;
+    double prev_move;
 };
 
 struct player_data * player_data;
@@ -57,8 +59,8 @@ get_tile(GLuint col, GLuint row)
 }
 
 GLboolean
-player_collides(GLint coordinates[2]) {
-    if (get_tile(coordinates[0], coordinates[1]) == ' ') {
+player_collides(GLint x, GLint y) {
+    if (get_tile(x, y) == ' ') {
         return GL_FALSE;
     }
     return GL_TRUE;
@@ -67,22 +69,61 @@ player_collides(GLint coordinates[2]) {
 void
 perform_actions(void)
 {
-    GLint new_player_coords[2] = {player_data->col,player_data->row};
+    GLint diff_x = 0;
+    GLint diff_y = 0;
+
+    GLboolean dir_button_pressed = GL_FALSE;
 
     if (key_active[UP]) {
-        new_player_coords[1] += 1;
+        diff_y += 1;
+        dir_button_pressed = GL_TRUE;
     }
     if (key_active[DOWN]) {
-        new_player_coords[1] -= 1;
+        diff_y -= 1;
+        dir_button_pressed = GL_TRUE;
     }
     if (key_active[LEFT]) {
-        new_player_coords[0] -= 1;
+        diff_x -= 1;
+        dir_button_pressed = GL_TRUE;
     }
     if (key_active[RIGHT]) {
-        new_player_coords[0] += 1;
+        diff_x += 1;
+        dir_button_pressed = GL_TRUE;
     }
-    if (player_collides(new_player_coords) == GL_FALSE) {
-        set_player_position(new_player_coords[0], new_player_coords[1]);
+    if (dir_button_pressed == GL_FALSE) {
+        /* No movement buttons pressed, ready for next action. */
+        player_data->ready = GL_TRUE;
+    }
+
+    GLfloat min_time_between_moves = 0.1f;
+    if (glfwGetTime() - player_data->prev_move > min_time_between_moves) {
+        player_data->ready = GL_TRUE;
+    }
+
+    if ((diff_x || diff_y) && player_data->ready == GL_TRUE) {
+
+        GLint cx = player_data->col;
+        GLint cy = player_data->row;
+
+        GLint nx = cx+diff_x;
+        GLint ny = cy+diff_y;
+
+        GLboolean moved_player = GL_TRUE;
+
+        if (player_collides(nx, ny) == GL_FALSE) {
+            set_player_position(nx, ny);
+        } else if (player_collides(cx, ny) == GL_FALSE) {
+            set_player_position(cx, ny);
+        } else if (player_collides(nx, cy) == GL_FALSE) {
+            set_player_position(nx, cy);
+        } else {
+            moved_player = GL_FALSE;
+        }
+
+        if (moved_player == GL_TRUE) {
+            player_data->ready = GL_FALSE;
+            player_data->prev_move = glfwGetTime();
+        }
     }
 }
 
@@ -504,7 +545,7 @@ main(void)
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
     /* Initialize player data. */
-    player_data = &(struct player_data){3,3};
+    player_data = &(struct player_data){3,3,GL_TRUE,0.0f};
 
     /* Generate map structure. */
     struct map * map = generate_map();

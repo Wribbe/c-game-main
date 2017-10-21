@@ -298,7 +298,7 @@ set_player_position(GLuint row, GLuint col)
 }
 
 void
-draw_map(struct map * map, GLint program)
+draw_at_grid_pos(struct map * map, GLuint program, GLuint row, GLuint col)
 {
     GLfloat step_x = map->tile_width;
     GLfloat step_y = map->tile_height;
@@ -306,10 +306,28 @@ draw_map(struct map * map, GLint program)
     /* Grab uniform location for coords. */
     GLint location_coords = glGetUniformLocation(program, "coords");
 
-    GLfloat coords[] = {-1.0f+step_x/2.0f, -1.0f+step_y/2.0f};
+    GLfloat coords[] = {-1.0f, -1.0f};
+
+    /* Add 0.5 to offset from center of tile. */
+    coords[0] += step_x*((float)col+0.5f);
+    coords[1] += step_y*((float)row+0.5f);
+
     coords[0] += map->offset_x;
     coords[1] += map->offset_y;
 
+    glUniform2f(location_coords, coords[0], -coords[1]);
+    glDrawArrays(GL_TRIANGLES, 0, SIZE(vertices_rectangle)/3);
+}
+
+void
+draw_player(struct map * map, GLint program)
+{
+    draw_at_grid_pos(map, program, player_data->row, player_data->col);
+}
+
+void
+draw_map(struct map * map, GLint program)
+{
     GLchar * tile_pointer = NULL;
     for (size_t index_row = 0; index_row<map->num_rows; index_row++) {
         struct map_row * row = map->rows[index_row];
@@ -317,9 +335,7 @@ draw_map(struct map * map, GLint program)
         for (size_t index_col = 0; index_col<row->length; index_col++) {
             switch (*tile_pointer) {
                 case '#':
-                    glUniform2f(location_coords, coords[0]+step_x*index_col,
-                            -(coords[1]+step_y*index_row));
-                    glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices_rectangle)/3);
+                    draw_at_grid_pos(map, program, index_row, index_col);
                     break;
                 case 'p':
                     set_player_position(index_row, index_col);
@@ -441,8 +457,8 @@ main(void)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         /* Draw. */
-//        glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices_rectangle)/3);
         draw_map(map, program);
+        draw_player(map, program);
 
         /* Swap. */
         glfwSwapBuffers(window);

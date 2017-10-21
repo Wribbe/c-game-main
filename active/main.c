@@ -17,7 +17,8 @@ struct map_row {
 struct map {
     size_t num_rows;
     size_t max_width;
-    GLfloat offset;
+    GLfloat offset_x;
+    GLfloat offset_y;
     GLfloat tile_width;
     GLfloat tile_height;
     struct map_row ** rows;
@@ -48,25 +49,41 @@ GLfloat vertices_rectangle[] = {
 };
 
 const GLchar * map_data = \
-"##############################\n"
-"#                            #\n"
-"#                            ###\n"
-"#                               #\n"
-"#                               #\n"
-"#                            ####\n"
-"#    #         #             #\n"
-"#                            #\n"
-"#                            #\n"
-"#                            #\n"
-"#                            #\n"
-"#    #         #             #\n"
-"#                            #\n"
-"#                            #\n"
-"#                            #\n"
-"#                            #\n"
-"#                            #\n"
-"#                            #\n"
-"##############################\n";
+"##########################################################################################\n"
+"#                                                                                        #\n"
+"#                                                                                        ###\n"
+"#                                                                                           #\n"
+"#                                                                                           #\n"
+"#                                                                                        ####\n"
+"#    #         #                                                                         #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#    #         #                                                                         #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"#                                                                                        #\n"
+"##########################################################################################\n";
 
 void
 scale_tiles(struct map * map, GLuint width, GLuint height, GLfloat * data,
@@ -75,8 +92,16 @@ scale_tiles(struct map * map, GLuint width, GLuint height, GLfloat * data,
     GLfloat pixel_width = 2.0f/(float)width;
     GLfloat pixel_height = 2.0f/(float)height;
 
-    GLfloat tile_width = ((float)width/map->max_width)*pixel_width;
-    GLfloat tile_height = ((float)width/map->max_width)*pixel_height;
+    GLfloat tile_fitted_to_height = (float)height/(float)map->num_rows;
+    GLfloat tile_fitted_to_widht = (float)width/(float)map->max_width;
+
+    GLfloat tile_size_base = tile_fitted_to_widht;
+    if (tile_fitted_to_widht * pixel_width *  map->num_rows > 2.0f) {
+        tile_size_base = tile_fitted_to_height;
+    }
+
+    GLfloat tile_width = tile_size_base*pixel_width;
+    GLfloat tile_height = tile_size_base*pixel_height;
 
     GLfloat tile_dim[] = {tile_width/2, tile_height/2};
 
@@ -94,8 +119,14 @@ scale_tiles(struct map * map, GLuint width, GLuint height, GLfloat * data,
     /* Write over old data. */
     memcpy(vertices_rectangle, fitted_tile, sizeof(vertices_rectangle));
 
-    GLfloat offset = (2.0f-(tile_height*map->num_rows))/2.0f;
-    map->offset = offset;
+    map->offset_x = 0;
+    map->offset_y = 0;
+
+    if (tile_fitted_to_widht * map->num_rows * pixel_width > 2.0f) {
+        map->offset_x = (2.0f-(tile_width*map->max_width))/2.0f;
+    } else {
+        map->offset_y = (2.0f-(tile_height*map->num_rows))/2.0f;
+    }
     map->tile_width = tile_width;
     map->tile_height = tile_height;
 }
@@ -275,7 +306,8 @@ draw_map(struct map * map, GLint program)
     GLint location_coords = glGetUniformLocation(program, "coords");
 
     GLfloat coords[] = {-1.0f+step_x/2.0f, -1.0f+step_y/2.0f};
-    coords[1] += map->offset;
+    coords[0] += map->offset_x;
+    coords[1] += map->offset_y;
 
     GLuint * tile_pointer = NULL;
     for (size_t index_row = 0; index_row<map->num_rows; index_row++) {
@@ -306,8 +338,8 @@ main(void)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLuint WIDTH = 640;
-    GLuint HEIGHT = 480;
+    GLuint WIDTH = 1024;
+    GLuint HEIGHT = 576;
 
     window = glfwCreateWindow(WIDTH, HEIGHT, "HELLO WORLD", NULL, NULL);
     if (!window) {

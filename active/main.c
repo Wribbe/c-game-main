@@ -11,7 +11,7 @@
 
 struct map_row {
     size_t length;
-    GLuint * tiles;
+    GLchar * tiles;
 };
 
 struct map {
@@ -73,7 +73,7 @@ const GLchar * map_data = \
 "#                                                                                        #\n"
 "#                                                                                        #\n"
 "#                                                                                        #\n"
-"#                                                                                        #\n"
+"#                                                   p                                    #\n"
 "#                                                                                        #\n"
 "#                                                                                        #\n"
 "#                                                                                        #\n"
@@ -151,24 +151,11 @@ malloc_or_die(size_t size, const char * error)
 void
 populate_row(const GLchar * start, const GLchar * end, struct map_row * row)
 {
-    const GLchar * current = start;
     size_t num_tiles = end-start;
-    row->tiles = malloc_or_die(sizeof(GLuint)*num_tiles,
+    row->tiles = malloc_or_die(sizeof(GLchar)*(num_tiles+1),
             "Could not allocate memory for row->tiles array");
-    GLuint * current_tile = row->tiles;
-    char c;
-    for (; current < end; current++, current_tile++) {
-        c = *current;
-        switch (c)
-        {
-            case '#':
-                *current_tile = 1;
-                break;;
-            default:
-                *current_tile = 0;
-                break;;
-        }
-    }
+    memcpy(row->tiles, start, num_tiles);
+    row->tiles[num_tiles] = '\0';
     row->length = num_tiles;
 }
 
@@ -223,7 +210,7 @@ print_map(struct map * map)
     for (size_t i=0; i<map->num_rows; i++) {
         current_row = map->rows[i];
         for (size_t j=0; j<current_row->length; j++) {
-            printf("%d", current_row->tiles[j]);
+            printf("%c", current_row->tiles[j]);
         }
         printf("\n");
     }
@@ -309,15 +296,17 @@ draw_map(struct map * map, GLint program)
     coords[0] += map->offset_x;
     coords[1] += map->offset_y;
 
-    GLuint * tile_pointer = NULL;
+    GLchar * tile_pointer = NULL;
     for (size_t index_row = 0; index_row<map->num_rows; index_row++) {
         struct map_row * row = map->rows[index_row];
         tile_pointer = row->tiles;
         for (size_t index_col = 0; index_col<row->length; index_col++) {
-            if (*tile_pointer == 1) {
-                glUniform2f(location_coords, coords[0]+step_x*index_col,
-                        -(coords[1]+step_y*index_row));
-                glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices_rectangle)/3);
+            switch (*tile_pointer) {
+                case '#':
+                    glUniform2f(location_coords, coords[0]+step_x*index_col,
+                            -(coords[1]+step_y*index_row));
+                    glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices_rectangle)/3);
+                    break;;
             }
             tile_pointer++;
         }

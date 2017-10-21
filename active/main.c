@@ -93,8 +93,7 @@ const GLchar * map_data = \
 "##########################################################################################\n";
 
 void
-scale_tiles(struct map * map, GLuint width, GLuint height, GLfloat * data,
-        size_t size_data)
+scale_tiles(struct map * map, GLuint width, GLuint height)
 {
     GLfloat pixel_width = 2.0f/(float)width;
     GLfloat pixel_height = 2.0f/(float)height;
@@ -438,7 +437,7 @@ main(void)
     print_map(map);
 
     /* Scale vertex data to fit the map and screen. */
-    scale_tiles(map, WIDTH, HEIGHT, vertices_rectangle, SIZE(vertices_rectangle));
+    scale_tiles(map, WIDTH, HEIGHT);
 
     /* Populate VBO with data. */
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_rectangle)*sizeof(GLfloat),

@@ -489,7 +489,7 @@ draw_player(GLint program)
 }
 
 GLboolean
-recieves_light_from(GLuint x, GLuint y, struct light_source * light)
+receives_light_from(GLuint x, GLuint y, struct light_source * light)
 {
     GLfloat diff_x = (float)light->x-(float)x;
     GLfloat diff_y = (float)light->y-(float)y;
@@ -504,21 +504,14 @@ recieves_light_from(GLuint x, GLuint y, struct light_source * light)
 GLboolean
 is_visibe(GLuint x, GLuint y)
 {
-    GLfloat diff_x = (float)player_data->x-(float)x;
-    GLfloat diff_y = (float)player_data->y-(float)y;
-
-    /* Check if obstructed by other tile. */
-
-    if (recieves_light_from(x, y, player_data->light) == GL_TRUE) {
+    if (receives_light_from(x, y, player_data->light) == GL_TRUE) {
         return GL_TRUE;
     }
     for (size_t i=0; i<current_map->num_rows; i++) {
         struct node * node = &light_sources[i];
         while (node != NULL && node->data != NULL) {
-            struct light_source * source = (struct light_source *)node->data;
-            diff_x = (float)source->x-(float)x;
-            diff_y = (float)source->y-(float)y;
-            if (sqrtf(powf(diff_x, 2)+powf(diff_y, 2)) < source->radius) {
+            struct light_source * light = (struct light_source *)node->data;
+            if (receives_light_from(x, y, light) == GL_TRUE) {
                 return GL_TRUE;
             }
             node = node->next;

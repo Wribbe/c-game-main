@@ -25,19 +25,20 @@ struct map {
     struct map_row ** rows;
 };
 
-struct player_data {
-    GLuint x;
-    GLuint y;
-    GLboolean ready;
-    double prev_move;
-    GLuint view_radius;
-};
-
 struct light_source {
     GLuint x;
     GLuint y;
     GLuint radius;
 };
+
+struct player_data {
+    GLuint x;
+    GLuint y;
+    GLboolean ready;
+    double prev_move;
+    struct light_source * light;
+};
+
 
 struct node {
     void * data;
@@ -63,8 +64,10 @@ GLboolean key_active[NUM_KEYS];
 void
 set_player_position(GLuint col, GLuint row)
 {
-    player_data->y = row;
     player_data->x = col;
+    player_data->y = row;
+    player_data->light->x = col;
+    player_data->light->y = row;
 }
 
 GLchar
@@ -486,13 +489,27 @@ draw_player(GLint program)
 }
 
 GLboolean
-inside_view_radius(GLuint x, GLuint y)
+recieves_light_from(GLuint x, GLuint y, struct light_source * light)
+{
+    GLfloat diff_x = (float)light->x-(float)x;
+    GLfloat diff_y = (float)light->y-(float)y;
+    GLfloat distance = sqrtf(powf(diff_x, 2)+powf(diff_y, 2));
+    if (distance < light->radius) {
+        return GL_TRUE;
+    }
+    return GL_FALSE;
+}
+
+
+GLboolean
+is_visibe(GLuint x, GLuint y)
 {
     GLfloat diff_x = (float)player_data->x-(float)x;
     GLfloat diff_y = (float)player_data->y-(float)y;
 
-    GLfloat distance = sqrtf(powf(diff_x, 2)+powf(diff_y, 2));
-    if (distance < player_data->view_radius) {
+    /* Check if obstructed by other tile. */
+
+    if (recieves_light_from(x, y, player_data->light) == GL_TRUE) {
         return GL_TRUE;
     }
     for (size_t i=0; i<current_map->num_rows; i++) {
@@ -570,7 +587,7 @@ draw_map(GLint program)
         for (size_t index_col = 0; index_col<row->length; index_col++) {
             switch (*tile_pointer) {
                 case '#':
-                    if (inside_view_radius(index_col, index_row) == GL_TRUE) {
+                    if (is_visibe(index_col, index_row) == GL_TRUE) {
                         draw_at_grid_pos(map, program, index_row, index_col);
                     }
                     break;
@@ -655,7 +672,7 @@ main(void)
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
     /* Initialize player data. */
-    player_data = &(struct player_data){3,3,GL_TRUE,0.0f,10};
+    player_data = &(struct player_data){3,3,GL_TRUE,0.0f,&(struct light_source){3,3,15}};
 
     /* Generate map structure. */
     struct map * map = generate_map();

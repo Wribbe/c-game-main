@@ -201,12 +201,12 @@ const GLchar * map_data = \
 "#                                                                                           #\n"
 "#                  #                                                                        #\n"
 "#                  #                                                                     ####\n"
-"#    #l       l#   #                                                                     #\n"
+"#    #         #   #                                                                     #\n"
 "#                  #                                                                     #\n"
 "#                  #                                                                     #\n"
 "#                  #                                                                     #\n"
 "#                  #                                                                     #\n"
-"#    #l       l#   #                                                                     #\n"
+"#    #     p   #   #                                                                     #\n"
 "#                  #                                                                     #\n"
 "#                  #                                                                     #\n"
 "#                  #                                                                     #\n"
@@ -219,7 +219,7 @@ const GLchar * map_data = \
 "#                                                                                        #\n"
 "#                                                                                        #\n"
 "#                                                                                        #\n"
-"#                                                   p                                    #\n"
+"#                                                                                        #\n"
 "#                                                                                        #\n"
 "#                                                                                        #\n"
 "#                                                                                        #\n"
@@ -491,13 +491,57 @@ draw_player(GLint program)
 GLboolean
 receives_light_from(GLuint x, GLuint y, struct light_source * light)
 {
-    GLfloat diff_x = (float)light->x-(float)x;
-    GLfloat diff_y = (float)light->y-(float)y;
+    GLfloat light_x = (GLfloat)light->x;
+    GLfloat light_y = (GLfloat)light->y;
+
+    /* Check light radius. */
+    GLfloat diff_x = light_x-(GLfloat)x;
+    GLfloat diff_y = light_y-(GLfloat)y;
     GLfloat distance = sqrtf(powf(diff_x, 2)+powf(diff_y, 2));
-    if (distance < light->radius) {
-        return GL_TRUE;
+
+    if (distance > light->radius) {
+        return GL_FALSE;
     }
-    return GL_FALSE;
+
+    /* Check for obstructions. */
+    GLfloat temp_x = (GLfloat)x;
+    GLfloat temp_y = (GLfloat)y;
+
+    diff_x = fabsf(temp_x - light_x);
+    diff_y = fabsf(temp_y - light_y);
+
+    for (;;) {
+
+        GLfloat y_step = 1;
+        if (diff_x > 0) {
+            y_step = diff_y/diff_x;
+        }
+
+        /* Walk towards light source. */
+        if (temp_x < light_x) {
+            temp_x += 1.0f;
+        } else if (temp_x > light_x) {
+            temp_x -= 1.0f;
+        }
+        if (temp_y < light_y) {
+            temp_y += y_step;
+        } else if (temp_y > light_y) {
+            temp_y -= y_step;
+        }
+
+        if (temp_y == light_y  && temp_x == light_x) {
+            break;
+        }
+
+        if (get_tile((GLuint)temp_x, (GLuint)roundf(temp_y)) == '#') {
+            /* Obstruction between tile and source. */
+            return GL_FALSE;
+        }
+
+        diff_x = fabsf(temp_x - light_x);
+        diff_y = fabsf(temp_y - light_y);
+    }
+    return GL_TRUE;
 }
 
 

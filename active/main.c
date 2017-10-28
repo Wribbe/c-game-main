@@ -201,12 +201,12 @@ const GLchar * map_data = \
 "#                                                                                           #\n"
 "#                  #                                                                        #\n"
 "#                  #                                                                     ####\n"
-"#    #         #   #                                                                     #\n"
+"#    #l       l#   #                                                                     #\n"
 "#                  #                                                                     #\n"
 "#                  #                                                                     #\n"
 "#                  #                                                                     #\n"
 "#                  #                                                                     #\n"
-"#    #     p   #   #                                                                     #\n"
+"#    #l       l#   #                                                                     #\n"
 "#                  #                                                                     #\n"
 "#                  #                                                                     #\n"
 "#                  #                                                                     #\n"
@@ -214,7 +214,7 @@ const GLchar * map_data = \
 "#                                                                                        #\n"
 "#                                                                                        #\n"
 "#                                                                                        #\n"
-"#                                                                                        #\n"
+"#                                                    p                                   #\n"
 "#                                                                                        #\n"
 "#                                                                                        #\n"
 "#                                                                                        #\n"
@@ -533,7 +533,7 @@ receives_light_from(GLuint x, GLuint y, struct light_source * light)
             break;
         }
 
-        if (get_tile((GLuint)temp_x, (GLuint)roundf(temp_y)) == '#') {
+        if (get_tile((GLuint)temp_x, (GLuint)temp_y) == '#') {
             /* Obstruction between tile and source. */
             return GL_FALSE;
         }

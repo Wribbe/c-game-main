@@ -637,12 +637,6 @@ deallocate_lights(void)
     }
 }
 
-
-void
-add_treasure(size_t x, size_t y)
-{
-}
-
 struct guard {
     struct v2ui position;
     struct v2i direction;
@@ -662,6 +656,67 @@ add_guard(size_t x, size_t y)
     g->direction.x = 0;
     g->direction.y = -1;
     g->view_radius = 5;
+}
+
+struct treasure {
+    struct v2ui position;
+    GLuint value;
+    struct treasure * next;
+};
+
+struct treasure * treasures = NULL;
+struct treasure * last = NULL;
+
+void
+add_treasure(size_t x, size_t y, GLuint value)
+{
+    struct treasure * new = malloc_or_die(sizeof(struct treasure),
+            "Could not allocate memory for treasure");
+    new->position.x = x;
+    new->position.y = y;
+    new->value = value;
+    new->next = NULL;
+
+    if (treasures == NULL) {
+        treasures = new;
+        last = treasures;
+    } else {
+        last->next = new;
+        last = new;
+    }
+}
+
+GLuint
+remove_treasure_at(size_t x, size_t y)
+{
+    struct treasure * t = treasures;
+    struct treasure * prev = NULL;
+    GLuint value = 0;
+    for (; t != NULL; t=t->next) {
+        if (t->position.x == x && t->position.y == y) {
+            if (prev == NULL) {
+                treasures = t->next;
+            } else {
+                prev->next = t->next;
+            }
+            value = t->value;
+            free(t);
+            return value;
+        }
+    }
+    return value;
+}
+
+void
+deallocate_treasures(void)
+{
+    struct treasure * t = treasures;
+    struct treasure * next = NULL;
+    while (t != NULL) {
+        next = t->next;
+        free(t);
+        t = next;
+    }
 }
 
 void
@@ -689,7 +744,7 @@ draw_map(GLint program)
                     *tile_pointer = ' ';
                     break;;
                 case 't':
-                    add_treasure(index_col, index_row);
+                    add_treasure(index_col, index_row, 100);
                     *tile_pointer = ' ';
                     break;;
                 case 'g':
@@ -846,6 +901,7 @@ main(void)
 
     deallocate_lights();
     deallocate_map(map);
+    deallocate_treasures();
 
     glfwTerminate();
 }

@@ -47,6 +47,17 @@ struct node {
 
 struct node * light_sources;
 
+struct v2i {
+    int x;
+    int y;
+};
+
+struct v2ui {
+    size_t x;
+    size_t y;
+};
+
+
 struct player_data * player_data;
 struct map * current_map;
 
@@ -388,6 +399,18 @@ const GLchar * source_fragment_player = \
 "   gl_FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);\n"
 "}\n";
 
+const GLchar * source_fragment_guard= \
+"#version 330 core\n"
+"void main() {\n"
+"   gl_FragColor = vec4(0.0f, 0.0f, 1.0f, 1.0f);\n"
+"}\n";
+
+const GLchar * source_fragment_treasure= \
+"#version 330 core\n"
+"void main() {\n"
+"   gl_FragColor = vec4(1.0f, 1.0f, 0.0f, 1.0f);\n"
+"}\n";
+
 const GLchar * source_vertex = \
 "#version 330 core\n"
 "layout (location = 0) in vec3 vPosition;\n"
@@ -462,6 +485,8 @@ assemble_program(GLuint id_program, const GLchar * const source_vertex,
 void
 draw_at_grid_pos(struct map * map, GLuint program, GLuint row, GLuint col)
 {
+    glUseProgram(program);
+
     GLfloat step_x = map->tile_width;
     GLfloat step_y = map->tile_height;
 
@@ -612,6 +637,33 @@ deallocate_lights(void)
     }
 }
 
+
+void
+add_treasure(size_t x, size_t y)
+{
+}
+
+struct guard {
+    struct v2ui position;
+    struct v2i direction;
+    GLuint view_radius;
+};
+
+#define MAX_GUARDS 10
+struct guard guards[MAX_GUARDS] = {0};
+size_t num_guards = 0;
+
+void
+add_guard(size_t x, size_t y)
+{
+    struct guard * g = &guards[num_guards++];
+    g->position.x = x;
+    g->position.y = y;
+    g->direction.x = 0;
+    g->direction.y = -1;
+    g->view_radius = 5;
+}
+
 void
 draw_map(GLint program)
 {
@@ -635,9 +687,27 @@ draw_map(GLint program)
                 case 'l':
                     add_light_source(index_col, index_row, 10);
                     *tile_pointer = ' ';
+                    break;;
+                case 't':
+                    add_treasure(index_col, index_row);
+                    *tile_pointer = ' ';
+                    break;;
+                case 'g':
+                    add_guard(index_col, index_row);
+                    *tile_pointer = ' ';
+                    break;;
             }
             tile_pointer++;
         }
+    }
+}
+
+void
+draw_guards(GLint program)
+{
+    for (size_t i = 0; i<num_guards; i++) {
+        draw_at_grid_pos(current_map, program, guards[i].position.x,
+                guards[i].position.y);
     }
 }
 
@@ -694,7 +764,21 @@ main(void)
     /*  Create shader program for player. */
     GLuint player_program = glCreateProgram();
     if (assemble_program(player_program, source_vertex, source_fragment_player) != GL_TRUE) {
-        print_program_error(map_program);
+        print_program_error(player_program);
+        return EXIT_FAILURE;
+    }
+
+    /*  Create shader program for guard. */
+    GLuint guard_program = glCreateProgram();
+    if (assemble_program(guard_program, source_vertex, source_fragment_guard) != GL_TRUE) {
+        print_program_error(guard_program);
+        return EXIT_FAILURE;
+    }
+
+    /*  Create shader program for traesure. */
+    GLuint treasure_program = glCreateProgram();
+    if (assemble_program(treasure_program, source_vertex, source_fragment_treasure) != GL_TRUE) {
+        print_program_error(treasure_program);
         return EXIT_FAILURE;
     }
 
@@ -753,6 +837,7 @@ main(void)
         /* Draw. */
         draw_map(map_program);
         draw_player(player_program);
+        draw_guards(guard_program);
 
         /* Swap. */
         glfwSwapBuffers(window);

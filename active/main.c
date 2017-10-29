@@ -66,6 +66,7 @@ enum KEYS {
     DOWN,
     LEFT,
     RIGHT,
+    RESET,
     NUM_KEYS,
 };
 
@@ -95,8 +96,8 @@ player_collides(GLint x, GLint y) {
     return GL_TRUE;
 }
 
-GLuint
-remove_treasure_at(size_t x, size_t y);
+GLuint remove_treasure_at(size_t x, size_t y);
+void restore_stage(void);
 
 void
 perform_actions(void)
@@ -125,6 +126,9 @@ perform_actions(void)
     if (dir_button_pressed == GL_FALSE) {
         /* No movement buttons pressed, ready for next action. */
         player_data->ready = GL_TRUE;
+    }
+    if (key_active[RESET]) {
+        restore_stage();
     }
 
     GLfloat min_time_between_moves = 0.1f;
@@ -193,6 +197,9 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
         if (key == key_mapping[RIGHT]) {
             key_active[RIGHT] = GL_TRUE;
         }
+        if (key == key_mapping[RESET]) {
+            key_active[RESET] = GL_TRUE;
+        }
     } else if (action == GLFW_RELEASE) {
         if (key == key_mapping[UP]) {
             key_active[UP] = GL_FALSE;
@@ -205,6 +212,9 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
         }
         if (key == key_mapping[RIGHT]) {
             key_active[RIGHT] = GL_FALSE;
+        }
+        if (key == key_mapping[RESET]) {
+            key_active[RESET] = GL_FALSE;
         }
     }
 }
@@ -666,6 +676,9 @@ void
 add_guard(size_t x, size_t y)
 {
     struct guard * g = &guards[num_guards++];
+    if (num_guards > MAX_GUARDS) {
+        die("Trying too spawn to many guards");
+    }
     g->position.x = x;
     g->position.y = y;
     g->direction.x = 0;
@@ -680,7 +693,7 @@ struct treasure {
 };
 
 struct treasure * treasures = NULL;
-struct treasure * last = NULL;
+struct treasure * treasures_last = NULL;
 
 void
 add_treasure(size_t x, size_t y, GLuint value)
@@ -694,10 +707,10 @@ add_treasure(size_t x, size_t y, GLuint value)
 
     if (treasures == NULL) {
         treasures = new;
-        last = treasures;
+        treasures_last = treasures;
     } else {
-        last->next = new;
-        last = new;
+        treasures_last->next = new;
+        treasures_last = new;
     }
 }
 
@@ -734,6 +747,63 @@ deallocate_treasures(void)
         free(t);
         t = next;
     }
+    treasures = NULL;
+    treasures_last = NULL;
+}
+
+struct info_tile_clear {
+    GLchar c;
+    size_t x;
+    size_t y;
+    struct info_tile_clear * next;
+};
+
+struct info_tile_clear * tile_clears = NULL;
+struct info_tile_clear * tile_clears_last = NULL;
+
+void
+clear_pointer(GLchar * tile_pointer, size_t x, size_t y)
+{
+    size_t size_struct = sizeof(struct info_tile_clear);
+    struct info_tile_clear * new = malloc_or_die(size_struct,
+           "Could not allocate memory for struct info_tile_clear");
+
+    new->x = x;
+    new->y = y;
+    new->c = *tile_pointer;
+    new->next = NULL;
+
+    *tile_pointer = ' ';
+    if (tile_clears == NULL) {
+        tile_clears = new;
+        tile_clears_last = new;
+    } else {
+        tile_clears_last->next = new;
+        tile_clears_last = new;
+    }
+}
+
+void
+restore_map(void)
+{
+    struct info_tile_clear * clears = tile_clears;
+    struct info_tile_clear * temp = NULL;
+    while (clears != NULL) {
+        current_map->rows[clears->y]->tiles[clears->x] = clears->c;
+        temp = clears->next;
+        free(clears);
+        clears = temp;
+    }
+    tile_clears = NULL;
+    tile_clears_last = NULL;
+}
+
+void
+restore_stage(void)
+{
+    num_guards = 0;
+    deallocate_treasures();
+    restore_map();
 }
 
 void
@@ -754,19 +824,19 @@ draw_map(GLint program)
                     break;
                 case 'p':
                     set_player_position(x, y);
-                    *tile_pointer = ' ';
+                    clear_pointer(tile_pointer, x, y);
                     break;
                 case 'l':
                     add_light_source(x, y, 10);
-                    *tile_pointer = ' ';
+                    clear_pointer(tile_pointer, x, y);
                     break;;
                 case 't':
                     add_treasure(x, y, 100);
-                    *tile_pointer = ' ';
+                    clear_pointer(tile_pointer, x, y);
                     break;;
                 case 'g':
                     add_guard(x, y);
-                    *tile_pointer = ' ';
+                    clear_pointer(tile_pointer, x, y);
                     break;;
             }
             tile_pointer++;
@@ -897,6 +967,7 @@ main(void)
     key_mapping[DOWN] = GLFW_KEY_S;
     key_mapping[LEFT] = GLFW_KEY_F;
     key_mapping[RIGHT] = GLFW_KEY_G;
+    key_mapping[RESET] = GLFW_KEY_B;
 
     /* Set up structure for light sources. */
     struct node light_sources_data[map->num_rows];

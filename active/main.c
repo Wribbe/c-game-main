@@ -32,8 +32,8 @@ struct light_source {
 };
 
 struct player_data {
-    GLuint x;
-    GLuint y;
+    size_t x;
+    size_t y;
     GLboolean ready;
     double prev_move;
     struct light_source * light;
@@ -131,19 +131,26 @@ perform_actions(void)
 
     if ((diff_x || diff_y) && player_data->ready == GL_TRUE) {
 
-        GLint cx = player_data->x;
-        GLint cy = player_data->y;
+        size_t cx = player_data->x;
+        size_t cy = player_data->y;
 
-        GLint nx = cx+diff_x;
-        GLint ny = cy+diff_y;
+        size_t nx = (size_t)((int)cx+diff_x);
+        size_t ny = (size_t)((int)cy+diff_y);
 
         GLboolean moved_player = GL_TRUE;
 
+        size_t ux = cx;
+        size_t uy = cy;
+
         if (player_collides(nx, ny) == GL_FALSE) {
+            ux = nx;
+            uy = ny;
             set_player_position(nx, ny);
         } else if (player_collides(cx, ny) == GL_FALSE) {
+            uy = ny;
             set_player_position(cx, ny);
         } else if (player_collides(nx, cy) == GL_FALSE) {
+            ux = nx;
             set_player_position(nx, cy);
         } else {
             moved_player = GL_FALSE;

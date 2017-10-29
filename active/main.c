@@ -490,7 +490,7 @@ assemble_program(GLuint id_program, const GLchar * const source_vertex,
 }
 
 void
-draw_at_grid_pos(struct map * map, GLuint program, GLuint row, GLuint col)
+draw_at_grid_pos(struct map * map, GLuint program, GLuint x, GLuint y)
 {
     glUseProgram(program);
 
@@ -503,8 +503,8 @@ draw_at_grid_pos(struct map * map, GLuint program, GLuint row, GLuint col)
     GLfloat coords[] = {-1.0f, -1.0f};
 
     /* Add 0.5 to offset from center of tile. */
-    coords[0] += step_x*((float)col+0.5f);
-    coords[1] += step_y*((float)row+0.5f);
+    coords[0] += step_x*((float)x+0.5f);
+    coords[1] += step_y*((float)y+0.5f);
 
     coords[0] += map->offset_x;
     coords[1] += map->offset_y;
@@ -517,7 +517,7 @@ void
 draw_player(GLint program)
 {
     glUseProgram(program);
-    draw_at_grid_pos(current_map, program, player_data->y, player_data->x);
+    draw_at_grid_pos(current_map, program, player_data->x, player_data->y);
 }
 
 GLboolean
@@ -578,7 +578,7 @@ receives_light_from(GLuint x, GLuint y, struct light_source * light)
 
 
 GLboolean
-is_visibe(GLuint x, GLuint y)
+is_visible(GLuint x, GLuint y)
 {
     if (receives_light_from(x, y, player_data->light) == GL_TRUE) {
         return GL_TRUE;
@@ -714,6 +714,7 @@ remove_treasure_at(size_t x, size_t y)
     return value;
 }
 
+
 void
 deallocate_treasures(void)
 {
@@ -732,30 +733,30 @@ draw_map(GLint program)
     glUseProgram(program);
     struct map * map = current_map;
     GLchar * tile_pointer = NULL;
-    for (size_t index_row = 0; index_row<map->num_rows; index_row++) {
-        struct map_row * row = map->rows[index_row];
+    for (size_t y = 0; y<map->num_rows; y++) {
+        struct map_row * row = map->rows[y];
         tile_pointer = row->tiles;
-        for (size_t index_col = 0; index_col<row->length; index_col++) {
+        for (size_t x = 0; x<row->length; x++) {
             switch (*tile_pointer) {
                 case '#':
-                    if (is_visibe(index_col, index_row) == GL_TRUE) {
-                        draw_at_grid_pos(map, program, index_row, index_col);
+                    if (is_visible(x, y) == GL_TRUE) {
+                        draw_at_grid_pos(map, program, x, y);
                     }
                     break;
                 case 'p':
-                    set_player_position(index_col, index_row);
+                    set_player_position(x, y);
                     *tile_pointer = ' ';
                     break;
                 case 'l':
-                    add_light_source(index_col, index_row, 10);
+                    add_light_source(x, y, 10);
                     *tile_pointer = ' ';
                     break;;
                 case 't':
-                    add_treasure(index_row, index_col, 100);
+                    add_treasure(x, y, 100);
                     *tile_pointer = ' ';
                     break;;
                 case 'g':
-                    add_guard(index_col, index_row);
+                    add_guard(x, y);
                     *tile_pointer = ' ';
                     break;;
             }

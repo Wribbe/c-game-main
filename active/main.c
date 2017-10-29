@@ -95,6 +95,9 @@ player_collides(GLint x, GLint y) {
     return GL_TRUE;
 }
 
+GLuint
+remove_treasure_at(size_t x, size_t y);
+
 void
 perform_actions(void)
 {
@@ -154,6 +157,11 @@ perform_actions(void)
             set_player_position(nx, cy);
         } else {
             moved_player = GL_FALSE;
+        }
+
+        GLuint value = remove_treasure_at(ux, uy);
+        if (value > 0) {
+            printf("Got treasure worth: %u.\n", value);
         }
 
         if (moved_player == GL_TRUE) {

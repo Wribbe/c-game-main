@@ -744,7 +744,7 @@ draw_map(GLint program)
                     *tile_pointer = ' ';
                     break;;
                 case 't':
-                    add_treasure(index_col, index_row, 100);
+                    add_treasure(index_row, index_col, 100);
                     *tile_pointer = ' ';
                     break;;
                 case 'g':
@@ -763,6 +763,15 @@ draw_guards(GLint program)
     for (size_t i = 0; i<num_guards; i++) {
         draw_at_grid_pos(current_map, program, guards[i].position.x,
                 guards[i].position.y);
+    }
+}
+
+void
+draw_treasure(GLint program)
+{
+    struct treasure * t = treasures;
+    for (; t != NULL; t=t->next) {
+        draw_at_grid_pos(current_map, program, t->position.x, t->position.y);
     }
 }
 
@@ -891,8 +900,9 @@ main(void)
 
         /* Draw. */
         draw_map(map_program);
-        draw_player(player_program);
         draw_guards(guard_program);
+        draw_treasure(treasure_program);
+        draw_player(player_program);
 
         /* Swap. */
         glfwSwapBuffers(window);

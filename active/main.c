@@ -224,7 +224,7 @@ const GLchar * map_data = \
 "##########################################################################################\n"
 "#                                                                                        #\n"
 "#                                                                                        ###\n"
-"#         t                                                                                 #\n"
+"#         tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt  #\n"
 "#                  #                                                                        #\n"
 "#                  #                                                                     ####\n"
 "#    #l       l#   #                                                                     #\n"
@@ -718,6 +718,7 @@ remove_treasure_at(size_t x, size_t y)
             free(t);
             return value;
         }
+        prev = t;
     }
     return value;
 }

@@ -6,6 +6,9 @@
 #include "gl3w.h"
 #include <GLFW/glfw3.h>
 
+#include <ft2build.h>
+#include FT_FREETYPE_H
+
 #define M_PI 3.14159265358979323846
 #define UNUSED(x) (void)x
 #define SIZE(x) sizeof(x)/sizeof(x[0])
@@ -36,16 +39,28 @@ GLfloat vertices_rectangle[] = {
 
 const GLchar * source_fragment = \
 "#version 330 core\n"
+"\n"
+"in vec2 UV;\n"
+"\n"
+"uniform sampler2D sampler_texture;\n"
+"\n"
 "void main() {\n"
-"   gl_FragColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
+"   gl_FragColor = texture(sampler_texture, UV);\n"
+"   //gl_FragColor = vec4(UV.x, UV.y, 0.0f, 1.0f);\n"
+"   //vec4 data_texture = texture(sampler_texture, UV);\n"
+"   //gl_FragColor = vec4(data_texture.r, 1.0f, 1.0f, 1.0f);\n"
 "}\n";
 
 const GLchar * source_vertex = \
 "#version 330 core\n"
 "layout (location = 0) in vec3 vPosition;\n"
+"layout (location = 1) in vec2 vUV;\n"
+"\n"
+"out vec2 UV;\n"
 "\n"
 "void main() {\n"
 "   gl_Position = vec4(vPosition, 1.0f);\n"
+"   UV = vUV;\n"
 "}\n";
 
 GLint
@@ -178,7 +193,57 @@ main(void)
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glEnableVertexAttribArray(0);
 
+    /* Set up UV buffer. */
+    GLuint buffer_uv = 0;
+    glGenBuffers(1, &buffer_uv);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer_uv);
+
+    GLfloat coordinates_UV[] = {
+        // First triangle.
+        0.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        // Second triangle.
+        0.0f, 1.0f,
+        1.0f, 0.0f,
+        1.0f, 1.0f,
+    };
+    glBufferData(GL_ARRAY_BUFFER, sizeof(coordinates_UV), coordinates_UV, GL_STATIC_DRAW);
+
+    /* Set and enable correct vertex attribute for UV coordinates (1). */
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    glEnableVertexAttribArray(1);
+
     glUseProgram(basic_program);
+
+    /* Create OpenGL texture. */
+    GLuint id_texture;
+    glGenTextures(1, &id_texture);
+
+    size_t tex_width = WIDTH;
+    size_t tex_height = HEIGHT;
+    size_t tex_bits = 4;
+    GLubyte texture_data[tex_height][tex_width][tex_bits];
+    memset(texture_data, (int)(pow(2,8)-1-72), tex_width*tex_height*tex_bits);
+    memset(texture_data, (int)(pow(2,8)-1), tex_width*(tex_height/2)*tex_bits);
+
+    /* Bind texture. */
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, id_texture);
+
+    /* Set sampler to 0. */
+    GLuint location_sampler_texture = glGetUniformLocation(basic_program,
+            "sampler_texture");
+    glUniform1i(location_sampler_texture, 0);
+
+    /* Give texture data to OpenGL. */
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
+
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+//    // set texture filtering parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     while (!glfwWindowShouldClose(window)) {
 

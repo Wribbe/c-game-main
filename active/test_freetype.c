@@ -13,6 +13,17 @@
 #define UNUSED(x) (void)x
 #define SIZE(x) sizeof(x)/sizeof(x[0])
 
+GLuint WIDTH = 1024;
+GLuint HEIGHT = 576;
+size_t BYTE_DEPTH = 4;
+
+void
+die(const GLchar * message)
+{
+    fprintf(stderr, "[!]: %s, aborting.\n", message);
+    exit(EXIT_FAILURE);
+}
+
 static void
 key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
 {
@@ -22,6 +33,52 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
     if (action == GLFW_PRESS) {
         if (key == GLFW_KEY_ESCAPE) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+    }
+}
+
+GLubyte * texture_data = NULL;
+
+GLboolean activity_mouse_buttons[4] = {0};
+
+static void
+cursor_position_callback(GLFWwindow * window, double xpos, double ypos)
+{
+    UNUSED(window);
+
+    if (activity_mouse_buttons[0]) {
+        GLuint row = HEIGHT - (GLuint)ypos - 1;
+        GLuint col = (GLuint)xpos;
+        if (col > WIDTH - 1) {
+            return;
+        }
+        if (row > HEIGHT - 1) {
+            return;
+        }
+
+        size_t bytes_row = WIDTH * BYTE_DEPTH;
+        size_t offset_row = row * bytes_row;
+        size_t offset_col = col * BYTE_DEPTH;
+        size_t index = offset_row+offset_col;
+
+        GLubyte * color_pointer = &texture_data[index];
+        /* Set RGB to 0. */
+        *color_pointer++ = 0;
+        *color_pointer++ = 0;
+        *color_pointer++ = 0;
+    }
+}
+
+static void
+mouse_button_callback(GLFWwindow * window, int button, int action, int mods)
+{
+    UNUSED(window);
+    UNUSED(mods);
+    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+        if (action == GLFW_PRESS) {
+            activity_mouse_buttons[0] = GL_TRUE;
+        } else {
+            activity_mouse_buttons[0] = GL_FALSE;
         }
     }
 }
@@ -139,9 +196,6 @@ main(void)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLuint WIDTH = 1024;
-    GLuint HEIGHT = 576;
-
     window = glfwCreateWindow(WIDTH, HEIGHT, "HELLO WORLD", NULL, NULL);
     if (!window) {
         fprintf(stderr, "Could not create window, aborting.\n");
@@ -167,6 +221,10 @@ main(void)
 
     /* Set key callback function for main window. */
     glfwSetKeyCallback(window, key_callback);
+    /* Set mouse position callback function for main window. */
+    glfwSetCursorPosCallback(window, cursor_position_callback);
+    /* Set mouse button callback function for main window. */
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     /*  Create shader program for map. */
     GLuint basic_program = glCreateProgram();
@@ -223,7 +281,8 @@ main(void)
     size_t tex_width = WIDTH;
     size_t tex_height = HEIGHT;
     size_t tex_bits = 4;
-    GLubyte texture_data[tex_height][tex_width][tex_bits];
+    GLubyte local_data[tex_height][tex_width][tex_bits];
+    texture_data = &local_data[0][0][0];
     memset(texture_data, (int)(pow(2,8)-1-72), tex_width*tex_height*tex_bits);
     memset(texture_data, (int)(pow(2,8)-1), tex_width*(tex_height/2)*tex_bits);
 
@@ -242,8 +301,10 @@ main(void)
 //    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 //    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 //    // set texture filtering parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 //    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glfwSwapInterval(0);
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -252,6 +313,9 @@ main(void)
 
         /* Poll events. */
         glfwPollEvents();
+
+        /* Reload texture data. */
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
 
         /* Draw. */
         glDrawArrays(GL_TRIANGLES, 0, SIZE(vertices_rectangle)/3);

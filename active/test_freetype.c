@@ -219,19 +219,25 @@ draw_rectangle(GLuint x1, GLuint y1, GLuint x2, GLuint y2, GLuint thickness)
 {
     GLuint start_x = x1;
     GLuint stop_x = x2;
-    if (x2 > x1) {
+    if (x2 < x1) {
         start_x = x2;
         stop_x = x1;
     }
 
     GLuint start_y = y1;
     GLuint stop_y = y2;
-    if (y2 > y1) {
+    if (y2 < y1) {
         start_y = y2;
         stop_y = y1;
     }
 
     for (GLuint x=start_x; x<=stop_x; x++) {
+        color_pixel(x, start_y, 0, 0, 0);
+        color_pixel(x, stop_y, 0, 0, 0);
+    }
+    for (GLuint y=start_y; y<=stop_y; y++) {
+        color_pixel(start_x, y, 0, 0, 0);
+        color_pixel(stop_x, y, 0, 0, 0);
     }
 }
 

@@ -55,7 +55,7 @@ cursor_position_callback(GLFWwindow * window, double xpos, double ypos)
     UNUSED(window);
 
     mouse_x = xpos;
-    mouse_y = ypos;
+    mouse_y = HEIGHT - ypos - 1;
 }
 
 static void
@@ -181,11 +181,14 @@ assemble_program(GLuint id_program, const GLchar * const source_vertex,
     return success;
 }
 
+GLfloat stored_mouse_x = -1;
+GLfloat stored_mouse_y = -1;
+
 void
 process_input(void)
 {
     if (activity_mouse_buttons[0].down) {
-        GLuint row = HEIGHT - (GLuint)mouse_y - 1;
+        GLuint row = (GLuint)mouse_y;
         GLuint col = (GLuint)mouse_x;
         if (col > WIDTH - 1) {
             return;
@@ -204,6 +207,20 @@ process_input(void)
         *color_pointer++ = 0;
         *color_pointer++ = 0;
         *color_pointer++ = 0;
+    }
+
+    if (activity_mouse_buttons[1].down) {
+        if (stored_mouse_x < 0 && stored_mouse_y < 0) {
+            stored_mouse_x = mouse_x;
+            stored_mouse_y = mouse_y;
+            printf("Mouse 2 down @ %f, %f.\n", stored_mouse_x, stored_mouse_y);
+        }
+    } else if (activity_mouse_buttons[1].released) {
+        if (stored_mouse_x > -1 && stored_mouse_y > -1) {
+            printf("Mouse 2 released @ %f, %f.\n", mouse_x, mouse_y);
+            stored_mouse_x = -1;
+            stored_mouse_y = -1;
+        }
     }
 }
 

@@ -54,6 +54,18 @@ cursor_position_callback(GLFWwindow * window, double xpos, double ypos)
 {
     UNUSED(window);
 
+    if (xpos >= WIDTH) {
+        xpos = WIDTH-1;
+    } else if (xpos < 0) {
+        xpos = 0.0f;
+    }
+
+    if (ypos >= HEIGHT) {
+        ypos = HEIGHT-1;
+    } else if (ypos < 0) {
+        ypos = 0.0f;
+    }
+
     mouse_x = (GLuint)xpos;
     mouse_y = HEIGHT - (GLuint)ypos - 1;
 }

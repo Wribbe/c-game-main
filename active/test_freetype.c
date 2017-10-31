@@ -39,34 +39,23 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
 
 GLubyte * texture_data = NULL;
 
-GLboolean activity_mouse_buttons[4] = {0};
+struct state_mouse {
+    GLboolean down;
+    GLboolean released;
+};
+
+struct state_mouse activity_mouse_buttons[4] = {0};
+
+double mouse_x = 0;
+double mouse_y = 0;
 
 static void
 cursor_position_callback(GLFWwindow * window, double xpos, double ypos)
 {
     UNUSED(window);
 
-    if (activity_mouse_buttons[0]) {
-        GLuint row = HEIGHT - (GLuint)ypos - 1;
-        GLuint col = (GLuint)xpos;
-        if (col > WIDTH - 1) {
-            return;
-        }
-        if (row > HEIGHT - 1) {
-            return;
-        }
-
-        size_t bytes_row = WIDTH * BYTE_DEPTH;
-        size_t offset_row = row * bytes_row;
-        size_t offset_col = col * BYTE_DEPTH;
-        size_t index = offset_row+offset_col;
-
-        GLubyte * color_pointer = &texture_data[index];
-        /* Set RGB to 0. */
-        *color_pointer++ = 0;
-        *color_pointer++ = 0;
-        *color_pointer++ = 0;
-    }
+    mouse_x = xpos;
+    mouse_y = ypos;
 }
 
 static void
@@ -76,9 +65,20 @@ mouse_button_callback(GLFWwindow * window, int button, int action, int mods)
     UNUSED(mods);
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
         if (action == GLFW_PRESS) {
-            activity_mouse_buttons[0] = GL_TRUE;
+            activity_mouse_buttons[0].down = GL_TRUE;
+            activity_mouse_buttons[0].released = GL_FALSE;
         } else {
-            activity_mouse_buttons[0] = GL_FALSE;
+            activity_mouse_buttons[0].down = GL_FALSE;
+            activity_mouse_buttons[0].released = GL_TRUE;
+        }
+    }
+    if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+        if (action == GLFW_PRESS) {
+            activity_mouse_buttons[1].down = GL_TRUE;
+            activity_mouse_buttons[1].released = GL_FALSE;
+        } else {
+            activity_mouse_buttons[1].down = GL_FALSE;
+            activity_mouse_buttons[1].released = GL_TRUE;
         }
     }
 }
@@ -179,6 +179,32 @@ assemble_program(GLuint id_program, const GLchar * const source_vertex,
     glDeleteShader(shader_fragment);
 
     return success;
+}
+
+void
+process_input(void)
+{
+    if (activity_mouse_buttons[0].down) {
+        GLuint row = HEIGHT - (GLuint)mouse_y - 1;
+        GLuint col = (GLuint)mouse_x;
+        if (col > WIDTH - 1) {
+            return;
+        }
+        if (row > HEIGHT - 1) {
+            return;
+        }
+
+        size_t bytes_row = WIDTH * BYTE_DEPTH;
+        size_t offset_row = row * bytes_row;
+        size_t offset_col = col * BYTE_DEPTH;
+        size_t index = offset_row+offset_col;
+
+        GLubyte * color_pointer = &texture_data[index];
+        /* Set RGB to 0. */
+        *color_pointer++ = 0;
+        *color_pointer++ = 0;
+        *color_pointer++ = 0;
+    }
 }
 
 
@@ -313,6 +339,7 @@ main(void)
 
         /* Poll events. */
         glfwPollEvents();
+        process_input();
 
         /* Reload texture data. */
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);

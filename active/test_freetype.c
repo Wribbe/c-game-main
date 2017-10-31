@@ -215,7 +215,7 @@ color_pixel(GLuint x, GLuint y, GLuint r, GLuint g, GLuint b)
 }
 
 void
-draw_rectangle(GLuint x1, GLuint y1, GLuint x2, GLuint y2, GLuint thickness)
+draw_line(GLuint x1, GLuint y1, GLuint x2, GLuint y2, GLuint thickness)
 {
     GLuint start_x = x1;
     GLuint stop_x = x2;
@@ -231,14 +231,28 @@ draw_rectangle(GLuint x1, GLuint y1, GLuint x2, GLuint y2, GLuint thickness)
         stop_y = y1;
     }
 
+    GLuint len_x = stop_x - start_x;
+    GLuint len_y = stop_y - start_y;
+
+    GLuint y_step = 1;
+    if (len_y > 0 && len_x > 0) {
+        y_step = len_x / len_y;
+    }
+
     for (GLuint x=start_x; x<=stop_x; x++) {
-        color_pixel(x, start_y, 0, 0, 0);
-        color_pixel(x, stop_y, 0, 0, 0);
+        for (GLuint y=start_y; y<=stop_y; y += y_step) {
+            color_pixel(x, y, 0, 0, 0);
+        }
     }
-    for (GLuint y=start_y; y<=stop_y; y++) {
-        color_pixel(start_x, y, 0, 0, 0);
-        color_pixel(stop_x, y, 0, 0, 0);
-    }
+}
+
+void
+draw_rectangle(GLuint x1, GLuint y1, GLuint x2, GLuint y2, GLuint thickness)
+{
+    draw_line(x1, y1, x2, y1, thickness);
+    draw_line(x1, y2, x2, y2, thickness);
+    draw_line(x1, y1, x1, y2, thickness);
+    draw_line(x2, y1, x2, y2, thickness);
 }
 
 void

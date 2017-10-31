@@ -225,7 +225,7 @@ offset_texture_data(GLuint x, GLuint y)
 }
 
 void
-color_pixel(GLuint x, GLuint y, GLuint r, GLuint g, GLuint b)
+color_pixel(GLuint x, GLuint y, GLubyte r, GLubyte g, GLbyte b)
 {
     GLubyte * color_pointer = &texture_data[offset_texture_data(x, y)];
     *color_pointer++ = r;
@@ -236,32 +236,43 @@ color_pixel(GLuint x, GLuint y, GLuint r, GLuint g, GLuint b)
 void
 draw_line(GLuint x1, GLuint y1, GLuint x2, GLuint y2, GLuint thickness)
 {
-    GLuint start_x = x1;
-    GLuint stop_x = x2;
-    if (x2 < x1) {
-        start_x = x2;
-        stop_x = x1;
+    GLuint len_x = abs(x1-x2);
+    GLuint len_y = abs(y1-y2);
+
+    GLfloat x_step = 1.0f;
+    GLfloat y_step = 1.0f;
+
+    GLboolean x_is_primary = GL_TRUE;
+    if (len_x > len_y) {
+        y_step = (float)len_y/(float)len_x;
+    } else if (len_y > len_x){
+        x_step = (float)len_x/(float)len_y;
+        x_is_primary = GL_FALSE;
     }
 
-    GLuint start_y = y1;
-    GLuint stop_y = y2;
-    if (y2 < y1) {
-        start_y = y2;
-        stop_y = y1;
+    if (x1 > x2) {
+        x_step *= -1;
+    }
+    if (y1 > y2) {
+        y_step *= -1;
     }
 
-    GLuint len_x = stop_x - start_x;
-    GLuint len_y = stop_y - start_y;
+    GLfloat current_x = x1;
+    GLfloat current_y = y1;
 
-    GLuint y_step = 1;
-    if (len_y > 0 && len_x > 0) {
-        y_step = len_x / len_y;
-    }
+    for (;;) {
+        GLuint ux = (GLuint)current_x;
+        GLuint uy = (GLuint)current_y;
 
-    for (GLuint x=start_x; x<=stop_x; x++) {
-        for (GLuint y=start_y; y<=stop_y; y += y_step) {
-            color_pixel(x, y, 0, 0, 0);
+        if ((x_is_primary && ux == x2) || (!x_is_primary && uy == y2)) {
+            break;
         }
+
+        color_pixel(ux, uy, 0, 0, 0);
+
+        current_x += x_step;
+        current_y += y_step;
+
     }
 }
 
@@ -447,11 +458,13 @@ main(void)
     size_t tex_width = WIDTH;
     size_t tex_height = HEIGHT;
     size_t tex_bits = 4;
-    GLubyte local_data[tex_height][tex_width][tex_bits];
-    texture_data = &local_data[0][0][0];
-    memset(texture_data, (int)(pow(2,8)-1-72), tex_width*tex_height*tex_bits);
-    memset(texture_data, (int)(pow(2,8)-1), tex_width*(tex_height/2)*tex_bits);
-
+    texture_data = malloc(sizeof(GLuint)*tex_width*tex_height*tex_bits);
+    if (texture_data == NULL) {
+        fprintf(stderr, "Failed to allocate memory for texture data, aborting!\n");
+        exit(EXIT_FAILURE);
+    }
+    memset(texture_data, 255-75, tex_width*tex_height*tex_bits);
+    memset(texture_data, 255, tex_width*(tex_height/2)*tex_bits);
     /* Bind texture. */
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, id_texture);
@@ -492,6 +505,6 @@ main(void)
         glfwSwapBuffers(window);
 
     }
-
+    free(texture_data);
     glfwTerminate();
 }

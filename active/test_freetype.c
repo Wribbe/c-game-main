@@ -46,16 +46,16 @@ struct state_mouse {
 
 struct state_mouse activity_mouse_buttons[4] = {0};
 
-double mouse_x = 0;
-double mouse_y = 0;
+GLuint mouse_x = 0;
+GLuint mouse_y = 0;
 
 static void
 cursor_position_callback(GLFWwindow * window, double xpos, double ypos)
 {
     UNUSED(window);
 
-    mouse_x = xpos;
-    mouse_y = HEIGHT - ypos - 1;
+    mouse_x = (GLuint)xpos;
+    mouse_y = HEIGHT - (GLuint)ypos - 1;
 }
 
 static void
@@ -184,40 +184,68 @@ assemble_program(GLuint id_program, const GLchar * const source_vertex,
 GLfloat stored_mouse_x = -1;
 GLfloat stored_mouse_y = -1;
 
+GLuint
+offset_texture_data(GLuint x, GLuint y)
+{
+    GLuint bytes_y = WIDTH * BYTE_DEPTH;
+    GLuint offset_y = y * bytes_y;
+    GLuint offset_x = x * BYTE_DEPTH;
+    return offset_y+offset_x;
+}
+
+void
+color_pixel(GLuint x, GLuint y, GLuint r, GLuint g, GLuint b)
+{
+    GLubyte * color_pointer = &texture_data[offset_texture_data(x, y)];
+    *color_pointer++ = r;
+    *color_pointer++ = g;
+    *color_pointer++ = b;
+}
+
+void
+draw_rectangle(GLuint x1, GLuint y1, GLuint x2, GLuint y2, GLuint thickness)
+{
+    GLuint start_x = x1;
+    GLuint stop_x = x2;
+    if (x2 > x1) {
+        start_x = x2;
+        stop_x = x1;
+    }
+
+    GLuint start_y = y1;
+    GLuint stop_y = y2;
+    if (y2 > y1) {
+        start_y = y2;
+        stop_y = y1;
+    }
+
+    for (GLuint x=start_x; x<=stop_x; x++) {
+    }
+}
+
 void
 process_input(void)
 {
     if (activity_mouse_buttons[0].down) {
-        GLuint row = (GLuint)mouse_y;
-        GLuint col = (GLuint)mouse_x;
-        if (col > WIDTH - 1) {
+        GLuint x = (GLuint)mouse_x;
+        if (x > WIDTH - 1) {
             return;
         }
-        if (row > HEIGHT - 1) {
+        GLuint y = (GLuint)mouse_y;
+        if (y > HEIGHT - 1) {
             return;
         }
-
-        size_t bytes_row = WIDTH * BYTE_DEPTH;
-        size_t offset_row = row * bytes_row;
-        size_t offset_col = col * BYTE_DEPTH;
-        size_t index = offset_row+offset_col;
-
-        GLubyte * color_pointer = &texture_data[index];
-        /* Set RGB to 0. */
-        *color_pointer++ = 0;
-        *color_pointer++ = 0;
-        *color_pointer++ = 0;
+        color_pixel(x, y, 0, 0, 0);
     }
 
     if (activity_mouse_buttons[1].down) {
         if (stored_mouse_x < 0 && stored_mouse_y < 0) {
             stored_mouse_x = mouse_x;
             stored_mouse_y = mouse_y;
-            printf("Mouse 2 down @ %f, %f.\n", stored_mouse_x, stored_mouse_y);
         }
     } else if (activity_mouse_buttons[1].released) {
         if (stored_mouse_x > -1 && stored_mouse_y > -1) {
-            printf("Mouse 2 released @ %f, %f.\n", mouse_x, mouse_y);
+            draw_rectangle(stored_mouse_x, stored_mouse_y, mouse_x, mouse_y, 1);
             stored_mouse_x = -1;
             stored_mouse_y = -1;
         }

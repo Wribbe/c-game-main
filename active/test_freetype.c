@@ -17,12 +17,27 @@ GLuint WIDTH = 1024;
 GLuint HEIGHT = 576;
 size_t BYTE_DEPTH = 4;
 
+GLuint CURRENT_THICKNESS = 1;
+
 void
 die(const GLchar * message)
 {
     fprintf(stderr, "[!]: %s, aborting.\n", message);
     exit(EXIT_FAILURE);
 }
+
+enum MODS {
+    SHIFT,
+    NUM_MODS,
+};
+
+struct state_button {
+    GLboolean down;
+};
+
+struct state_button activity_mods[NUM_MODS] = {0};
+
+GLboolean updated_buttons_keyboard = GL_FALSE;
 
 static void
 key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
@@ -34,20 +49,24 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
         if (key == GLFW_KEY_ESCAPE) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
+        if (key == GLFW_KEY_LEFT_SHIFT) {
+            activity_mods[SHIFT].down = GL_TRUE;
+        }
+    } else {
+        if (key == GLFW_KEY_LEFT_SHIFT) {
+            activity_mods[SHIFT].down = GL_FALSE;
+        }
     }
+
+    updated_buttons_keyboard = GL_TRUE;
 }
 
 GLubyte * texture_data = NULL;
 
-struct state_mouse {
-    GLboolean down;
-    GLboolean released;
-};
-
-struct state_mouse activity_mouse_buttons[4] = {0};
-
 GLuint mouse_x = 0;
 GLuint mouse_y = 0;
+
+struct state_button activity_mouse_buttons[4] = {0};
 
 static void
 cursor_position_callback(GLFWwindow * window, double xpos, double ypos)
@@ -70,6 +89,8 @@ cursor_position_callback(GLFWwindow * window, double xpos, double ypos)
     mouse_y = HEIGHT - (GLuint)ypos - 1;
 }
 
+GLboolean updated_buttons_mouse = GL_FALSE;
+
 static void
 mouse_button_callback(GLFWwindow * window, int button, int action, int mods)
 {
@@ -78,21 +99,19 @@ mouse_button_callback(GLFWwindow * window, int button, int action, int mods)
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
         if (action == GLFW_PRESS) {
             activity_mouse_buttons[0].down = GL_TRUE;
-            activity_mouse_buttons[0].released = GL_FALSE;
         } else {
             activity_mouse_buttons[0].down = GL_FALSE;
-            activity_mouse_buttons[0].released = GL_TRUE;
         }
     }
     if (button == GLFW_MOUSE_BUTTON_RIGHT) {
         if (action == GLFW_PRESS) {
             activity_mouse_buttons[1].down = GL_TRUE;
-            activity_mouse_buttons[1].released = GL_FALSE;
         } else {
             activity_mouse_buttons[1].down = GL_FALSE;
-            activity_mouse_buttons[1].released = GL_TRUE;
         }
     }
+
+    updated_buttons_mouse = GL_TRUE;
 }
 
 GLfloat vertices_rectangle[] = {
@@ -255,32 +274,76 @@ draw_rectangle(GLuint x1, GLuint y1, GLuint x2, GLuint y2, GLuint thickness)
     draw_line(x2, y1, x2, y2, thickness);
 }
 
+int MOUSE_RESET_VALUE = -1;
+
+void
+reset_stored_mouse(void)
+{
+    stored_mouse_x = MOUSE_RESET_VALUE;
+    stored_mouse_y = MOUSE_RESET_VALUE;
+}
+
+GLboolean
+stored_mouse_exists(void)
+{
+    return stored_mouse_x > MOUSE_RESET_VALUE &&
+        stored_mouse_x > MOUSE_RESET_VALUE;
+}
+
+GLboolean DRAW_AT_POINTER = GL_FALSE;
+
 void
 process_input(void)
 {
-    if (activity_mouse_buttons[0].down) {
-        GLuint x = (GLuint)mouse_x;
-        if (x > WIDTH - 1) {
-            return;
-        }
-        GLuint y = (GLuint)mouse_y;
-        if (y > HEIGHT - 1) {
-            return;
-        }
-        color_pixel(x, y, 0, 0, 0);
+    if (!updated_buttons_keyboard && !updated_buttons_mouse) {
+        return;
     }
 
-    if (activity_mouse_buttons[1].down) {
-        if (stored_mouse_x < 0 && stored_mouse_y < 0) {
-            stored_mouse_x = mouse_x;
-            stored_mouse_y = mouse_y;
+    if (updated_buttons_mouse) {
+        if (activity_mods[SHIFT].down) {
+            if (activity_mouse_buttons[0].down) {
+                if (!stored_mouse_exists()) {
+                    stored_mouse_x = mouse_x;
+                    stored_mouse_y = mouse_y;
+                }
+            } else {
+                if (stored_mouse_exists()) {
+                    draw_line(stored_mouse_x, stored_mouse_y, mouse_x, mouse_y,
+                            CURRENT_THICKNESS);
+                    reset_stored_mouse();
+                }
+            }
+        } else {
+            if (activity_mouse_buttons[0].down) {
+                DRAW_AT_POINTER = GL_TRUE;
+            } else {
+                DRAW_AT_POINTER = GL_FALSE;
+            }
+            if (activity_mouse_buttons[1].down) {
+                if (!stored_mouse_exists()) {
+                    stored_mouse_x = mouse_x;
+                    stored_mouse_y = mouse_y;
+                }
+            } else {
+                if (stored_mouse_exists()) {
+                    draw_rectangle(stored_mouse_x, stored_mouse_y, mouse_x, mouse_y,
+                            CURRENT_THICKNESS);
+                    reset_stored_mouse();
+                }
+            }
         }
-    } else if (activity_mouse_buttons[1].released) {
-        if (stored_mouse_x > -1 && stored_mouse_y > -1) {
-            draw_rectangle(stored_mouse_x, stored_mouse_y, mouse_x, mouse_y, 1);
-            stored_mouse_x = -1;
-            stored_mouse_y = -1;
-        }
+    }
+
+    updated_buttons_keyboard = GL_FALSE;
+    updated_buttons_mouse = GL_FALSE;
+
+}
+
+void
+produce_actions(void)
+{
+    if (DRAW_AT_POINTER) {
+        color_pixel(mouse_x, mouse_y, 0, 0, 0);
     }
 }
 
@@ -417,6 +480,7 @@ main(void)
         /* Poll events. */
         glfwPollEvents();
         process_input();
+        produce_actions();
 
         /* Reload texture data. */
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);

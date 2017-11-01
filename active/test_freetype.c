@@ -144,10 +144,12 @@ const GLchar * source_vertex = \
 "layout (location = 0) in vec3 vPosition;\n"
 "layout (location = 1) in vec2 vUV;\n"
 "\n"
+"uniform mat4 matrix_transform;\n"
+"\n"
 "out vec2 UV;\n"
 "\n"
 "void main() {\n"
-"   gl_Position = vec4(vPosition, 1.0f);\n"
+"   gl_Position = matrix_transform * vec4(vPosition, 1.0f);\n"
 "   UV = vUV;\n"
 "}\n";
 
@@ -359,6 +361,15 @@ produce_actions(void)
 }
 
 
+typedef float m4[4][4];
+m4 m4_unit = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
+
 int
 main(void)
 {
@@ -477,13 +488,22 @@ main(void)
     /* Give texture data to OpenGL. */
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
 
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-//    // set texture filtering parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // set texture filtering parameters
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glfwSwapInterval(0);
+
+    /* Set up transformation matrix and related uniform. */
+    GLuint location_matrix_transform = glGetUniformLocation(basic_program,
+            "matrix_transform");
+    glUniformMatrix4fv(location_matrix_transform,
+                       1,        /* Count. */
+                       GL_TRUE,  /* Transpose. */
+                       m4_unit[0]/* Matrix data. */
+            );
 
     while (!glfwWindowShouldClose(window)) {
 

@@ -17,6 +17,35 @@ GLuint WIDTH = 1024;
 GLuint HEIGHT = 576;
 size_t BYTE_DEPTH = 4;
 
+typedef float m4[4][4];
+m4 m4_unit = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
+m4 m4_model = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
+m4 m4_view = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
+m4 m4_projection = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
 GLuint CURRENT_THICKNESS = 1;
 
 void
@@ -51,6 +80,12 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
         }
         if (key == GLFW_KEY_LEFT_SHIFT) {
             activity_mods[SHIFT].down = GL_TRUE;
+        }
+        if (key == GLFW_KEY_W) {
+            m4_unit[2][3] += 0.1f;
+        }
+        if (key == GLFW_KEY_S) {
+            m4_unit[2][3] -= 0.1f;
         }
     } else {
         if (key == GLFW_KEY_LEFT_SHIFT) {
@@ -144,12 +179,14 @@ const GLchar * source_vertex = \
 "layout (location = 0) in vec3 vPosition;\n"
 "layout (location = 1) in vec2 vUV;\n"
 "\n"
-"uniform mat4 matrix_transform;\n"
+"uniform mat4 m4_projection;\n"
+"uniform mat4 m4_view;\n"
+"uniform mat4 m4_model;\n"
 "\n"
 "out vec2 UV;\n"
 "\n"
 "void main() {\n"
-"   gl_Position = matrix_transform * vec4(vPosition, 1.0f);\n"
+"   gl_Position = m4_projection * m4_view * m4_model * vec4(vPosition, 1.0f);\n"
 "   UV = vUV;\n"
 "}\n";
 
@@ -361,15 +398,6 @@ produce_actions(void)
 }
 
 
-typedef float m4[4][4];
-m4 m4_unit = {
-    {1.0f, 0.0f, 0.0f, 0.0f},
-    {0.0f, 1.0f, 0.0f, 0.0f},
-    {0.0f, 0.0f, 1.0f, 0.0f},
-    {0.0f, 0.0f, 0.0f, 1.0f},
-};
-
-
 int
 main(void)
 {
@@ -497,13 +525,10 @@ main(void)
     glfwSwapInterval(0);
 
     /* Set up transformation matrix and related uniform. */
-    GLuint location_matrix_transform = glGetUniformLocation(basic_program,
-            "matrix_transform");
-    glUniformMatrix4fv(location_matrix_transform,
-                       1,        /* Count. */
-                       GL_TRUE,  /* Transpose. */
-                       m4_unit[0]/* Matrix data. */
-            );
+    GLuint location_m4_projection = glGetUniformLocation(basic_program,
+            "m4_projection");
+    GLuint location_m4_view = glGetUniformLocation(basic_program, "m4_view");
+    GLuint location_m4_model = glGetUniformLocation(basic_program, "m4_model");
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -514,6 +539,25 @@ main(void)
         glfwPollEvents();
         process_input();
         produce_actions();
+
+        /* Reload model matrix. */
+        glUniformMatrix4fv(location_m4_model,
+                           1,           /* Count. */
+                           GL_TRUE,     /* Transpose. */
+                           m4_model[0]  /* Matrix data. */
+                );
+        /* Reload view matrix. */
+        glUniformMatrix4fv(location_m4_view,
+                           1,        /* Count. */
+                           GL_TRUE,  /* Transpose. */
+                           m4_view[0]/* Matrix data. */
+                );
+        /* Reload projection matrix. */
+        glUniformMatrix4fv(location_m4_projection,
+                           1,               /* Count. */
+                           GL_TRUE,         /* Transpose. */
+                           m4_projection[0] /* Matrix data. */
+                );
 
         /* Reload texture data. */
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);

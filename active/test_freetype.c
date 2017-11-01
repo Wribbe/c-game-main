@@ -39,12 +39,7 @@ m4 m4_view = {
     {0.0f, 0.0f, 0.0f, 1.0f},
 };
 
-m4 m4_projection = {
-    {1.0f, 0.0f, 0.0f, 0.0f},
-    {0.0f, 1.0f, 0.0f, 0.0f},
-    {0.0f, 0.0f, 1.0f, 0.0f},
-    {0.0f, 0.0f, 0.0f, 1.0f},
-};
+m4 * m4_projection = NULL;
 
 GLuint CURRENT_THICKNESS = 1;
 
@@ -82,10 +77,10 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
             activity_mods[SHIFT].down = GL_TRUE;
         }
         if (key == GLFW_KEY_W) {
-            m4_unit[2][3] += 0.1f;
+            m4_model[2][3] += 0.1f;
         }
         if (key == GLFW_KEY_S) {
-            m4_unit[2][3] -= 0.1f;
+            m4_model[2][3] -= 0.1f;
         }
     } else {
         if (key == GLFW_KEY_LEFT_SHIFT) {
@@ -530,6 +525,28 @@ main(void)
     GLuint location_m4_view = glGetUniformLocation(basic_program, "m4_view");
     GLuint location_m4_model = glGetUniformLocation(basic_program, "m4_model");
 
+    /* Calculate projection matrix. */
+    GLfloat fovy = M_PI*0.5f;
+    GLfloat aspect = (float)WIDTH/(float)HEIGHT;
+    GLfloat near = 0.1f;
+    GLfloat far = 100.0f;
+    GLfloat tan_half_angle = tanf(fovy/2.0f);
+
+    m4 m4_local_perspective = {
+        {0.0f, 0.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, 0.0f, 0.0f},
+    };
+
+    m4_local_perspective[0][0] = 1.0f / (aspect * tan_half_angle);
+    m4_local_perspective[1][1] = 1.0f / tan_half_angle;
+    m4_local_perspective[2][2] = -(far + near) / (far - near);
+    m4_local_perspective[2][3] = -1.0f;
+    m4_local_perspective[3][2] = (-2.0f * far * near ) / (far - near);
+
+    m4_projection = &m4_local_perspective;
+
     while (!glfwWindowShouldClose(window)) {
 
         /* Render. */
@@ -556,7 +573,7 @@ main(void)
         glUniformMatrix4fv(location_m4_projection,
                            1,               /* Count. */
                            GL_TRUE,         /* Transpose. */
-                           m4_projection[0] /* Matrix data. */
+                           (*m4_projection)[0] /* Matrix data. */
                 );
 
         /* Reload texture data. */

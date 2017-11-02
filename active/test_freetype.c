@@ -76,6 +76,13 @@ struct object {
     GLuint program;
 };
 
+struct data {
+    size_t size;
+    size_t num_elements;
+    size_t elem_per_row;
+    GLfloat * data;
+};
+
 #define MAX_COCURRENT_OBJECTS 200
 struct object a_objects[MAX_COCURRENT_OBJECTS];
 size_t num_current_objects = 0;
@@ -174,17 +181,6 @@ mouse_button_callback(GLFWwindow * window, int button, int action, int mods)
 
     updated_buttons_mouse = GL_TRUE;
 }
-
-GLfloat vertices_rectangle[] = {
-    // First triangle.
-    -1.0f,  1.0f, 0.0f,
-    -1.0f, -1.0f, 0.0f,
-     1.0f, -1.0f, 0.0f,
-    // Second triangle.
-    -1.0f,  1.0f, 0.0f,
-     1.0f, -1.0f, 0.0f,
-     1.0f,  1.0f, 0.0f,
-};
 
 const GLchar * source_fragment = \
 "#version 330 core\n"
@@ -514,6 +510,19 @@ draw_objects(void)
     }
 }
 
+void
+feed_buffer_and_enable_attrib(struct data * data, GLuint attrib_pointer)
+{
+    /* Put data into buffer. */
+    glBufferData(GL_ARRAY_BUFFER, data->size, data->data, GL_STATIC_DRAW);
+
+    /* Specify and enable attribute pointer. */
+    GLsizei stride = 0;
+    glVertexAttribPointer(attrib_pointer, data->elem_per_row, GL_FLOAT,
+            GL_FALSE, stride, (void*)0);
+    glEnableVertexAttribArray(attrib_pointer);
+}
+
 int
 main(void)
 {
@@ -575,17 +584,32 @@ main(void)
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
+    /* Muck about with vertice data. */
+    GLfloat local_vertice_data[] = {
+        // First triangle.
+        -1.0f,  1.0f, 0.0f,
+        -1.0f, -1.0f, 0.0f,
+         1.0f, -1.0f, 0.0f,
+        // Second triangle.
+        -1.0f,  1.0f, 0.0f,
+         1.0f, -1.0f, 0.0f,
+         1.0f,  1.0f, 0.0f,
+    };
+
+    struct data loc_data_rectangle = {
+        sizeof(local_vertice_data),
+        SIZE(local_vertice_data),
+        3,
+        &local_vertice_data[0]
+    };
+
+    struct data * data_rectangle = &loc_data_rectangle;
+
     // TODO: Remove artificial increment of objects.
     num_current_objects++;
-    a_objects[0].size = sizeof(vertices_rectangle);
+    a_objects[0].size = data_rectangle->size;
 
-    /* Populate VBO with data. */
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_rectangle)*sizeof(GLfloat),
-            vertices_rectangle, GL_STATIC_DRAW);
-
-    /* Set and enable correct vertex attribute for vertex position (0). */
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-    glEnableVertexAttribArray(0);
+    feed_buffer_and_enable_attrib(data_rectangle, 0);
 
     /* Set up UV buffer. */
     GLuint buffer_uv = 0;
@@ -602,7 +626,16 @@ main(void)
         1.0f, 0.0f,
         1.0f, 1.0f,
     };
-    glBufferData(GL_ARRAY_BUFFER, sizeof(coordinates_UV), coordinates_UV, GL_STATIC_DRAW);
+
+    struct data loc_data_uv = {
+        sizeof(coordinates_UV),
+        SIZE(coordinates_UV),
+        2,
+        &coordinates_UV[0]
+    };
+
+    struct data * data_uv = &loc_data_uv;
+    feed_buffer_and_enable_attrib(data_uv, 1);
 
     /* Set and enable correct vertex attribute for UV coordinates (1). */
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);

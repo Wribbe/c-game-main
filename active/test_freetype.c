@@ -356,6 +356,7 @@ process_input(void)
 
     if (updated_buttons_mouse) {
         if (activity_mods[SHIFT].down) {
+            /* Shift + Mouse1. */
             if (activity_mouse_buttons[0].down) {
                 if (!stored_mouse_exists()) {
                     stored_mouse_x = mouse_x;
@@ -367,6 +368,10 @@ process_input(void)
                             CURRENT_THICKNESS);
                     reset_stored_mouse();
                 }
+            }
+            /* Shift + Mouse2. */
+            if (activity_mouse_buttons[1].down) {
+                printf("Pressed SHIFT + MOUSE2!\n");
             }
         } else {
             if (activity_mouse_buttons[0].down) {

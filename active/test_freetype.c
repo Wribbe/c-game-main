@@ -380,6 +380,30 @@ stored_mouse(size_t index)
 }
 
 void
+create_rectangle(void)
+{
+    struct v3 first_coords = stored_mouse(0);
+    struct v3 second_coords = stored_mouse(1);
+
+    printf("Creating rectangle from (%f,%f,%f) to (%f,%f,%f).\n",
+            first_coords.x,
+            first_coords.y,
+            first_coords.z,
+            second_coords.x,
+            second_coords.y,
+            second_coords.z
+          );
+}
+
+enum input_states {
+    STATE_DRAW_LINE,
+    STATE_CREATE_RECT,
+    NUM_STATES,
+};
+
+GLboolean input_states[NUM_STATES] = {0};
+
+void
 process_input(void)
 {
     if (!updated_buttons_keyboard && !updated_buttons_mouse) {
@@ -390,23 +414,32 @@ process_input(void)
         if (activity_mods[SHIFT].down) {
             /* Shift + Mouse1. */
             if (activity_mouse_buttons[0].down) {
+                input_states[STATE_DRAW_LINE] = GL_TRUE;
                 if (!stored_mouse_exists()) {
                     store_mouse();
                 }
-            } else {
+            } else if (input_states[STATE_DRAW_LINE]) {
                 if (stored_mouse_exists()) {
                     struct v3 stored = stored_mouse(0);
                     draw_line(stored.x, stored.y, mouse_x, mouse_y,
                             CURRENT_THICKNESS);
                     reset_stored_mouse();
+                    input_states[STATE_DRAW_LINE] = GL_FALSE;
                 }
             }
             /* Shift + Mouse2. */
             if (activity_mouse_buttons[1].down) {
+                input_states[STATE_CREATE_RECT] = GL_TRUE;
                 if (!stored_mouse_exists()) {
                     store_mouse();
                 }
-                printf("Pressed SHIFT + MOUSE2!\n");
+            } else if (input_states[STATE_CREATE_RECT]) {
+                if (stored_mouse_exists()) {
+                    store_mouse();
+                    create_rectangle();
+                }
+                reset_stored_mouse();
+                input_states[STATE_CREATE_RECT] = GL_FALSE;
             }
         } else {
             if (activity_mouse_buttons[0].down) {

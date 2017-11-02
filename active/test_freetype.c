@@ -9,6 +9,8 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+#include "linmath.h"
+
 #define M_PI 3.14159265358979323846
 #define UNUSED(x) (void)x
 #define SIZE(x) sizeof(x)/sizeof(x[0])
@@ -17,29 +19,42 @@ GLuint WIDTH = 1024;
 GLuint HEIGHT = 576;
 size_t BYTE_DEPTH = 4;
 
-typedef float m4[4][4];
-m4 m4_unit = {
+vec3 camera_pos = {4,3,3};
+
+mat4x4 m4_unit = {
     {1.0f, 0.0f, 0.0f, 0.0f},
     {0.0f, 1.0f, 0.0f, 0.0f},
     {0.0f, 0.0f, 1.0f, 0.0f},
     {0.0f, 0.0f, 0.0f, 1.0f},
 };
 
-m4 m4_model = {
+mat4x4 m4_model = {
     {1.0f, 0.0f, 0.0f, 0.0f},
     {0.0f, 1.0f, 0.0f, 0.0f},
     {0.0f, 0.0f, 1.0f, 0.0f},
     {0.0f, 0.0f, 0.0f, 1.0f},
 };
 
-m4 m4_view = {
+mat4x4 m4_view = {
     {1.0f, 0.0f, 0.0f, 0.0f},
     {0.0f, 1.0f, 0.0f, 0.0f},
     {0.0f, 0.0f, 1.0f, 0.0f},
     {0.0f, 0.0f, 0.0f, 1.0f},
 };
 
-m4 * m4_projection = NULL;
+mat4x4 m4_projection = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
+mat4x4 m4_mvp = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
 
 GLuint CURRENT_THICKNESS = 1;
 
@@ -77,10 +92,10 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
             activity_mods[SHIFT].down = GL_TRUE;
         }
         if (key == GLFW_KEY_W) {
-            m4_model[2][3] += 0.1f;
+            m4_view[2][3] += 0.1f;
         }
         if (key == GLFW_KEY_S) {
-            m4_model[2][3] -= 0.1f;
+            m4_view[2][3] -= 0.1f;
         }
     } else {
         if (key == GLFW_KEY_LEFT_SHIFT) {
@@ -164,9 +179,6 @@ const GLchar * source_fragment = \
 "\n"
 "void main() {\n"
 "   gl_FragColor = texture(sampler_texture, UV);\n"
-"   //gl_FragColor = vec4(UV.x, UV.y, 0.0f, 1.0f);\n"
-"   //vec4 data_texture = texture(sampler_texture, UV);\n"
-"   //gl_FragColor = vec4(data_texture.r, 1.0f, 1.0f, 1.0f);\n"
 "}\n";
 
 const GLchar * source_vertex = \
@@ -174,14 +186,12 @@ const GLchar * source_vertex = \
 "layout (location = 0) in vec3 vPosition;\n"
 "layout (location = 1) in vec2 vUV;\n"
 "\n"
-"uniform mat4 m4_projection;\n"
-"uniform mat4 m4_view;\n"
-"uniform mat4 m4_model;\n"
+"uniform mat4 m4_mvp;\n"
 "\n"
 "out vec2 UV;\n"
 "\n"
 "void main() {\n"
-"   gl_Position = m4_projection * m4_view * m4_model * vec4(vPosition, 1.0f);\n"
+"   gl_Position = m4_mvp * vec4(vPosition, 1.0f);\n"
 "   UV = vUV;\n"
 "}\n";
 
@@ -509,7 +519,8 @@ main(void)
     glUniform1i(location_sampler_texture, 0);
 
     /* Give texture data to OpenGL. */
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA,
+            GL_UNSIGNED_BYTE, texture_data);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -519,33 +530,21 @@ main(void)
 
     glfwSwapInterval(0);
 
-    /* Set up transformation matrix and related uniform. */
-    GLuint location_m4_projection = glGetUniformLocation(basic_program,
-            "m4_projection");
-    GLuint location_m4_view = glGetUniformLocation(basic_program, "m4_view");
-    GLuint location_m4_model = glGetUniformLocation(basic_program, "m4_model");
+    /* Set up mvp uniform location. */
+    GLuint location_m4_mvp = glGetUniformLocation(basic_program, "m4_mvp");
 
     /* Calculate projection matrix. */
-    GLfloat fovy = M_PI*0.5f;
-    GLfloat aspect = (float)WIDTH/(float)HEIGHT;
-    GLfloat near = 0.1f;
-    GLfloat far = 100.0f;
-    GLfloat tan_half_angle = tanf(fovy/2.0f);
+    /* mat4x4_perspective(mat4x4 m, float y_fov, float aspect, float n,
+     * float f) */
+    mat4x4_perspective(m4_projection, M_PI/4, (float)WIDTH/(float)HEIGHT,
+            0.1f, 100.0f);
 
-    m4 m4_local_perspective = {
-        {0.0f, 0.0f, 0.0f, 0.0f},
-        {0.0f, 0.0f, 0.0f, 0.0f},
-        {0.0f, 0.0f, 0.0f, 0.0f},
-        {0.0f, 0.0f, 0.0f, 0.0f},
-    };
-
-    m4_local_perspective[0][0] = 1.0f / (aspect * tan_half_angle);
-    m4_local_perspective[1][1] = 1.0f / tan_half_angle;
-    m4_local_perspective[2][2] = -(far + near) / (far - near);
-    m4_local_perspective[2][3] = -1.0f;
-    m4_local_perspective[3][2] = (-2.0f * far * near ) / (far - near);
-
-    m4_projection = &m4_local_perspective;
+    /* Set up camera matrix. */
+    /* void mat4x4_look_at(mat4x4 m, vec3 eye, vec3 center, vec3 up) */
+    mat4x4_look_at(m4_view,
+            camera_pos,
+            (vec3){0.0f, 0.0f, 0.0f},
+            (vec3){0.0f, 1.0f, 0.0f});
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -557,23 +556,15 @@ main(void)
         process_input();
         produce_actions();
 
-        /* Reload model matrix. */
-        glUniformMatrix4fv(location_m4_model,
-                           1,           /* Count. */
-                           GL_TRUE,     /* Transpose. */
-                           m4_model[0]  /* Matrix data. */
-                );
-        /* Reload view matrix. */
-        glUniformMatrix4fv(location_m4_view,
-                           1,        /* Count. */
-                           GL_TRUE,  /* Transpose. */
-                           m4_view[0]/* Matrix data. */
-                );
-        /* Reload projection matrix. */
-        glUniformMatrix4fv(location_m4_projection,
-                           1,               /* Count. */
-                           GL_TRUE,         /* Transpose. */
-                           (*m4_projection)[0] /* Matrix data. */
+        /* Re-calculate mvp matrix. */
+        mat4x4_mul(m4_mvp, m4_view, m4_model);
+        mat4x4_mul(m4_mvp, m4_projection, m4_mvp);
+
+        /* Reload mvp matrix. */
+        glUniformMatrix4fv(location_m4_mvp,
+                           1,         /* Count. */
+                           GL_TRUE,   /* Transpose. */
+                           m4_mvp[0]  /* Matrix data. */
                 );
 
         /* Reload texture data. */

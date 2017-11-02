@@ -70,21 +70,23 @@ enum MODS {
     NUM_MODS,
 };
 
+struct data {
+    size_t size;
+    size_t num_elements;
+    size_t stride;
+    GLfloat * values;
+};
+
 struct object {
     size_t size;
     GLuint vertex_array;
     GLuint program;
+    struct data data_vertex;
+    struct data data_uv;
 };
 
-struct data {
-    size_t size;
-    size_t num_elements;
-    size_t elem_per_row;
-    GLfloat * data;
-};
-
-#define MAX_COCURRENT_OBJECTS 200
-struct object a_objects[MAX_COCURRENT_OBJECTS];
+#define MAX_CONCURRENT_OBJECTS 200
+struct object a_objects[MAX_CONCURRENT_OBJECTS] = {0};
 size_t num_current_objects = 0;
 
 struct state_button {
@@ -501,12 +503,10 @@ draw_objects(void)
 
         struct object * obj = &a_objects[i];
 
-        //glBindVertexArray(obj->vertex_array);
-
+        glBindVertexArray(obj->vertex_array);
         //glUseProgram(obj->program);
-        glDrawArrays(GL_TRIANGLES, 0, obj->size/3);
-
-        //glBindVertexArray(0);
+        glDrawArrays(GL_TRIANGLES, 0, obj->data_vertex.size/3);
+        glBindVertexArray(0);
     }
 }
 
@@ -514,13 +514,86 @@ void
 feed_buffer_and_enable_attrib(struct data * data, GLuint attrib_pointer)
 {
     /* Put data into buffer. */
-    glBufferData(GL_ARRAY_BUFFER, data->size, data->data, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, data->size, data->values, GL_STATIC_DRAW);
 
     /* Specify and enable attribute pointer. */
     GLsizei stride = 0;
-    glVertexAttribPointer(attrib_pointer, data->elem_per_row, GL_FLOAT,
+    glVertexAttribPointer(attrib_pointer, data->stride, GL_FLOAT,
             GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(attrib_pointer);
+}
+
+struct object *
+create_object(void)
+{
+    if (num_current_objects >= MAX_CONCURRENT_OBJECTS) {
+        die("To many concurrent objects, aborting.\n");
+    }
+    return &a_objects[num_current_objects++];
+}
+
+void
+_obj_set_data(struct data * data_, GLfloat * data, size_t size, size_t stride)
+{
+    data_->values = malloc(size);
+    if (data_->values == NULL) {
+        die("Could not allocate memory for values in data struct.\n");
+    }
+    data_->size = size;
+    data_->stride = stride;
+    data_->num_elements = size/sizeof(data[0]);
+    memcpy(data_->values, data, size);
+}
+
+void
+obj_set_vertex(struct object * obj, GLfloat * data, size_t size)
+{
+    _obj_set_data(&obj->data_vertex, data, size, 3);
+}
+
+void
+obj_set_uv(struct object * obj, GLfloat * data, size_t size)
+{
+    _obj_set_data(&obj->data_uv, data, size, 2);
+}
+
+void
+dealocate_objects(void)
+{
+    for (size_t i=0; i<num_current_objects; i++) {
+        struct object * obj = &a_objects[i];
+        if (obj->data_vertex.values != NULL) {
+            free(obj->data_vertex.values);
+        }
+        if (obj->data_uv.values != NULL) {
+            free(obj->data_uv.values);
+        }
+    }
+}
+
+void
+obj_setup_vertex_array(struct object * obj)
+{
+    GLuint buffer_vertex = 0;
+    GLuint buffer_va = 0;
+
+    glGenVertexArrays(1, &buffer_va);
+    glBindVertexArray(buffer_va);
+    obj->vertex_array = buffer_va;
+
+    glGenBuffers(1, &buffer_vertex);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer_vertex);
+
+    feed_buffer_and_enable_attrib(&obj->data_vertex, 0);
+
+    if (obj->data_uv.values != NULL) {
+        GLuint buffer_uv = 0;
+        glGenBuffers(1, &buffer_uv);
+        glBindBuffer(GL_ARRAY_BUFFER, buffer_uv);
+        feed_buffer_and_enable_attrib(&obj->data_uv, 1);
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 }
 
 int
@@ -574,16 +647,6 @@ main(void)
         return EXIT_FAILURE;
     }
 
-    /* Set up OpenGL buffers. */
-    GLuint VBO = 0;
-    GLuint VAO = 0;
-    glGenBuffers(1, &VBO);
-    glGenVertexArrays(1, &VAO);
-
-    /* Bind vertex array and buffer. */
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
     /* Muck about with vertice data. */
     GLfloat local_vertice_data[] = {
         // First triangle.
@@ -596,26 +659,6 @@ main(void)
          1.0f,  1.0f, 0.0f,
     };
 
-    struct data loc_data_rectangle = {
-        sizeof(local_vertice_data),
-        SIZE(local_vertice_data),
-        3,
-        &local_vertice_data[0]
-    };
-
-    struct data * data_rectangle = &loc_data_rectangle;
-
-    // TODO: Remove artificial increment of objects.
-    num_current_objects++;
-    a_objects[0].size = data_rectangle->size;
-
-    feed_buffer_and_enable_attrib(data_rectangle, 0);
-
-    /* Set up UV buffer. */
-    GLuint buffer_uv = 0;
-    glGenBuffers(1, &buffer_uv);
-    glBindBuffer(GL_ARRAY_BUFFER, buffer_uv);
-
     GLfloat coordinates_UV[] = {
         // First triangle.
         0.0f, 1.0f,
@@ -627,19 +670,10 @@ main(void)
         1.0f, 1.0f,
     };
 
-    struct data loc_data_uv = {
-        sizeof(coordinates_UV),
-        SIZE(coordinates_UV),
-        2,
-        &coordinates_UV[0]
-    };
-
-    struct data * data_uv = &loc_data_uv;
-    feed_buffer_and_enable_attrib(data_uv, 1);
-
-    /* Set and enable correct vertex attribute for UV coordinates (1). */
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-    glEnableVertexAttribArray(1);
+    struct object * p_obj = create_object();
+    obj_set_vertex(p_obj, local_vertice_data, sizeof(local_vertice_data));
+    obj_set_uv(p_obj, coordinates_UV, sizeof(coordinates_UV));
+    obj_setup_vertex_array(p_obj);
 
     glUseProgram(basic_program);
 
@@ -732,5 +766,6 @@ main(void)
 
     }
     free(texture_data);
+    dealocate_objects();
     glfwTerminate();
 }

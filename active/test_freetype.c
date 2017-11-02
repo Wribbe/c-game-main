@@ -74,6 +74,12 @@ struct state_button {
     GLboolean down;
 };
 
+struct v3 {
+    float x;
+    float y;
+    float z;
+};
+
 struct state_button activity_mods[NUM_MODS] = {0};
 
 GLboolean updated_buttons_keyboard = GL_FALSE;
@@ -256,9 +262,6 @@ assemble_program(GLuint id_program, const GLchar * const source_vertex,
     return success;
 }
 
-GLfloat stored_mouse_x = -1;
-GLfloat stored_mouse_y = -1;
-
 GLuint
 offset_texture_data(GLuint x, GLuint y)
 {
@@ -329,23 +332,52 @@ draw_rectangle(GLuint x1, GLuint y1, GLuint x2, GLuint y2, GLuint thickness)
     draw_line(x2, y1, x2, y2, thickness);
 }
 
-int MOUSE_RESET_VALUE = -1;
+#define MAX_STORED_COORDS 20
+vec3 stored_coords[MAX_STORED_COORDS];
+size_t num_stored_coords = 0;
 
 void
 reset_stored_mouse(void)
 {
-    stored_mouse_x = MOUSE_RESET_VALUE;
-    stored_mouse_y = MOUSE_RESET_VALUE;
+    num_stored_coords = 0;
 }
 
 GLboolean
 stored_mouse_exists(void)
 {
-    return stored_mouse_x > MOUSE_RESET_VALUE &&
-        stored_mouse_x > MOUSE_RESET_VALUE;
+    return num_stored_coords > 0;
 }
 
 GLboolean DRAW_AT_POINTER = GL_FALSE;
+
+void
+store_mouse(void)
+    /* Store x,y,z coordinates of mouse, pick x and y from globals, and use
+     * camera.z as z-coordinate for the time being.
+     * */
+{
+    if (num_stored_coords > MAX_STORED_COORDS-1) {
+        die("Too many stored mouse coordinates, aborting!\n");
+    }
+    vec3 * current_coord = &stored_coords[num_stored_coords++];
+    (*current_coord)[0] = mouse_x;
+    (*current_coord)[1] = mouse_y;
+    (*current_coord)[2] = camera_pos[2];
+}
+
+struct v3
+stored_mouse(size_t index)
+{
+    if (index > MAX_STORED_COORDS-1) {
+        die("Trying to access mouse coordinates outside of max, aborting!\n");
+    }
+    vec3 * current_vec3 = &stored_coords[index];
+    return (struct v3){
+        (*current_vec3)[0],
+        (*current_vec3)[1],
+        (*current_vec3)[2],
+    };
+}
 
 void
 process_input(void)
@@ -359,18 +391,21 @@ process_input(void)
             /* Shift + Mouse1. */
             if (activity_mouse_buttons[0].down) {
                 if (!stored_mouse_exists()) {
-                    stored_mouse_x = mouse_x;
-                    stored_mouse_y = mouse_y;
+                    store_mouse();
                 }
             } else {
                 if (stored_mouse_exists()) {
-                    draw_line(stored_mouse_x, stored_mouse_y, mouse_x, mouse_y,
+                    struct v3 stored = stored_mouse(0);
+                    draw_line(stored.x, stored.y, mouse_x, mouse_y,
                             CURRENT_THICKNESS);
                     reset_stored_mouse();
                 }
             }
             /* Shift + Mouse2. */
             if (activity_mouse_buttons[1].down) {
+                if (!stored_mouse_exists()) {
+                    store_mouse();
+                }
                 printf("Pressed SHIFT + MOUSE2!\n");
             }
         } else {
@@ -381,12 +416,12 @@ process_input(void)
             }
             if (activity_mouse_buttons[1].down) {
                 if (!stored_mouse_exists()) {
-                    stored_mouse_x = mouse_x;
-                    stored_mouse_y = mouse_y;
+                    store_mouse();
                 }
             } else {
                 if (stored_mouse_exists()) {
-                    draw_rectangle(stored_mouse_x, stored_mouse_y, mouse_x, mouse_y,
+                    struct v3 stored = stored_mouse(0);
+                    draw_rectangle(stored.x, stored.y, mouse_x, mouse_y,
                             CURRENT_THICKNESS);
                     reset_stored_mouse();
                 }

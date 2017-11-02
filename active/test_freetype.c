@@ -70,6 +70,16 @@ enum MODS {
     NUM_MODS,
 };
 
+struct object {
+    size_t size;
+    GLuint vertex_array;
+    GLuint program;
+};
+
+#define MAX_COCURRENT_OBJECTS 200
+struct object a_objects[MAX_COCURRENT_OBJECTS];
+size_t num_current_objects = 0;
+
 struct state_button {
     GLboolean down;
 };
@@ -382,16 +392,29 @@ stored_mouse(size_t index)
 void
 create_rectangle(void)
 {
-    struct v3 first_coords = stored_mouse(0);
-    struct v3 second_coords = stored_mouse(1);
+    struct v3 c1 = stored_mouse(0);
+    struct v3 c2 = stored_mouse(1);
+
+    GLfloat triangles[][3] = {
+        // First triangle.
+        {c1.x, c1.y, c1.z},
+        {c1.x, c2.y, c1.z},
+        {c2.x, c2.y, c2.z},
+        // Second triangle.
+        {c1.x, c1.y, c1.z},
+        {c2.x, c2.y, c2.z},
+        {c2.x, c1.y, c2.z},
+    };
+
+    //add_vertices(triangles, sizeof(triangles));
 
     printf("Creating rectangle from (%f,%f,%f) to (%f,%f,%f).\n",
-            first_coords.x,
-            first_coords.y,
-            first_coords.z,
-            second_coords.x,
-            second_coords.y,
-            second_coords.z
+            c1.x,
+            c1.y,
+            c1.z,
+            c2.x,
+            c2.y,
+            c2.z
           );
 }
 
@@ -475,6 +498,21 @@ produce_actions(void)
     }
 }
 
+void
+draw_objects(void)
+{
+    for (size_t i=0; i<num_current_objects; i++) {
+
+        struct object * obj = &a_objects[i];
+
+        //glBindVertexArray(obj->vertex_array);
+
+        //glUseProgram(obj->program);
+        glDrawArrays(GL_TRIANGLES, 0, obj->size/3);
+
+        //glBindVertexArray(0);
+    }
+}
 
 int
 main(void)
@@ -536,6 +574,10 @@ main(void)
     /* Bind vertex array and buffer. */
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+    // TODO: Remove artificial increment of objects.
+    num_current_objects++;
+    a_objects[0].size = sizeof(vertices_rectangle);
 
     /* Populate VBO with data. */
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_rectangle)*sizeof(GLfloat),
@@ -650,7 +692,7 @@ main(void)
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
 
         /* Draw. */
-        glDrawArrays(GL_TRIANGLES, 0, SIZE(vertices_rectangle)/3);
+        draw_objects();
 
         /* Swap. */
         glfwSwapBuffers(window);

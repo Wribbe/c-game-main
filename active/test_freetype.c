@@ -19,7 +19,7 @@ GLuint WIDTH = 1024;
 GLuint HEIGHT = 576;
 size_t BYTE_DEPTH = 4;
 
-vec3 camera_pos = {4,3,3};
+vec3 camera_pos = {0,0,3};
 
 mat4x4 m4_unit = {
     {1.0f, 0.0f, 0.0f, 0.0f},
@@ -92,10 +92,10 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
             activity_mods[SHIFT].down = GL_TRUE;
         }
         if (key == GLFW_KEY_W) {
-            m4_view[2][3] += 0.1f;
+            camera_pos[2] += 1.5f;
         }
         if (key == GLFW_KEY_S) {
-            m4_view[2][3] -= 0.1f;
+            camera_pos[2] -= 1.5f;
         }
     } else {
         if (key == GLFW_KEY_LEFT_SHIFT) {
@@ -555,6 +555,12 @@ main(void)
         glfwPollEvents();
         process_input();
         produce_actions();
+
+        /* Re-calculate look-at matrix. */
+        mat4x4_look_at(m4_view,
+                camera_pos,
+                (vec3){0.0f, 0.0f, 0.0f},
+                (vec3){0.0f, 1.0f, 0.0f});
 
         /* Re-calculate mvp matrix. */
         mat4x4_mul(m4_mvp, m4_view, m4_model);

@@ -19,7 +19,7 @@ GLuint WIDTH = 1024;
 GLuint HEIGHT = 576;
 size_t BYTE_DEPTH = 4;
 
-vec3 camera_pos = {0,0,3};
+vec3 camera_pos = {0,0,-1};
 
 mat4x4 m4_unit = {
     {1.0f, 0.0f, 0.0f, 0.0f},
@@ -117,10 +117,12 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
             activity_mods[SHIFT].down = GL_TRUE;
         }
         if (key == GLFW_KEY_W) {
-            camera_pos[2] += 1.5f;
+            camera_pos[2] += 0.1f;
+            printf("Current camera.z = %f\n", camera_pos[2]);
         }
         if (key == GLFW_KEY_S) {
-            camera_pos[2] -= 1.5f;
+            camera_pos[2] -= 0.1f;
+            printf("Current camera.z = %f\n", camera_pos[2]);
         }
     } else {
         if (key == GLFW_KEY_LEFT_SHIFT) {
@@ -387,114 +389,12 @@ stored_mouse(size_t index)
     };
 }
 
-void
-create_rectangle(void)
-{
-    struct v3 c1 = stored_mouse(0);
-    struct v3 c2 = stored_mouse(1);
-
-    GLfloat triangles[][3] = {
-        // First triangle.
-        {c1.x, c1.y, c1.z},
-        {c1.x, c2.y, c1.z},
-        {c2.x, c2.y, c2.z},
-        // Second triangle.
-        {c1.x, c1.y, c1.z},
-        {c2.x, c2.y, c2.z},
-        {c2.x, c1.y, c2.z},
-    };
-
-    //add_vertices(triangles, sizeof(triangles));
-
-    printf("Creating rectangle from (%f,%f,%f) to (%f,%f,%f).\n",
-            c1.x,
-            c1.y,
-            c1.z,
-            c2.x,
-            c2.y,
-            c2.z
-          );
-}
 
 enum input_states {
     STATE_DRAW_LINE,
     STATE_CREATE_RECT,
     NUM_STATES,
 };
-
-GLboolean input_states[NUM_STATES] = {0};
-
-void
-process_input(void)
-{
-    if (!updated_buttons_keyboard && !updated_buttons_mouse) {
-        return;
-    }
-
-    if (updated_buttons_mouse) {
-        if (activity_mods[SHIFT].down) {
-            /* Shift + Mouse1. */
-            if (activity_mouse_buttons[0].down) {
-                input_states[STATE_DRAW_LINE] = GL_TRUE;
-                if (!stored_mouse_exists()) {
-                    store_mouse();
-                }
-            } else if (input_states[STATE_DRAW_LINE]) {
-                if (stored_mouse_exists()) {
-                    struct v3 stored = stored_mouse(0);
-                    draw_line(stored.x, stored.y, mouse_x, mouse_y,
-                            CURRENT_THICKNESS);
-                    reset_stored_mouse();
-                    input_states[STATE_DRAW_LINE] = GL_FALSE;
-                }
-            }
-            /* Shift + Mouse2. */
-            if (activity_mouse_buttons[1].down) {
-                input_states[STATE_CREATE_RECT] = GL_TRUE;
-                if (!stored_mouse_exists()) {
-                    store_mouse();
-                }
-            } else if (input_states[STATE_CREATE_RECT]) {
-                if (stored_mouse_exists()) {
-                    store_mouse();
-                    create_rectangle();
-                }
-                reset_stored_mouse();
-                input_states[STATE_CREATE_RECT] = GL_FALSE;
-            }
-        } else {
-            if (activity_mouse_buttons[0].down) {
-                DRAW_AT_POINTER = GL_TRUE;
-            } else {
-                DRAW_AT_POINTER = GL_FALSE;
-            }
-            if (activity_mouse_buttons[1].down) {
-                if (!stored_mouse_exists()) {
-                    store_mouse();
-                }
-            } else {
-                if (stored_mouse_exists()) {
-                    struct v3 stored = stored_mouse(0);
-                    draw_rectangle(stored.x, stored.y, mouse_x, mouse_y,
-                            CURRENT_THICKNESS);
-                    reset_stored_mouse();
-                }
-            }
-        }
-    }
-
-    updated_buttons_keyboard = GL_FALSE;
-    updated_buttons_mouse = GL_FALSE;
-
-}
-
-void
-produce_actions(void)
-{
-    if (DRAW_AT_POINTER) {
-        color_pixel(mouse_x, mouse_y, 0, 0, 0);
-    }
-}
 
 void
 draw_objects(void)
@@ -596,6 +496,145 @@ obj_setup_vertex_array(struct object * obj)
     glBindVertexArray(0);
 }
 
+GLfloat VIEW_FAR = 100.0f;
+
+void
+create_rectangle(void)
+{
+    struct v3 c1 = stored_mouse(0);
+    struct v3 c2 = stored_mouse(1);
+
+    GLfloat c1x = -1.0f + 2.0f*(c1.x/(float)WIDTH);
+    GLfloat c2x = -1.0f + 2.0f*(c2.x/(float)WIDTH);
+
+    GLfloat c1y = -1.0f + 2.0f*(c1.y/(float)HEIGHT);
+    GLfloat c2y = -1.0f + 2.0f*(c2.y/(float)HEIGHT);
+
+    GLfloat c1z = -1.0f + 2.0f*(c1.z/VIEW_FAR);
+    GLfloat c2z = -1.0f + 2.0f*(c2.z/VIEW_FAR);
+
+    c1z = 0.0f;
+    c2z = 0.0f;
+
+    GLfloat data_vertice[] = {
+        // First triangle.
+        c1x, c1y, c1z,
+        c1x, c2y, c1z,
+        c2x, c2y, c2z,
+        // Second triangle
+        c1x, c1y, c1z,
+        c2x, c2y, c2z,
+        c2x, c1y, c2z,
+    };
+
+    GLfloat data_uv[] = {
+        // First triangle.
+        0.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        // Second triangle.
+        0.0f, 1.0f,
+        1.0f, 0.0f,
+        1.0f, 1.0f,
+    };
+
+    struct object * p_obj = create_object();
+    obj_set_vertex(p_obj, data_vertice, sizeof(data_vertice));
+    obj_set_uv(p_obj, data_uv, sizeof(data_uv));
+    obj_setup_vertex_array(p_obj);
+
+    printf("Input coords: (%f %f %f) (%f %f %f)\n",
+            c1.x,
+            c1.y,
+            c1.z,
+            c2.x,
+            c2.y,
+            c2.z
+          );
+    printf("Creating rectangle from (%f,%f,%f) to (%f,%f,%f).\n",
+            c1x,
+            c1y,
+            c1z,
+            c2x,
+            c2y,
+            c2z
+          );
+}
+
+GLboolean input_states[NUM_STATES] = {0};
+
+void
+process_input(void)
+{
+    if (!updated_buttons_keyboard && !updated_buttons_mouse) {
+        return;
+    }
+
+    if (updated_buttons_mouse) {
+        if (activity_mods[SHIFT].down) {
+            /* Shift + Mouse1. */
+            if (activity_mouse_buttons[0].down) {
+                input_states[STATE_DRAW_LINE] = GL_TRUE;
+                if (!stored_mouse_exists()) {
+                    store_mouse();
+                }
+            } else if (input_states[STATE_DRAW_LINE]) {
+                if (stored_mouse_exists()) {
+                    struct v3 stored = stored_mouse(0);
+                    draw_line(stored.x, stored.y, mouse_x, mouse_y,
+                            CURRENT_THICKNESS);
+                    reset_stored_mouse();
+                    input_states[STATE_DRAW_LINE] = GL_FALSE;
+                }
+            }
+            /* Shift + Mouse2. */
+            if (activity_mouse_buttons[1].down) {
+                input_states[STATE_CREATE_RECT] = GL_TRUE;
+                if (!stored_mouse_exists()) {
+                    store_mouse();
+                }
+            } else if (input_states[STATE_CREATE_RECT]) {
+                if (stored_mouse_exists()) {
+                    store_mouse();
+                    create_rectangle();
+                }
+                reset_stored_mouse();
+                input_states[STATE_CREATE_RECT] = GL_FALSE;
+            }
+        } else {
+            if (activity_mouse_buttons[0].down) {
+                DRAW_AT_POINTER = GL_TRUE;
+            } else {
+                DRAW_AT_POINTER = GL_FALSE;
+            }
+            if (activity_mouse_buttons[1].down) {
+                if (!stored_mouse_exists()) {
+                    store_mouse();
+                }
+            } else {
+                if (stored_mouse_exists()) {
+                    struct v3 stored = stored_mouse(0);
+                    draw_rectangle(stored.x, stored.y, mouse_x, mouse_y,
+                            CURRENT_THICKNESS);
+                    reset_stored_mouse();
+                }
+            }
+        }
+    }
+
+    updated_buttons_keyboard = GL_FALSE;
+    updated_buttons_mouse = GL_FALSE;
+
+}
+
+void
+produce_actions(void)
+{
+    if (DRAW_AT_POINTER) {
+        color_pixel(mouse_x, mouse_y, 0, 0, 0);
+    }
+}
+
 int
 main(void)
 {
@@ -647,34 +686,6 @@ main(void)
         return EXIT_FAILURE;
     }
 
-    /* Muck about with vertice data. */
-    GLfloat local_vertice_data[] = {
-        // First triangle.
-        -1.0f,  1.0f, 0.0f,
-        -1.0f, -1.0f, 0.0f,
-         1.0f, -1.0f, 0.0f,
-        // Second triangle.
-        -1.0f,  1.0f, 0.0f,
-         1.0f, -1.0f, 0.0f,
-         1.0f,  1.0f, 0.0f,
-    };
-
-    GLfloat coordinates_UV[] = {
-        // First triangle.
-        0.0f, 1.0f,
-        0.0f, 0.0f,
-        1.0f, 0.0f,
-        // Second triangle.
-        0.0f, 1.0f,
-        1.0f, 0.0f,
-        1.0f, 1.0f,
-    };
-
-    struct object * p_obj = create_object();
-    obj_set_vertex(p_obj, local_vertice_data, sizeof(local_vertice_data));
-    obj_set_uv(p_obj, coordinates_UV, sizeof(coordinates_UV));
-    obj_setup_vertex_array(p_obj);
-
     glUseProgram(basic_program);
 
     /* Create OpenGL texture. */
@@ -718,8 +729,9 @@ main(void)
     /* Calculate projection matrix. */
     /* mat4x4_perspective(mat4x4 m, float y_fov, float aspect, float n,
      * float f) */
+    VIEW_FAR = 105.0f;
     mat4x4_perspective(m4_projection, M_PI/4, (float)WIDTH/(float)HEIGHT,
-            0.1f, 100.0f);
+            0.1f, VIEW_FAR);
 
     /* Set up camera matrix. */
     /* void mat4x4_look_at(mat4x4 m, vec3 eye, vec3 center, vec3 up) */

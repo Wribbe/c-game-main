@@ -117,7 +117,6 @@ process_on_frame_events(void)
         vertices_triangle[mod_index] -= mod_value;
         printf("new 1st z-value: %f\n", vertices_triangle[mod_index]);
     }
-
 }
 
 GLFWwindow *
@@ -221,11 +220,13 @@ setup_buffers()
 const GLchar * source_shader_vertex =
 "#version 330 core\n"
 "\n"
+"uniform mat4 m4_mvp;\n"
+"\n"
 "layout (location=0) in vec3 vertex_data;\n"
 "\n"
 "void main() {\n"
 "\n"
-"  gl_Position = vec4(vertex_data, 1.0f);\n"
+"  gl_Position = m4_mvp * vec4(vertex_data, 1.0f);\n"
 "\n"
 "}\n";
 
@@ -311,6 +312,22 @@ main(void)
 
     glBindVertexArray(id_vao);
     glUseProgram(id_program);
+
+    mat4x4 m4_mvp = {
+        {1.0f, 0.0f, 0.0f, 0.0f},
+        {0.0f, 1.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, 1.0f, 0.0f},
+        {0.0f, 0.0f, 0.0f, 1.0f},
+    };
+
+    GLuint location_m4_mvp = glGetUniformLocation(id_program, "m4_mvp");
+
+    glUniformMatrix4fv(
+            location_m4_mvp,    // Uniform location.
+            1,                  // Number of matrices.
+            GL_FALSE,           // Transform from row-major to column major?
+            m4_mvp[0]           // Pointer to matrix data.
+    );
 
     while (!glfwWindowShouldClose(window)) {
 

@@ -424,10 +424,110 @@ test_m4_compare(void)
     return NULL;
 }
 
+inline static void
+m4_copy(m4 to, m4 from)
+{
+    for (size_t i=0; i<4; i++) {
+        for (size_t j=0; j<4; j++) {
+            to[i][j] = from[i][j];
+        }
+    }
+}
+
+const char *
+test_m4_copy(void) {
+    m4 to = {0};
+    m4 from = {
+        {1.0, 2.0, 3.0, 4.0},
+        {2.0, 2.0, 3.0, 4.0},
+        {1.0, 1.0, 3.0, 4.0},
+        {1.0, 2.0, 4.0, 9.0},
+    };
+    m4_copy(to, from);
+    mu_assert("Copied matrices are not equal.", m4_compare(to, from));
+    return NULL;
+}
+
+inline static void
+m4_mul(m4 result, m4 a, m4 b)
+    /* Multiplication of row-major matrices. */
+{
+    m4 temp = {0};
+    for (size_t i=0; i<4; i++) { // Iterates over rows.
+        for (size_t j=0; j<4; j++) { // Iterates over columns.
+            for (size_t k=0; k<4; k++) { // Iterates columns in b.
+                temp[i][j] += a[i][k] * b[k][j];
+            }
+        }
+    }
+    m4_copy(result, temp);
+}
+
+const char *
+test_m4_mul(void)
+{
+    m4 identity = {
+        {1.0f, 0.0f, 0.0f, 0.0f},
+        {0.0f, 1.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, 1.0f, 0.0f},
+        {0.0f, 0.0f, 0.0f, 1.0f},
+    };
+
+    m4 a = {
+        {1.0f, 1.0f, 1.0f, 1.0f},
+        {2.0f, 2.0f, 2.0f, 2.0f},
+        {3.0f, 3.0f, 3.0f, 3.0f},
+        {4.0f, 4.0f, 4.0f, 4.0f},
+    };
+
+    m4 result = {0};
+
+    m4_mul(result, a, identity);
+    mu_assert("Matrix multiplied with identity matrix differs.",
+            m4_compare(result, a));
+
+    m4_mul(result, identity, a);
+    mu_assert("Identity matrix multiplied with matrix differs.",
+            m4_compare(result, a));
+
+    m4 b = {
+        {4.0f, 4.0f, 4.0f, 4.0f},
+        {3.0f, 3.0f, 3.0f, 3.0f},
+        {2.0f, 2.0f, 2.0f, 2.0f},
+        {1.0f, 1.0f, 1.0f, 1.0f},
+    };
+
+    m4 ab_correct = {
+        {10.0f, 10.0f, 10.0f, 10.0f},
+        {20.0f, 20.0f, 20.0f, 20.0f},
+        {30.0f, 30.0f, 30.0f, 30.0f},
+        {40.0f, 40.0f, 40.0f, 40.0f},
+    };
+
+    m4_mul(result, a, b);
+    mu_assert("Result of axb was not correct.",
+            m4_compare(result, ab_correct));
+
+    m4 ba_correct = {
+        {40.0f, 40.0f, 40.0f, 40.0f},
+        {30.0f, 30.0f, 30.0f, 30.0f},
+        {20.0f, 20.0f, 20.0f, 20.0f},
+        {10.0f, 10.0f, 10.0f, 10.0f},
+    };
+
+    m4_mul(result, b, a);
+    mu_assert("Result of bxa was not correct.",
+            m4_compare(result, ba_correct));
+
+    return NULL;
+}
+
 const char *
 all_tests(void)
 {
     mu_run_test(test_m4_compare);
+    mu_run_test(test_m4_copy);
+    mu_run_test(test_m4_mul);
     return NULL;
 }
 

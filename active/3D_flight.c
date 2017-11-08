@@ -74,13 +74,21 @@ keyboard_key_callback(GLFWwindow * window, int key, int scancode, int action,
     UNUSED(mods);
     UNUSED(scancode);
     UNUSED(window);
-    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+
+    /* Ignore repeat actions. */
+    if (action == GLFW_REPEAT) {
+        return;
+    }
+
+    if (action == GLFW_PRESS) {
         key_down[key] = GL_TRUE;
     } else {
         key_down[key] = GL_FALSE;
     }
     key_queue_append(key);
 }
+
+GLuint mod_index = 2;
 
 void
 process_on_keyupdate_events(void)
@@ -95,7 +103,13 @@ process_on_keyupdate_events(void)
         switch (*p_key) {
             case GLFW_KEY_ESCAPE:
                 glfwSetWindowShouldClose(current_window, GLFW_TRUE);
-                break;
+            break;
+            case GLFW_KEY_TAB:
+                if (key_down[GLFW_KEY_TAB]) {
+                    mod_index = (mod_index + 1) % 3;
+                    printf("New mod axis: %d\n", mod_index);
+                }
+            break;
         }
     }
     key_queue_reset();
@@ -104,18 +118,40 @@ process_on_keyupdate_events(void)
 void
 process_on_frame_events(void)
 {
+
+    const GLchar * mod_axis = "";
+
+    switch (mod_index) {
+        case 0:
+            mod_axis = "x";
+        break;
+        case 1:
+            mod_axis = "y";
+        break;
+        case 2:
+            mod_axis = "z";
+        break;
+    }
+
     GLfloat mod_value = 0.001f;
-    GLuint mod_index = 2;
     if (key_down[GLFW_KEY_RIGHT_SHIFT]) {
         mod_value *= 100;
     }
     if (key_down[GLFW_KEY_Q]) {
         vertices_triangle[mod_index] += mod_value;
-        printf("new 1st z-value: %f\n", vertices_triangle[mod_index]);
+        printf("new 1st %s-value: %f\n", mod_axis, vertices_triangle[mod_index]);
     }
     if (key_down[GLFW_KEY_A]) {
         vertices_triangle[mod_index] -= mod_value;
-        printf("new 1st z-value: %f\n", vertices_triangle[mod_index]);
+        printf("new 1st %s-value: %f\n", mod_axis, vertices_triangle[mod_index]);
+    }
+    if (key_down[GLFW_KEY_W]) {
+        m4_model[mod_index][3] += mod_value;
+        printf("new model %s-value: %f\n", mod_axis, m4_model[mod_index][3]);
+    }
+    if (key_down[GLFW_KEY_S]) {
+        m4_model[mod_index][3] -= mod_value;
+        printf("new model %s-value: %f\n", mod_axis, m4_model[mod_index][3]);
     }
 }
 
@@ -322,13 +358,6 @@ main(void)
 
     GLuint location_m4_mvp = glGetUniformLocation(id_program, "m4_mvp");
 
-    glUniformMatrix4fv(
-            location_m4_mvp,    // Uniform location.
-            1,                  // Number of matrices.
-            GL_FALSE,           // Transform from row-major to column major?
-            m4_mvp[0]           // Pointer to matrix data.
-    );
-
     while (!glfwWindowShouldClose(window)) {
 
         /* Clear color and depth buffers. */
@@ -338,6 +367,18 @@ main(void)
         glfwPollEvents();
         process_on_keyupdate_events();
         process_on_frame_events();
+
+        /* Re-calculate matrices. */
+        mat4x4_mul(m4_mvp, m4_model, m4_view);
+        mat4x4_mul(m4_mvp, m4_mvp, m4_projection);
+
+        /* Load mvp matrix into vertex shader. */
+        glUniformMatrix4fv(
+                location_m4_mvp,    // Uniform location.
+                1,                  // Number of matrices.
+                GL_TRUE,            // Transform from row-major to column major?
+                m4_mvp[0]           // Pointer to matrix data.
+        );
 
         /* Update buffer data. */
         glBindBuffer(GL_ARRAY_BUFFER, 1);

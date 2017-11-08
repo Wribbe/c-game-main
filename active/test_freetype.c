@@ -103,6 +103,10 @@ struct state_button activity_mods[NUM_MODS] = {0};
 
 GLboolean updated_buttons_keyboard = GL_FALSE;
 
+GLfloat VIEW_FAR = 0.0f;
+GLfloat VIEW_NEAR = 0.0f;
+GLfloat VIEW_FOVY = M_PI/2;
+
 static void
 key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
 {
@@ -117,12 +121,36 @@ key_callback(GLFWwindow * window, int key, int scancode, int action, int mods)
             activity_mods[SHIFT].down = GL_TRUE;
         }
         if (key == GLFW_KEY_W) {
-            camera_pos[2] += 0.1f;
+            camera_pos[2] += 1;
             printf("Current camera.z = %f\n", camera_pos[2]);
         }
         if (key == GLFW_KEY_S) {
-            camera_pos[2] -= 0.1f;
+            camera_pos[2] -= 1;
             printf("Current camera.z = %f\n", camera_pos[2]);
+        }
+        if (key == GLFW_KEY_Q) {
+            VIEW_FAR += 0.01f;
+            printf("New VIEW_FAR = %f\n", VIEW_FAR);
+        }
+        if (key == GLFW_KEY_A) {
+            VIEW_FAR -= 0.01f;
+            printf("New VIEW_FAR = %f\n", VIEW_FAR);
+        }
+        if (key == GLFW_KEY_E) {
+            m4_model[3][3] += 10.0f;
+            printf("New model z: %f\n", m4_model[3][3]);
+        }
+        if (key == GLFW_KEY_D) {
+            m4_model[3][3] -= 10.0f;
+            printf("New model z: %f\n", m4_model[3][3]);
+        }
+        if (key == GLFW_KEY_R) {
+            VIEW_FOVY += M_PI/8;
+            printf("New FOV: %f\n", VIEW_FOVY);
+        }
+        if (key == GLFW_KEY_F) {
+            VIEW_FOVY -= M_PI/8;
+            printf("New FOV: %f\n", VIEW_FOVY);
         }
     } else {
         if (key == GLFW_KEY_LEFT_SHIFT) {
@@ -496,8 +524,6 @@ obj_setup_vertex_array(struct object * obj)
     glBindVertexArray(0);
 }
 
-GLfloat VIEW_FAR = 100.0f;
-
 void
 create_rectangle(void)
 {
@@ -729,9 +755,8 @@ main(void)
     /* Calculate projection matrix. */
     /* mat4x4_perspective(mat4x4 m, float y_fov, float aspect, float n,
      * float f) */
-    VIEW_FAR = 105.0f;
-    mat4x4_perspective(m4_projection, M_PI/4, (float)WIDTH/(float)HEIGHT,
-            0.1f, VIEW_FAR);
+//    mat4x4_perspective(m4_projection, M_PI/4, (float)WIDTH/(float)HEIGHT,
+//            VIEW_NEAR, VIEW_FAR);
 
     /* Set up camera matrix. */
     /* void mat4x4_look_at(mat4x4 m, vec3 eye, vec3 center, vec3 up) */
@@ -745,10 +770,15 @@ main(void)
         /* Render. */
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+
         /* Poll events. */
         glfwPollEvents();
         process_input();
         produce_actions();
+
+        /* Re-calculate perspective matrix. */
+        mat4x4_perspective(m4_projection, VIEW_FOVY, (float)WIDTH/(float)HEIGHT,
+                VIEW_NEAR, VIEW_FAR);
 
         /* Re-calculate look-at matrix. */
         mat4x4_look_at(m4_view,

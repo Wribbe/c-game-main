@@ -20,6 +20,53 @@ GLboolean key_down[500] = {0};
 GLFWwindow * current_window = NULL;
 GLboolean updated_keys = GL_FALSE;
 
+GLfloat vertices_triangle[] = {
+    -0.5f, -0.5f,  0.0f,
+     0.5f, -0.5f,  0.0f,
+     0.0f,  0.5f,  0.0f
+};
+
+mat4x4 m4_projection = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
+mat4x4 m4_model = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
+mat4x4 m4_view = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
+#define SIZE_KEY_QUEUE 200
+size_t last_key_queue = 0;
+GLint a_key_queue[SIZE_KEY_QUEUE];
+
+void
+key_queue_append(int key)
+{
+    if (last_key_queue > SIZE_KEY_QUEUE) {
+        fprintf(stderr, "Too many keys in queue, not adding.\n");
+        return;
+    }
+    a_key_queue[last_key_queue++] = key;
+}
+
+void
+key_queue_reset(void)
+{
+    last_key_queue = 0;
+}
+
 static void
 keyboard_key_callback(GLFWwindow * window, int key, int scancode, int action,
         int mods)
@@ -27,25 +74,50 @@ keyboard_key_callback(GLFWwindow * window, int key, int scancode, int action,
     UNUSED(mods);
     UNUSED(scancode);
     UNUSED(window);
-    if (action == GLFW_PRESS) {
+    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
         key_down[key] = GL_TRUE;
     } else {
         key_down[key] = GL_FALSE;
     }
-    updated_keys = GL_TRUE;
+    key_queue_append(key);
 }
 
 void
-process_events(void)
+process_on_keyupdate_events(void)
 {
-    if (!updated_keys) {
+    if (last_key_queue == 0) {
         return;
     }
-    updated_keys = GL_FALSE;
 
-    if (key_down[GLFW_KEY_ESCAPE]) {
-        glfwSetWindowShouldClose(current_window, GLFW_TRUE);
+    GLint * p_key = &a_key_queue[0];
+    GLint * p_end = &a_key_queue[last_key_queue];
+    for (; p_key < p_end; p_key++) {
+        switch (*p_key) {
+            case GLFW_KEY_ESCAPE:
+                glfwSetWindowShouldClose(current_window, GLFW_TRUE);
+                break;
+        }
     }
+    key_queue_reset();
+}
+
+void
+process_on_frame_events(void)
+{
+    GLfloat mod_value = 0.001f;
+    GLuint mod_index = 2;
+    if (key_down[GLFW_KEY_RIGHT_SHIFT]) {
+        mod_value *= 100;
+    }
+    if (key_down[GLFW_KEY_Q]) {
+        vertices_triangle[mod_index] += mod_value;
+        printf("new 1st z-value: %f\n", vertices_triangle[mod_index]);
+    }
+    if (key_down[GLFW_KEY_A]) {
+        vertices_triangle[mod_index] -= mod_value;
+        printf("new 1st z-value: %f\n", vertices_triangle[mod_index]);
+    }
+
 }
 
 GLFWwindow *
@@ -94,12 +166,6 @@ setup_glfw(void)
 struct draw_object {
     GLsizei num_vertices;
     GLfloat * points;
-};
-
-GLfloat vertices_triangle[] = {
-    -0.5f, -0.5f,  0.0f,
-     0.5f, -0.5f,  0.0f,
-     0.0f,  0.5f,  0.0f
 };
 
 struct draw_object triangle = {
@@ -235,7 +301,6 @@ setup_shaders()
     return program_shader;
 }
 
-
 int
 main(void)
 {
@@ -254,7 +319,13 @@ main(void)
 
         /* Poll events. */
         glfwPollEvents();
-        process_events();
+        process_on_keyupdate_events();
+        process_on_frame_events();
+
+        /* Update buffer data. */
+        glBindBuffer(GL_ARRAY_BUFFER, 1);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_triangle),
+                vertices_triangle, GL_STATIC_DRAW);
 
         /* Draw */
         draw_objects();

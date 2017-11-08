@@ -12,8 +12,13 @@
 #define UNUSED(x) (void)x
 #define SIZE(x) sizeof(x)/sizeof(x[0])
 
-GLuint WINDOW_WIDTH = 1440;
-GLuint WINDOW_HEIGHT = 900;
+#define WINDOW_WIDTH 1440
+#define WINDOW_HEIGHT 900
+
+GLfloat view_yfov = M_PI/2;
+GLfloat view_near = 0.1f;
+GLfloat view_far = 100.0f;
+GLfloat view_aspect_ratio = (float)WINDOW_WIDTH/(float)WINDOW_HEIGHT;
 
 GLboolean key_down[500] = {0};
 
@@ -21,9 +26,9 @@ GLFWwindow * current_window = NULL;
 GLboolean updated_keys = GL_FALSE;
 
 GLfloat vertices_triangle[] = {
-    -0.5f, -0.5f,  0.0f,
-     0.5f, -0.5f,  0.0f,
-     0.0f,  0.5f,  0.0f
+    -0.5f, -0.5f, 0.0f,
+     0.5f, -0.5f, 0.0f,
+     0.0f,  0.5f, 0.0f
 };
 
 mat4x4 m4_projection = {
@@ -47,6 +52,10 @@ mat4x4 m4_view = {
     {0.0f, 0.0f, 0.0f, 1.0f},
 };
 
+vec3 v3_camera_position = {0.0f, 0.0f, 3.0f};
+vec3 v3_camera_looks_at = {0.0f, 0.0f, 0.0f};
+vec3 v3_camera_vector_up = {0.0f, 1.0f, 0.0f};
+
 #define SIZE_KEY_QUEUE 200
 size_t last_key_queue = 0;
 GLint a_key_queue[SIZE_KEY_QUEUE];
@@ -54,7 +63,7 @@ GLint a_key_queue[SIZE_KEY_QUEUE];
 void
 key_queue_append(int key)
 {
-    if (last_key_queue > SIZE_KEY_QUEUE) {
+    if (last_key_queue >= SIZE_KEY_QUEUE) {
         fprintf(stderr, "Too many keys in queue, not adding.\n");
         return;
     }
@@ -137,6 +146,7 @@ process_on_frame_events(void)
     if (key_down[GLFW_KEY_RIGHT_SHIFT]) {
         mod_value *= 100;
     }
+
     if (key_down[GLFW_KEY_Q]) {
         vertices_triangle[mod_index] += mod_value;
         printf("new 1st %s-value: %f\n", mod_axis, vertices_triangle[mod_index]);
@@ -145,6 +155,7 @@ process_on_frame_events(void)
         vertices_triangle[mod_index] -= mod_value;
         printf("new 1st %s-value: %f\n", mod_axis, vertices_triangle[mod_index]);
     }
+
     if (key_down[GLFW_KEY_W]) {
         m4_model[mod_index][3] += mod_value;
         printf("new model %s-value: %f\n", mod_axis, m4_model[mod_index][3]);
@@ -152,6 +163,24 @@ process_on_frame_events(void)
     if (key_down[GLFW_KEY_S]) {
         m4_model[mod_index][3] -= mod_value;
         printf("new model %s-value: %f\n", mod_axis, m4_model[mod_index][3]);
+    }
+
+    if (key_down[GLFW_KEY_E]) {
+        view_far += mod_value;
+        printf("new view_far value: %f\n", view_far);
+    }
+    if (key_down[GLFW_KEY_D]) {
+        view_far -= mod_value;
+        printf("new view_far value: %f\n", view_far);
+    }
+
+    if (key_down[GLFW_KEY_R]) {
+        v3_camera_position[mod_index] -= mod_value;
+        printf("new camera-%s-position: %f\n", mod_axis, v3_camera_position[mod_index]);
+    }
+    if (key_down[GLFW_KEY_F]) {
+        v3_camera_position[mod_index] += mod_value;
+        printf("new camera-%s-position: %f\n", mod_axis, v3_camera_position[mod_index]);
     }
 }
 
@@ -338,6 +367,83 @@ setup_shaders()
     return program_shader;
 }
 
+GLuint tests_run = 0;
+
+#define mu_assert(message, test) do { if (!(test)) return message; } while (0)
+#define mu_run_test(test) do { const char * message = test(); tests_run++; \
+                                if (message) return message; } while (0)
+
+typedef GLfloat m4[4][4];
+struct v3 {
+    GLfloat x;
+    GLfloat y;
+    GLfloat z;
+};
+
+GLboolean
+m4_compare(m4 m1, m4 m2) {
+    for (size_t i=0; i<4; i++) {
+        for (size_t j=0; j<4; j++) {
+            if (m1[i][j] !=  m2[i][j]) {
+                return GL_FALSE;
+            }
+        }
+    }
+    return GL_TRUE;
+}
+
+const char *
+test_m4_compare(void)
+{
+    m4 equal_1 = {
+        {1.0, 2.0, 3.0, 4.0},
+        {1.0, 2.0, 3.0, 4.0},
+        {1.0, 2.0, 3.0, 4.0},
+        {1.0, 2.0, 3.0, 4.0},
+    };
+
+    m4 equal_2 = {
+        {1.0, 2.0, 3.0, 4.0},
+        {1.0, 2.0, 3.0, 4.0},
+        {1.0, 2.0, 3.0, 4.0},
+        {1.0, 2.0, 3.0, 4.0},
+    };
+
+    m4 non_equal = {
+        {1.0, 2.0, 3.0, 4.0},
+        {2.0, 2.0, 3.0, 4.0},
+        {1.0, 1.0, 3.0, 4.0},
+        {1.0, 2.0, 4.0, 9.0},
+    };
+
+    mu_assert("Equal matrices returned as non-equal.",
+            m4_compare(equal_1, equal_2) == GL_TRUE);
+
+    mu_assert("Non-equal matrices returned as equal.",
+            m4_compare(equal_1, non_equal) == GL_FALSE);
+    return NULL;
+}
+
+const char *
+all_tests(void)
+{
+    mu_run_test(test_m4_compare);
+    return NULL;
+}
+
+int
+tests_ok(void)
+{
+    const char * results = all_tests();
+    if (results != 0) {
+        printf("%s\n", results);
+    } else {
+        printf("All tests passed!\n");
+    }
+    printf("Tests run: %d\n", tests_run);
+    return results == NULL;
+}
+
 int
 main(void)
 {
@@ -358,6 +464,12 @@ main(void)
 
     GLuint location_m4_mvp = glGetUniformLocation(id_program, "m4_mvp");
 
+    /* Run tests. */
+    if (!tests_ok()) {
+        fprintf(stderr, "There were errors running the test-suit, aborting.\n");
+        exit(EXIT_FAILURE);
+    }
+
     while (!glfwWindowShouldClose(window)) {
 
         /* Clear color and depth buffers. */
@@ -369,6 +481,21 @@ main(void)
         process_on_frame_events();
 
         /* Re-calculate matrices. */
+        mat4x4_perspective(
+                m4_projection,      // Where to store the projection matrix.
+                view_yfov,          // Vertical field of view in radians.
+                view_aspect_ratio,  // The aspect-ratio of the screen.
+                view_near,          // The positional value of the near plane.
+                view_far            // The positional value of the far plane.
+        );
+
+        mat4x4_look_at(
+                m4_view,            // Where to store result of computation.
+                v3_camera_position, // vec3 representing camera position.
+                v3_camera_looks_at, // vec3 representing where camera is looking.
+                v3_camera_vector_up // vec3 representing camera up direction.
+        );
+
         mat4x4_mul(m4_mvp, m4_model, m4_view);
         mat4x4_mul(m4_mvp, m4_mvp, m4_projection);
 
@@ -376,7 +503,7 @@ main(void)
         glUniformMatrix4fv(
                 location_m4_mvp,    // Uniform location.
                 1,                  // Number of matrices.
-                GL_TRUE,            // Transform from row-major to column major?
+                GL_FALSE,            // Transform from row-major to column major?
                 m4_mvp[0]           // Pointer to matrix data.
         );
 

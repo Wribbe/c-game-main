@@ -374,13 +374,8 @@ GLuint tests_run = 0;
                                 if (message) return message; } while (0)
 
 typedef GLfloat m4[4][4];
-struct v3 {
-    GLfloat x;
-    GLfloat y;
-    GLfloat z;
-};
 
-GLboolean
+static inline GLboolean
 m4_compare(m4 m1, m4 m2) {
     for (size_t i=0; i<4; i++) {
         for (size_t j=0; j<4; j++) {
@@ -424,7 +419,7 @@ test_m4_compare(void)
     return NULL;
 }
 
-inline static void
+static inline void
 m4_copy(m4 to, m4 from)
 {
     for (size_t i=0; i<4; i++) {
@@ -448,7 +443,7 @@ test_m4_copy(void) {
     return NULL;
 }
 
-inline static void
+static inline void
 m4_mul(m4 result, m4 a, m4 b)
     /* Multiplication of row-major matrices. */
 {
@@ -522,12 +517,76 @@ test_m4_mul(void)
     return NULL;
 }
 
+struct v3 {
+    union {
+        struct {
+            GLfloat x;
+            GLfloat y;
+            GLfloat z;
+        };
+        GLfloat raw[3];
+    };
+};
+
+static inline GLboolean
+v3_compare(struct v3 a, struct v3 b)
+{
+    for (size_t i=0; i<3; i++) {
+        if (a.raw[i] != b.raw[i]) {
+            return GL_FALSE;
+        }
+    }
+    return GL_TRUE;
+}
+
+const char *
+test_v3_compare(void)
+{
+    struct v3 a = {{{1.0f, 2.0f, 3.0f}}};
+    struct v3 b = {{{1.0f, 2.0f, 3.0f}}};
+    struct v3 c = {{{1.0f, 2.0f, 1.0f}}};
+
+    mu_assert("v3 a == v3 b but compare returned false.",
+            v3_compare(a,b) == GL_TRUE);
+
+    mu_assert("v3 a != v3 c but compare returned true.",
+            v3_compare(a,c) == GL_FALSE);
+
+    return NULL;
+}
+
+static inline void
+v3_add(struct v3 * result, struct v3 * a, struct v3 * b)
+{
+    for (size_t i=0; i<3; i++) {
+        result->raw[i] = a->raw[i] + b->raw[i];
+    }
+}
+
+const char *
+test_v3_add(void)
+{
+    struct v3 a = {{{1.0f, 2.0f, 3.0f}}};
+    struct v3 b = {{{1.0f, 2.0f, 3.0f}}};
+
+    struct v3 correct = {{{2.0f, 4.0f, 6.0f}}};
+    struct v3 result = {0};
+
+    v3_add(&result, &a, &b);
+    mu_assert("Result of v3 a + v3 b not correct.",
+            v3_compare(correct, result) == GL_TRUE);
+
+    return NULL;
+}
+
 const char *
 all_tests(void)
 {
     mu_run_test(test_m4_compare);
     mu_run_test(test_m4_copy);
     mu_run_test(test_m4_mul);
+    mu_run_test(test_v3_compare);
+    mu_run_test(test_v3_add);
     return NULL;
 }
 

@@ -25,30 +25,32 @@ GLboolean key_down[500] = {0};
 GLFWwindow * current_window = NULL;
 GLboolean updated_keys = GL_FALSE;
 
+typedef GLfloat m4[4][4];
+
 GLfloat vertices_triangle[] = {
     -0.5f, -0.5f, 0.0f,
      0.5f, -0.5f, 0.0f,
      0.0f,  0.5f, 0.0f
 };
 
-mat4x4 m4_projection = {
+m4 m4_projection = {
     {1.0f, 0.0f, 0.0f, 0.0f},
     {0.0f, 1.0f, 0.0f, 0.0f},
     {0.0f, 0.0f, 1.0f, 0.0f},
     {0.0f, 0.0f, 0.0f, 1.0f},
 };
 
-mat4x4 m4_model = {
+m4 m4_model = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
+m4 m4_view = {
     {1.0f, 0.0f, 0.0f, 0.0f},
     {0.0f, 1.0f, 0.0f, 0.0f},
     {0.0f, 0.0f, 1.0f, -3.0f},
-    {0.0f, 0.0f, 0.0f, 1.0f},
-};
-
-mat4x4 m4_view = {
-    {1.0f, 0.0f, 0.0f, 0.0f},
-    {0.0f, 1.0f, 0.0f, 0.0f},
-    {0.0f, 0.0f, 1.0f, 0.0f},
     {0.0f, 0.0f, 0.0f, 1.0f},
 };
 
@@ -373,8 +375,6 @@ GLuint tests_run = 0;
 #define mu_run_test(test) do { const char * message = test(); tests_run++; \
                                 if (message) return message; } while (0)
 
-typedef GLfloat m4[4][4];
-
 static inline GLboolean
 m4_compare(m4 m1, m4 m2) {
     for (size_t i=0; i<4; i++) {
@@ -649,8 +649,8 @@ m4_perspective(m4 result,
     m4 perspective = {
         {n_div_r, 0.0f,    0.0f,                0.0f},
         {0.0f,    n_div_t, 0.0f,                0.0f},
-        {0.0f,    0.0f,    -sum_fn/diff_fn,    -1.0f},
-        {0.0f,    0.0f,    (-2*mul_fn)/diff_fn, 0.0f},
+        {0.0f,    0.0f,    -sum_fn/diff_fn,     -(2*mul_fn)/diff_fn},
+        {0.0f,    0.0f,    -1.0, 0.0f},
     };
 
     m4_copy(result, perspective);
@@ -693,7 +693,7 @@ main(void)
     glBindVertexArray(id_vao);
     glUseProgram(id_program);
 
-    mat4x4 m4_mvp = {
+    m4 m4_mvp = {
         {1.0f, 0.0f, 0.0f, 0.0f},
         {0.0f, 1.0f, 0.0f, 0.0f},
         {0.0f, 0.0f, 1.0f, 0.0f},
@@ -727,21 +727,21 @@ main(void)
                 view_far            // The positional value of the far plane.
         );
 
-        mat4x4_look_at(
-                m4_view,            // Where to store result of computation.
-                v3_camera_position, // vec3 representing camera position.
-                v3_camera_looks_at, // vec3 representing where camera is looking.
-                v3_camera_vector_up // vec3 representing camera up direction.
-        );
+//        mat4x4_look_at(
+//                m4_view,            // Where to store result of computation.
+//                v3_camera_position, // vec3 representing camera position.
+//                v3_camera_looks_at, // vec3 representing where camera is looking.
+//                v3_camera_vector_up // vec3 representing camera up direction.
+//        );
 
-        mat4x4_mul(m4_mvp, m4_model, m4_view);
-        mat4x4_mul(m4_mvp, m4_mvp, m4_projection);
+        m4_mul(m4_mvp, m4_view, m4_model);
+        m4_mul(m4_mvp, m4_projection, m4_mvp);
 
         /* Load mvp matrix into vertex shader. */
         glUniformMatrix4fv(
                 location_m4_mvp,    // Uniform location.
                 1,                  // Number of matrices.
-                GL_FALSE,            // Transform from row-major to column major?
+                GL_TRUE,            // Supplied matrices are in row-major order?
                 m4_mvp[0]           // Pointer to matrix data.
         );
 

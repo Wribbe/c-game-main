@@ -635,6 +635,45 @@ v3_length(struct v3 * v)
 }
 
 static inline void
+m4_transpose(m4 result, m4 m)
+{
+    m4 temp = {0};
+    for (size_t i=0; i<4; i++) {
+        for (size_t j=0; j<4; j++) {
+            temp[j][i] = m[i][j];
+        }
+    }
+    m4_copy(result, temp);
+}
+
+const char *
+test_m4_transpose(void)
+{
+    m4 m = {
+        {1.0f, 5.0f, 6.0f, 7.0f},
+        {2.0f, 1.0f, 0.0f, 0.0f},
+        {3.0f, 0.0f, 1.0f, 9.0f},
+        {4.0f, 0.0f, 8.0f, 1.0f},
+    };
+
+    m4 correct = {
+        {1.0f, 2.0f, 3.0f, 4.0f},
+        {5.0f, 1.0f, 0.0f, 0.0f},
+        {6.0f, 0.0f, 1.0f, 8.0f},
+        {7.0f, 0.0f, 9.0f, 1.0f},
+    };
+
+    m4 result = {0};
+
+    m4_transpose(result, m);
+    mu_assert("Transposition of m does not match correct matrix.",
+            m4_equals(result, correct));
+
+    return NULL;
+}
+
+
+static inline void
 m4_perspective(m4 result,
         GLfloat vertical_fov,
         GLfloat aspect_ratio,
@@ -733,6 +772,56 @@ test_v3_cross(void)
     return NULL;
 }
 
+static inline void
+m4_look_at(m4 result,
+        struct v3 * camera_position,
+        struct v3 * camera_looks_at,
+        struct v3 * camera_up)
+{
+    struct v3 camera_right = {0};
+    struct v3 camera_direction = {0};
+
+    /* Calculate camera direction vector.
+     *
+     * This vector points towards the camera from the look-at-point, which
+     * means it points in the opposite direction that the camera is facing.
+     * This is important to consider when calculating the camera_right vector.
+     */
+    v3_subv3(&camera_direction, camera_looks_at, camera_position);
+
+    /* Use up and direction vector to calculate right vector.
+     *
+     * Using the right-hand-rule together with the knowledge that the
+     * camera_direction will point towards the camera; doing up x direction
+     * will result in a correct right vector without negation.
+     */
+    v3_cross(&camera_right, camera_up, &camera_direction);
+
+    /* Construct the two parts of the view matrix. */
+    m4 look_at_p1 = {
+        {camera_right.x,     camera_right.y,     camera_right.z,     0.0f},
+        {camera_up->x,       camera_up->y,       camera_up->z,       0.0f},
+        {camera_direction.x, camera_direction.y, camera_direction.z, 0.0f},
+        {0.0f,               0.0f,               0.0f,               1.0f},
+    };
+
+    m4 look_at_p2 = {
+        {1.0f, 0.0f, 0.0f, -camera_position->x},
+        {0.0f, 1.0f, 0.0f, -camera_position->y},
+        {0.0f, 0.0f, 1.0f, -camera_position->z},
+        {0.0f, 0.0f, 0.0f, 1.0f},
+    };
+
+    /* Transpose the matrices. */
+//    m4_transpose(look_at_p1, look_at_p1);
+//    m4_transpose(look_at_p2, look_at_p2);
+
+    /* Calculate the final look-at matrix. */
+    m4_mul(result, look_at_p1, look_at_p2);
+    m4_transpose(result, result);
+
+}
+
 const char *
 all_tests(void)
 {
@@ -746,15 +835,8 @@ all_tests(void)
     mu_run_test(test_v3_divf);
     mu_run_test(test_v3_normalize);
     mu_run_test(test_v3_cross);
+    mu_run_test(test_m4_transpose);
     return NULL;
-}
-
-static inline void
-m4_look_at(m4 result,
-        struct v3 * camera_position,
-        struct v3 * camera_looks_at,
-        struct v3 * camera_vector_up)
-{
 }
 
 int

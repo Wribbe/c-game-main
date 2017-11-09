@@ -27,6 +27,13 @@ GLboolean updated_keys = GL_FALSE;
 
 typedef GLfloat m4[4][4];
 
+struct draw_object {
+    GLsizei num_vertices;
+    GLfloat * points;
+};
+
+struct draw_object triangle = {0};
+
 struct v3 {
     union {
         struct {
@@ -36,13 +43,6 @@ struct v3 {
         };
         GLfloat raw[3];
     };
-};
-
-
-GLfloat vertices_triangle[] = {
-    -0.5f, -0.5f, 0.0f,
-     0.5f, -0.5f, 0.0f,
-     0.0f,  0.5f, 0.0f
 };
 
 m4 m4_projection = {
@@ -62,7 +62,7 @@ m4 m4_model = {
 m4 m4_view = {
     {1.0f, 0.0f, 0.0f, 0.0f},
     {0.0f, 1.0f, 0.0f, 0.0f},
-    {0.0f, 0.0f, 1.0f, -3.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
     {0.0f, 0.0f, 0.0f, 1.0f},
 };
 
@@ -162,12 +162,12 @@ process_on_frame_events(void)
     }
 
     if (key_down[GLFW_KEY_Q]) {
-        vertices_triangle[mod_index] += mod_value;
-        printf("new 1st %s-value: %f\n", mod_axis, vertices_triangle[mod_index]);
+        triangle.points[mod_index] += mod_value;
+        printf("new 1st %s-value: %f\n", mod_axis, triangle.points[mod_index]);
     }
     if (key_down[GLFW_KEY_A]) {
-        vertices_triangle[mod_index] -= mod_value;
-        printf("new 1st %s-value: %f\n", mod_axis, vertices_triangle[mod_index]);
+        triangle.points[mod_index] -= mod_value;
+        printf("new 1st %s-value: %f\n", mod_axis, triangle.points[mod_index]);
     }
 
     if (key_down[GLFW_KEY_W]) {
@@ -241,15 +241,19 @@ setup_glfw(void)
     return window;
 }
 
-struct draw_object {
-    GLsizei num_vertices;
-    GLfloat * points;
-};
+void
+draw_object_populate(struct draw_object * obj, struct v3 * points, size_t num_points)
+{
+    obj->num_vertices = num_points*3;
+    size_t size_data = sizeof(GLfloat)*obj->num_vertices;
+    if (obj->points == NULL) {
+        obj->points = malloc(size_data);
+    } else {
+        obj->points = realloc(obj->points, size_data);
+    }
+    memcpy(obj->points, points, size_data);
+}
 
-struct draw_object triangle = {
-    SIZE(vertices_triangle),
-    vertices_triangle,
-};
 
 void
 draw_objects()
@@ -787,7 +791,7 @@ m4_look_at(m4 result,
      * means it points in the opposite direction that the camera is facing.
      * This is important to consider when calculating the camera_right vector.
      */
-    v3_subv3(&camera_direction, camera_looks_at, camera_position);
+    v3_subv3(&camera_direction, camera_position, camera_looks_at);
 
     /* Use up and direction vector to calculate right vector.
      *
@@ -812,14 +816,8 @@ m4_look_at(m4 result,
         {0.0f, 0.0f, 0.0f, 1.0f},
     };
 
-    /* Transpose the matrices. */
-//    m4_transpose(look_at_p1, look_at_p1);
-//    m4_transpose(look_at_p2, look_at_p2);
-
     /* Calculate the final look-at matrix. */
     m4_mul(result, look_at_p1, look_at_p2);
-    m4_transpose(result, result);
-
 }
 
 const char *
@@ -878,6 +876,15 @@ main(void)
         exit(EXIT_FAILURE);
     }
 
+    struct v3 points[] = {
+        {{{-0.5f,  0.5f, 0.0f}}},
+        {{{-0.5f, -0.5f, 0.0f}}},
+        {{{ 0.5f, -0.5f, 0.0f}}},
+    };
+
+    /* Setup geometry. */
+    draw_object_populate(&triangle, points, SIZE(points));
+
     while (!glfwWindowShouldClose(window)) {
 
         /* Clear color and depth buffers. */
@@ -917,8 +924,8 @@ main(void)
 
         /* Update buffer data. */
         glBindBuffer(GL_ARRAY_BUFFER, 1);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_triangle),
-                vertices_triangle, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, triangle.num_vertices*sizeof(GLfloat),
+                triangle.points, GL_STATIC_DRAW);
 
         /* Draw */
         draw_objects();

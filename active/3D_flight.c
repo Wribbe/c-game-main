@@ -709,6 +709,30 @@ test_v3_normalize(void)
     return NULL;
 }
 
+static inline void
+v3_cross(struct v3 * result, struct v3 * a, struct v3 * b)
+{
+    result->x = a->y*b->z - a->z*b->y;
+    result->y = a->z*b->x - a->x*b->z;
+    result->z = a->x*b->y - a->y*b->x;
+}
+
+const char *
+test_v3_cross(void)
+{
+    struct v3 axis_x = {{{1.0f, 0.0f, 0.0f}}};
+    struct v3 axis_y = {{{0.0f, 1.0f, 0.0f}}};
+    struct v3 axis_z = {{{0.0f, 0.0f, 1.0f}}};
+
+    struct v3 result = {0};
+
+    v3_cross(&result, &axis_x, &axis_y);
+    mu_assert("Cross product of x-axis and y-axis did not result in z-axis.",
+            v3_equals(&result, &axis_z) == GL_TRUE);
+
+    return NULL;
+}
+
 const char *
 all_tests(void)
 {
@@ -721,6 +745,7 @@ all_tests(void)
     mu_run_test(test_v3_subv3);
     mu_run_test(test_v3_divf);
     mu_run_test(test_v3_normalize);
+    mu_run_test(test_v3_cross);
     return NULL;
 }
 

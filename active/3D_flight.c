@@ -27,6 +27,18 @@ GLboolean updated_keys = GL_FALSE;
 
 typedef GLfloat m4[4][4];
 
+struct v3 {
+    union {
+        struct {
+            GLfloat x;
+            GLfloat y;
+            GLfloat z;
+        };
+        GLfloat raw[3];
+    };
+};
+
+
 GLfloat vertices_triangle[] = {
     -0.5f, -0.5f, 0.0f,
      0.5f, -0.5f, 0.0f,
@@ -54,9 +66,9 @@ m4 m4_view = {
     {0.0f, 0.0f, 0.0f, 1.0f},
 };
 
-vec3 v3_camera_position = {0.0f, 0.0f, 3.0f};
-vec3 v3_camera_looks_at = {0.0f, 0.0f, 0.0f};
-vec3 v3_camera_vector_up = {0.0f, 1.0f, 0.0f};
+struct v3 v3_camera_position = {{{0.0f, 0.0f, 3.0f}}};
+struct v3 v3_camera_looks_at = {{{0.0f, 0.0f, 0.0f}}};
+struct v3 v3_camera_vector_up = {{{0.0f, 1.0f, 0.0f}}};
 
 #define SIZE_KEY_QUEUE 200
 size_t last_key_queue = 0;
@@ -177,12 +189,12 @@ process_on_frame_events(void)
     }
 
     if (key_down[GLFW_KEY_R]) {
-        v3_camera_position[mod_index] -= mod_value;
-        printf("new camera-%s-position: %f\n", mod_axis, v3_camera_position[mod_index]);
+        v3_camera_position.raw[mod_index] -= mod_value;
+        printf("new camera-%s-position: %f\n", mod_axis, v3_camera_position.raw[mod_index]);
     }
     if (key_down[GLFW_KEY_F]) {
-        v3_camera_position[mod_index] += mod_value;
-        printf("new camera-%s-position: %f\n", mod_axis, v3_camera_position[mod_index]);
+        v3_camera_position.raw[mod_index] += mod_value;
+        printf("new camera-%s-position: %f\n", mod_axis, v3_camera_position.raw[mod_index]);
     }
 }
 
@@ -517,17 +529,6 @@ test_m4_mul(void)
     return NULL;
 }
 
-struct v3 {
-    union {
-        struct {
-            GLfloat x;
-            GLfloat y;
-            GLfloat z;
-        };
-        GLfloat raw[3];
-    };
-};
-
 static inline GLboolean
 v3_compare(struct v3 a, struct v3 b)
 {
@@ -627,6 +628,12 @@ test_v3_subv3(void)
     return NULL;
 }
 
+static inline GLfloat
+v3_length(struct v3 * v)
+{
+    return sqrtf(v->x*v->x + v->y*v->y + v->z*v->z);
+}
+
 static inline void
 m4_perspective(m4 result,
         GLfloat vertical_fov,
@@ -656,6 +663,52 @@ m4_perspective(m4 result,
     m4_copy(result, perspective);
 }
 
+static inline void
+v3_divf(struct v3 * result, struct v3 * v, GLfloat f)
+{
+    for (size_t i=0; i<3; i++) {
+        result->raw[i] = v->raw[i] / f;
+    }
+}
+
+const char *
+test_v3_divf(void)
+{
+    struct v3 a = {{{4.0f, 6.0f, 8.0f}}};
+    GLfloat divisor = 2.0f;
+    struct v3 result = {0};
+    struct v3 correct = {{{2.0f, 3.0f, 4.0f}}};
+
+    v3_divf(&result, &a, divisor);
+    mu_assert("Vector divided by float did not match correct.\n",
+            v3_compare(result, correct) == GL_TRUE);
+
+    return NULL;
+}
+
+static inline void
+v3_normalize(struct v3 * result, struct v3 * v)
+{
+    GLfloat length = v3_length(v);
+    v3_divf(result, v, length);
+}
+
+const char *
+test_v3_normalize(void)
+{
+    struct v3 a = {{{1.0f, 2.0f, 2.0f}}}; // Length == 3.
+    struct v3 result = {{{1.0f, 2.0f, 2.0f}}};
+
+    GLfloat length_a = v3_length(&a);
+    mu_assert("Length was not 3.", length_a == 3.0f);
+
+    v3_normalize(&result, &a);
+    mu_assert("Length was not 1 after normalization.",
+            v3_length(&result) == 1.0f);
+
+    return NULL;
+}
+
 const char *
 all_tests(void)
 {
@@ -666,7 +719,17 @@ all_tests(void)
     mu_run_test(test_v3_addv3);
     mu_run_test(test_v3_mulv3);
     mu_run_test(test_v3_subv3);
+    mu_run_test(test_v3_divf);
+    mu_run_test(test_v3_normalize);
     return NULL;
+}
+
+static inline void
+m4_look_at(m4 result,
+        struct v3 * camera_position,
+        struct v3 * camera_looks_at,
+        struct v3 * camera_vector_up)
+{
 }
 
 int
@@ -727,12 +790,12 @@ main(void)
                 view_far            // The positional value of the far plane.
         );
 
-//        mat4x4_look_at(
-//                m4_view,            // Where to store result of computation.
-//                v3_camera_position, // vec3 representing camera position.
-//                v3_camera_looks_at, // vec3 representing where camera is looking.
-//                v3_camera_vector_up // vec3 representing camera up direction.
-//        );
+        m4_look_at(
+                m4_view,            // Where to store result of computation.
+                &v3_camera_position,// vec3 representing camera position.
+                &v3_camera_looks_at,// vec3 representing where camera is looking.
+                &v3_camera_vector_up// vec3 representing camera up direction.
+        );
 
         m4_mul(m4_mvp, m4_view, m4_model);
         m4_mul(m4_mvp, m4_projection, m4_mvp);

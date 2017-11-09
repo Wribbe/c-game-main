@@ -388,7 +388,7 @@ GLuint tests_run = 0;
                                 if (message) return message; } while (0)
 
 static inline GLboolean
-m4_compare(m4 m1, m4 m2) {
+m4_equals(m4 m1, m4 m2) {
     for (size_t i=0; i<4; i++) {
         for (size_t j=0; j<4; j++) {
             if (m1[i][j] !=  m2[i][j]) {
@@ -400,7 +400,7 @@ m4_compare(m4 m1, m4 m2) {
 }
 
 const char *
-test_m4_compare(void)
+test_m4_equals(void)
 {
     m4 equal_1 = {
         {1.0, 2.0, 3.0, 4.0},
@@ -424,10 +424,10 @@ test_m4_compare(void)
     };
 
     mu_assert("Equal matrices returned as non-equal.",
-            m4_compare(equal_1, equal_2) == GL_TRUE);
+            m4_equals(equal_1, equal_2) == GL_TRUE);
 
     mu_assert("Non-equal matrices returned as equal.",
-            m4_compare(equal_1, non_equal) == GL_FALSE);
+            m4_equals(equal_1, non_equal) == GL_FALSE);
     return NULL;
 }
 
@@ -451,7 +451,7 @@ test_m4_copy(void) {
         {1.0, 2.0, 4.0, 9.0},
     };
     m4_copy(to, from);
-    mu_assert("Copied matrices are not equal.", m4_compare(to, from));
+    mu_assert("Copied matrices are not equal.", m4_equals(to, from));
     return NULL;
 }
 
@@ -491,11 +491,11 @@ test_m4_mul(void)
 
     m4_mul(result, a, identity);
     mu_assert("Matrix multiplied with identity matrix differs.",
-            m4_compare(result, a));
+            m4_equals(result, a));
 
     m4_mul(result, identity, a);
     mu_assert("Identity matrix multiplied with matrix differs.",
-            m4_compare(result, a));
+            m4_equals(result, a));
 
     m4 b = {
         {4.0f, 4.0f, 4.0f, 4.0f},
@@ -513,7 +513,7 @@ test_m4_mul(void)
 
     m4_mul(result, a, b);
     mu_assert("Result of axb was not correct.",
-            m4_compare(result, ab_correct));
+            m4_equals(result, ab_correct));
 
     m4 ba_correct = {
         {40.0f, 40.0f, 40.0f, 40.0f},
@@ -524,16 +524,16 @@ test_m4_mul(void)
 
     m4_mul(result, b, a);
     mu_assert("Result of bxa was not correct.",
-            m4_compare(result, ba_correct));
+            m4_equals(result, ba_correct));
 
     return NULL;
 }
 
 static inline GLboolean
-v3_compare(struct v3 a, struct v3 b)
+v3_equals(struct v3 * a, struct v3 * b)
 {
     for (size_t i=0; i<3; i++) {
-        if (a.raw[i] != b.raw[i]) {
+        if (a->raw[i] != b->raw[i]) {
             return GL_FALSE;
         }
     }
@@ -541,17 +541,17 @@ v3_compare(struct v3 a, struct v3 b)
 }
 
 const char *
-test_v3_compare(void)
+test_v3_equals(void)
 {
     struct v3 a = {{{1.0f, 2.0f, 3.0f}}};
     struct v3 b = {{{1.0f, 2.0f, 3.0f}}};
     struct v3 c = {{{1.0f, 2.0f, 1.0f}}};
 
-    mu_assert("v3 a == v3 b but compare returned false.",
-            v3_compare(a,b) == GL_TRUE);
+    mu_assert("v3 a == v3 b but equals returned false.",
+            v3_equals(&a,&b) == GL_TRUE);
 
-    mu_assert("v3 a != v3 c but compare returned true.",
-            v3_compare(a,c) == GL_FALSE);
+    mu_assert("v3 a != v3 c but equals returned true.",
+            v3_equals(&a,&c) == GL_FALSE);
 
     return NULL;
 }
@@ -575,7 +575,7 @@ test_v3_addv3(void)
 
     v3_addv3(&result, &a, &b);
     mu_assert("Result of v3 a + v3 b not correct.",
-            v3_compare(correct, result) == GL_TRUE);
+            v3_equals(&correct, &result) == GL_TRUE);
 
     return NULL;
 }
@@ -599,7 +599,7 @@ test_v3_mulv3(void)
 
     v3_mulv3(&result, &a, &b);
     mu_assert("Result of v3 a * v3 b not correct.",
-            v3_compare(correct, result) == GL_TRUE);
+            v3_equals(&correct, &result) == GL_TRUE);
 
     return NULL;
 }
@@ -623,7 +623,7 @@ test_v3_subv3(void)
 
     v3_subv3(&result, &a, &b);
     mu_assert("Result of v3 a - v3 b not correct.",
-            v3_compare(correct, result) == GL_TRUE);
+            v3_equals(&correct, &result) == GL_TRUE);
 
     return NULL;
 }
@@ -681,7 +681,7 @@ test_v3_divf(void)
 
     v3_divf(&result, &a, divisor);
     mu_assert("Vector divided by float did not match correct.\n",
-            v3_compare(result, correct) == GL_TRUE);
+            v3_equals(&result, &correct) == GL_TRUE);
 
     return NULL;
 }
@@ -712,10 +712,10 @@ test_v3_normalize(void)
 const char *
 all_tests(void)
 {
-    mu_run_test(test_m4_compare);
+    mu_run_test(test_m4_equals);
     mu_run_test(test_m4_copy);
     mu_run_test(test_m4_mul);
-    mu_run_test(test_v3_compare);
+    mu_run_test(test_v3_equals);
     mu_run_test(test_v3_addv3);
     mu_run_test(test_v3_mulv3);
     mu_run_test(test_v3_subv3);

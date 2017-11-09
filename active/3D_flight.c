@@ -41,7 +41,7 @@ mat4x4 m4_projection = {
 mat4x4 m4_model = {
     {1.0f, 0.0f, 0.0f, 0.0f},
     {0.0f, 1.0f, 0.0f, 0.0f},
-    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, -3.0f},
     {0.0f, 0.0f, 0.0f, 1.0f},
 };
 
@@ -556,7 +556,7 @@ test_v3_compare(void)
 }
 
 static inline void
-v3_add(struct v3 * result, struct v3 * a, struct v3 * b)
+v3_addv3(struct v3 * result, struct v3 * a, struct v3 * b)
 {
     for (size_t i=0; i<3; i++) {
         result->raw[i] = a->raw[i] + b->raw[i];
@@ -564,7 +564,7 @@ v3_add(struct v3 * result, struct v3 * a, struct v3 * b)
 }
 
 const char *
-test_v3_add(void)
+test_v3_addv3(void)
 {
     struct v3 a = {{{1.0f, 2.0f, 3.0f}}};
     struct v3 b = {{{1.0f, 2.0f, 3.0f}}};
@@ -572,11 +572,88 @@ test_v3_add(void)
     struct v3 correct = {{{2.0f, 4.0f, 6.0f}}};
     struct v3 result = {0};
 
-    v3_add(&result, &a, &b);
+    v3_addv3(&result, &a, &b);
     mu_assert("Result of v3 a + v3 b not correct.",
             v3_compare(correct, result) == GL_TRUE);
 
     return NULL;
+}
+
+static inline void
+v3_mulv3(struct v3 * result, struct v3 * a, struct v3 * b)
+{
+    for (size_t i=0; i<3; i++) {
+        result->raw[i] = a->raw[i] * b->raw[i];
+    }
+}
+
+const char *
+test_v3_mulv3(void)
+{
+    struct v3 a = {{{1.0f, 2.0f, 3.0f}}};
+    struct v3 b = {{{1.0f, 2.0f, 3.0f}}};
+
+    struct v3 correct = {{{1.0f, 4.0f, 9.0f}}};
+    struct v3 result = {0};
+
+    v3_mulv3(&result, &a, &b);
+    mu_assert("Result of v3 a * v3 b not correct.",
+            v3_compare(correct, result) == GL_TRUE);
+
+    return NULL;
+}
+
+static inline void
+v3_subv3(struct v3 * result, struct v3 * a, struct v3 * b)
+{
+    for (size_t i=0; i<3; i++) {
+        result->raw[i] = a->raw[i] - b->raw[i];
+    }
+}
+
+const char *
+test_v3_subv3(void)
+{
+    struct v3 a = {{{1.0f, 2.0f, 3.0f}}};
+    struct v3 b = {{{4.0f, 4.0f, 4.0f}}};
+
+    struct v3 correct = {{{-3.0f, -2.0f, -1.0f}}};
+    struct v3 result = {0};
+
+    v3_subv3(&result, &a, &b);
+    mu_assert("Result of v3 a - v3 b not correct.",
+            v3_compare(correct, result) == GL_TRUE);
+
+    return NULL;
+}
+
+static inline void
+m4_perspective(m4 result,
+        GLfloat vertical_fov,
+        GLfloat aspect_ratio,
+        GLfloat plane_near,
+        GLfloat plane_far)
+    /* Creates perspective matrix based on symmetric viewing volume. The
+     * returned matrix is in row-major format.  */
+{
+    GLfloat near_top = tanf(vertical_fov/2)*plane_near;
+    GLfloat near_right = near_top * aspect_ratio;
+
+    GLfloat n_div_r = plane_near/near_right;
+    GLfloat n_div_t = plane_near/near_top;
+
+    GLfloat sum_fn = plane_far + plane_near;
+    GLfloat diff_fn = plane_far - plane_near;
+    GLfloat mul_fn = plane_far*plane_near;
+
+    m4 perspective = {
+        {n_div_r, 0.0f,    0.0f,                0.0f},
+        {0.0f,    n_div_t, 0.0f,                0.0f},
+        {0.0f,    0.0f,    -sum_fn/diff_fn,    -1.0f},
+        {0.0f,    0.0f,    (-2*mul_fn)/diff_fn, 0.0f},
+    };
+
+    m4_copy(result, perspective);
 }
 
 const char *
@@ -586,7 +663,9 @@ all_tests(void)
     mu_run_test(test_m4_copy);
     mu_run_test(test_m4_mul);
     mu_run_test(test_v3_compare);
-    mu_run_test(test_v3_add);
+    mu_run_test(test_v3_addv3);
+    mu_run_test(test_v3_mulv3);
+    mu_run_test(test_v3_subv3);
     return NULL;
 }
 
@@ -640,7 +719,7 @@ main(void)
         process_on_frame_events();
 
         /* Re-calculate matrices. */
-        mat4x4_perspective(
+        m4_perspective(
                 m4_projection,      // Where to store the projection matrix.
                 view_yfov,          // Vertical field of view in radians.
                 view_aspect_ratio,  // The aspect-ratio of the screen.

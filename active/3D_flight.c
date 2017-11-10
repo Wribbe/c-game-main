@@ -254,6 +254,71 @@ draw_object_populate(struct draw_object * obj, struct v3 * points, size_t num_po
     memcpy(obj->points, points, size_data);
 }
 
+void
+create_cube(struct draw_object * obj, struct v3 * center, GLfloat side)
+{
+    GLfloat hs = side/2.0f;
+    GLfloat cx = center->x;
+    GLfloat cy = center->y;
+    GLfloat cz = center->z;
+
+    struct v3 front_left_top = {{{cx-hs, cy+hs, cz+hs}}};
+    struct v3 front_left_bot = {{{cx-hs, cy-hs, cz+hs}}};
+    struct v3 front_right_top = {{{cx+hs, cy+hs, cz+hs}}};
+    struct v3 front_right_bot = {{{cx+hs, cy-hs, cz+hs}}};
+
+    struct v3 back_left_top = {{{cx-hs, cy+hs, cz-hs}}};
+    struct v3 back_left_bot = {{{cx-hs, cy-hs, cz-hs}}};
+    struct v3 back_right_top = {{{cx+hs, cy+hs, cz-hs}}};
+    struct v3 back_right_bot = {{{cx+hs, cy-hs, cz-hs}}};
+
+    struct v3 points[] = {
+        // Front face.
+        front_left_top,
+        front_left_bot,
+        front_right_top,
+        front_right_top,
+        front_left_bot,
+        front_right_bot,
+        // Back face.
+        back_left_top,
+        back_right_top,
+        back_left_bot,
+        back_left_bot,
+        back_right_top,
+        back_right_bot,
+        // Left-side face.
+        front_left_top,
+        back_left_bot,
+        front_left_bot,
+        front_left_top,
+        back_left_top,
+        back_left_bot,
+        // Right-side face.
+        back_right_bot,
+        front_right_top,
+        front_right_bot,
+        back_right_top,
+        front_right_top,
+        back_right_bot,
+        // Top face.
+        front_right_top,
+        back_right_top,
+        front_left_top,
+        front_left_top,
+        back_right_top,
+        back_left_top,
+        // bottom face.
+        front_right_bot,
+        front_left_bot,
+        back_right_bot,
+        back_right_bot,
+        front_left_bot,
+        back_left_bot,
+    };
+
+    draw_object_populate(obj, points, SIZE(points));
+}
 
 void
 draw_objects()
@@ -880,14 +945,10 @@ main(void)
         exit(EXIT_FAILURE);
     }
 
-    struct v3 points[] = {
-        {{{-0.5f,  0.5f, 0.0f}}},
-        {{{-0.5f, -0.5f, 0.0f}}},
-        {{{ 0.5f, -0.5f, 0.0f}}},
-    };
-
     /* Setup geometry. */
-    draw_object_populate(&draw_object, points, SIZE(points));
+    struct v3 cube_center = {{{0.0f, 0.0f, 0.0f}}};
+    GLfloat cube_side = 1.0f;
+    create_cube(&draw_object, &cube_center, cube_side);
 
     while (!glfwWindowShouldClose(window)) {
 

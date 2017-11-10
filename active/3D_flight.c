@@ -700,7 +700,7 @@ m4_perspective(m4 result,
         {n_div_r, 0.0f,    0.0f,                0.0f},
         {0.0f,    n_div_t, 0.0f,                0.0f},
         {0.0f,    0.0f,    -sum_fn/diff_fn,     -(2*mul_fn)/diff_fn},
-        {0.0f,    0.0f,    -1.0, 0.0f},
+        {0.0f,    0.0f,    -1.0,                0.0f},
     };
 
     m4_copy(result, perspective);

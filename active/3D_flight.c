@@ -889,6 +889,12 @@ m4_look_at(m4 result,
     m4_mul(result, look_at_p1, look_at_p2);
 }
 
+GLuint
+generate_texture_solid(GLfloat r, GLfloat g, GLfloat b)
+{
+    return 0;
+}
+
 const char *
 all_tests(void)
 {
@@ -949,6 +955,10 @@ main(void)
     struct v3 cube_center = {{{0.0f, 0.0f, 0.0f}}};
     GLfloat cube_side = 1.0f;
     create_cube(&draw_object, &cube_center, cube_side);
+
+    /* Setup texture. */
+    GLuint id_texture = generate_texture_solid(0.0f, 1.0f, 0.0f);
+    glBindTexture(GL_TEXTURE_2D, id_texture);
 
     while (!glfwWindowShouldClose(window)) {
 

@@ -793,6 +793,9 @@ m4_look_at(m4 result,
      */
     v3_subv3(&camera_direction, camera_position, camera_looks_at);
 
+    /* Normalize before doing cross multiplication -> get unit vector back.*/
+    v3_normalize(&camera_direction, &camera_direction);
+
     /* Use up and direction vector to calculate right vector.
      *
      * Using the right-hand-rule together with the knowledge that the
@@ -800,6 +803,7 @@ m4_look_at(m4 result,
      * will result in a correct right vector without negation.
      */
     v3_cross(&camera_right, camera_up, &camera_direction);
+
 
     /* Construct the two parts of the view matrix. */
     m4 look_at_p1 = {

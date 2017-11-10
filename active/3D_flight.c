@@ -32,7 +32,7 @@ struct draw_object {
     GLfloat * points;
 };
 
-struct draw_object triangle = {0};
+struct draw_object draw_object = {0};
 
 struct v3 {
     union {
@@ -162,12 +162,12 @@ process_on_frame_events(void)
     }
 
     if (key_down[GLFW_KEY_Q]) {
-        triangle.points[mod_index] += mod_value;
-        printf("new 1st %s-value: %f\n", mod_axis, triangle.points[mod_index]);
+        draw_object.points[mod_index] += mod_value;
+        printf("new 1st %s-value: %f\n", mod_axis, draw_object.points[mod_index]);
     }
     if (key_down[GLFW_KEY_A]) {
-        triangle.points[mod_index] -= mod_value;
-        printf("new 1st %s-value: %f\n", mod_axis, triangle.points[mod_index]);
+        draw_object.points[mod_index] -= mod_value;
+        printf("new 1st %s-value: %f\n", mod_axis, draw_object.points[mod_index]);
     }
 
     if (key_down[GLFW_KEY_W]) {
@@ -258,7 +258,7 @@ draw_object_populate(struct draw_object * obj, struct v3 * points, size_t num_po
 void
 draw_objects()
 {
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDrawArrays(GL_TRIANGLES, 0, draw_object.num_vertices/3);
 }
 
 GLuint
@@ -278,8 +278,8 @@ setup_buffers()
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
     /* Populate buffer with data. */
-    glBufferData(GL_ARRAY_BUFFER, triangle.num_vertices*sizeof(GLfloat),
-            triangle.points, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, draw_object.num_vertices*sizeof(GLfloat),
+            draw_object.points, GL_STATIC_DRAW);
 
     /* Setup and enable vertex data attribute pointer. */
     GLuint attribute_vertex_data = 0;
@@ -883,7 +883,7 @@ main(void)
     };
 
     /* Setup geometry. */
-    draw_object_populate(&triangle, points, SIZE(points));
+    draw_object_populate(&draw_object, points, SIZE(points));
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -924,8 +924,8 @@ main(void)
 
         /* Update buffer data. */
         glBindBuffer(GL_ARRAY_BUFFER, 1);
-        glBufferData(GL_ARRAY_BUFFER, triangle.num_vertices*sizeof(GLfloat),
-                triangle.points, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, draw_object.num_vertices*sizeof(GLfloat),
+                draw_object.points, GL_STATIC_DRAW);
 
         /* Draw */
         draw_objects();

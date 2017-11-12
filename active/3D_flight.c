@@ -29,7 +29,9 @@ typedef GLfloat m4[4][4];
 
 struct draw_object {
     GLsizei num_vertices;
+    GLsizei num_uv_coords;
     GLfloat * points;
+    GLfloat * uv_coords;
 };
 
 struct draw_object draw_object = {0};
@@ -242,7 +244,8 @@ setup_glfw(void)
 }
 
 void
-draw_object_populate(struct draw_object * obj, struct v3 * points, size_t num_points)
+draw_object_set_vertice_data(struct draw_object * obj, struct v3 * points,
+        size_t num_points)
 {
     obj->num_vertices = num_points*3;
     size_t size_data = sizeof(GLfloat)*obj->num_vertices;
@@ -252,6 +255,20 @@ draw_object_populate(struct draw_object * obj, struct v3 * points, size_t num_po
         obj->points = realloc(obj->points, size_data);
     }
     memcpy(obj->points, points, size_data);
+}
+
+void
+draw_object_set_uv_coords(struct draw_object * obj, GLfloat * coords,
+        size_t num_coords)
+{
+    size_t size_data = sizeof(GLfloat)*num_coords;
+    obj->num_uv_coords = num_coords;
+    if (obj->uv_coords == NULL) {
+        obj->uv_coords = malloc(size_data);
+    } else {
+        obj->uv_coords = realloc(obj->uv_coords, size_data);
+    }
+    memcpy(obj->uv_coords, coords, size_data);
 }
 
 void
@@ -317,7 +334,53 @@ create_cube(struct draw_object * obj, struct v3 * center, GLfloat side)
         back_left_bot,
     };
 
-    draw_object_populate(obj, points, SIZE(points));
+    GLfloat uv_coords[] = {
+        // Front face.
+        0.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        1.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        // Front face.
+        0.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        1.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        // Front face.
+        0.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        1.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        // Front face.
+        0.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        1.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        // Front face.
+        0.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        1.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        // Front face.
+        0.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        1.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+    };
+
+    draw_object_set_vertice_data(obj, points, SIZE(points));
+    draw_object_set_uv_coords(obj, uv_coords, SIZE(uv_coords));
 }
 
 void
@@ -343,7 +406,8 @@ setup_buffers()
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
     /* Populate buffer with data. */
-    glBufferData(GL_ARRAY_BUFFER, draw_object.num_vertices*sizeof(GLfloat),
+    size_t num_floats = draw_object.num_vertices;
+    glBufferData(GL_ARRAY_BUFFER, num_floats*sizeof(GLfloat),
             draw_object.points, GL_STATIC_DRAW);
 
     /* Setup and enable vertex data attribute pointer. */
@@ -356,6 +420,28 @@ setup_buffers()
             GL_FALSE,  // Should openGL normalize the elements?
             0,         // Stride, is there an offset between chunks?
             (void*)0   // Pointer to first set of vertex data.
+    );
+
+    /* Create secondary buffer for uv-coordinates. */
+    GLuint vbo_uv = 0; // Vertex buffer object for uv-coordinates.
+    glGenBuffers(1, &vbo_uv);
+    /* Bind new buffer. */
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_uv);
+
+    /* Populate new buffer with data. */
+    glBufferData(GL_ARRAY_BUFFER, draw_object.num_uv_coords*sizeof(GLfloat),
+            draw_object.uv_coords, GL_STATIC_DRAW);
+
+    /* Setup and enable attribute pointer for uv-coordinates. */
+    GLuint attribute_uv_coordinates = 1;
+    glEnableVertexAttribArray(attribute_uv_coordinates);
+    glVertexAttribPointer(
+            attribute_uv_coordinates,
+            2,
+            GL_FLOAT,
+            GL_FALSE,
+            0,
+            (void*)0
     );
 
     /* Un-bind the vertex buffer and vertex array objects. */
@@ -371,19 +457,27 @@ const GLchar * source_shader_vertex =
 "uniform mat4 m4_mvp;\n"
 "\n"
 "layout (location=0) in vec3 vertex_data;\n"
+"layout (location=1) in vec2 in_coords_uv;\n"
+"\n"
+"out vec2 coords_uv;\n"
 "\n"
 "void main() {\n"
 "\n"
+"  coords_uv = in_coords_uv;\n"
 "  gl_Position = m4_mvp * vec4(vertex_data, 1.0f);\n"
 "\n"
 "}\n";
 
 const GLchar * source_shader_fragment =
 "#version 330 core\n"
-"out vec4 FragColor;\n"
+"\n"
+"in vec2 coords_uv;\n"
+"\n"
+"out vec4 frag_color;\n"
 "\n"
 "void main() {\n"
-"  FragColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
+"  //frag_color = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
+"  frag_color = vec4(coords_uv, 0.0f, 1.0f);\n"
 "}\n";
 
 GLuint
@@ -890,9 +984,45 @@ m4_look_at(m4 result,
 }
 
 GLuint
-generate_texture_solid(GLfloat r, GLfloat g, GLfloat b)
+generate_texture_checkers(void)
 {
-    return 0;
+    /* Checkers-pattern data. */
+    GLubyte data_texture_checkerboard[] = {
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+    };
+
+    /* Get unused texture id. */
+    GLuint id_texture = 0;
+    glGenTextures(1, &id_texture);
+
+    /* Bind texture. */
+    glBindTexture(GL_TEXTURE_2D, id_texture);
+
+    /* Allocate storage for texture data. */
+    glTexStorage2D(GL_TEXTURE_2D,// Target.
+                   4,            // Number of texture mipmap levels.
+                   GL_R8,        // Internal storage format for texture data.
+                   8,            // Texture texel width.
+                   8             // Texture texel height.
+    );
+
+    /* Specify the texture data. */
+    glTexSubImage2D(GL_TEXTURE_2D,            // Target.
+                    0,                        // First mipmap level.
+                    0, 0,                     // X and Y offsets.
+                    8, 8,                     // Texel width and height.
+                    GL_RED,                   // Data format.
+                    GL_UNSIGNED_BYTE,         // Data type.
+                    data_texture_checkerboard // Pointer to data.
+    );
+
+    return id_texture;
 }
 
 const char *
@@ -930,6 +1060,14 @@ main(void)
 {
     GLFWwindow * window = setup_glfw();
 
+    glEnable(GL_DEPTH_TEST);
+
+    /* Setup geometry. */
+    struct v3 cube_center = {{{0.0f, 0.0f, 0.0f}}};
+    GLfloat cube_side = 1.0f;
+    create_cube(&draw_object, &cube_center, cube_side);
+
+    /* Setup buffers and shaders. */
     GLuint id_vao = setup_buffers();
     GLuint id_program = setup_shaders();
 
@@ -951,13 +1089,8 @@ main(void)
         exit(EXIT_FAILURE);
     }
 
-    /* Setup geometry. */
-    struct v3 cube_center = {{{0.0f, 0.0f, 0.0f}}};
-    GLfloat cube_side = 1.0f;
-    create_cube(&draw_object, &cube_center, cube_side);
-
     /* Setup texture. */
-    GLuint id_texture = generate_texture_solid(0.0f, 1.0f, 0.0f);
+    GLuint id_texture = generate_texture_checkers();
     glBindTexture(GL_TEXTURE_2D, id_texture);
 
     while (!glfwWindowShouldClose(window)) {
@@ -1009,4 +1142,5 @@ main(void)
         glfwSwapBuffers(window);
 
     }
+    glfwTerminate();
 }

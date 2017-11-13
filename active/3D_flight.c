@@ -201,35 +201,35 @@ create_cube(struct draw_object * obj, struct v3 * center, GLfloat side)
         1.0f, 1.0f,
         0.0f, 0.0f,
         1.0f, 0.0f,
-        // Front face.
+        // Back face.
         0.0f, 1.0f,
         0.0f, 0.0f,
         1.0f, 1.0f,
         1.0f, 1.0f,
         0.0f, 0.0f,
         1.0f, 0.0f,
-        // Front face.
+        // Left side.
+        1.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        1.0f, 1.0f,
+        0.0f, 1.0f,
+        0.0f, 0.0f,
+        // Right side.
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        1.0f, 0.0f,
+        0.0f, 1.0f,
+        1.0f, 1.0f,
+        0.0f, 0.0f,
+        // Top face.
         0.0f, 1.0f,
         0.0f, 0.0f,
         1.0f, 1.0f,
         1.0f, 1.0f,
         0.0f, 0.0f,
         1.0f, 0.0f,
-        // Front face.
-        0.0f, 1.0f,
-        0.0f, 0.0f,
-        1.0f, 1.0f,
-        1.0f, 1.0f,
-        0.0f, 0.0f,
-        1.0f, 0.0f,
-        // Front face.
-        0.0f, 1.0f,
-        0.0f, 0.0f,
-        1.0f, 1.0f,
-        1.0f, 1.0f,
-        0.0f, 0.0f,
-        1.0f, 0.0f,
-        // Front face.
+        // Bottom face.
         0.0f, 1.0f,
         0.0f, 0.0f,
         1.0f, 1.0f,

@@ -920,6 +920,9 @@ generate_texture_checkers(void)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
     return id_texture;
 }
 
@@ -1210,6 +1213,7 @@ main(void)
     GLFWwindow * window = setup_glfw();
 
     glEnable(GL_DEPTH_TEST);
+//    glEnable(GL_CULL_FACE);
 
     /* Setup geometry. */
     struct v3 cube_center = {{{0.0f, 0.0f, 0.0f}}};

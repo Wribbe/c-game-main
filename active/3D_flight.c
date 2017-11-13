@@ -1184,6 +1184,7 @@ setup_glfw(void)
 
     glfwSetKeyCallback(window, keyboard_key_callback);
     glfwSetCursorPosCallback(window, mouse_position_callback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     current_window = window;
 
     return window;

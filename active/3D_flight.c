@@ -113,121 +113,6 @@ keyboard_key_callback(GLFWwindow * window, int key, int scancode, int action,
     key_queue_append(key);
 }
 
-GLuint mod_index = 2;
-GLboolean input_mode_fps = GL_TRUE;
-
-void
-process_on_keyupdate_events(void)
-{
-    if (last_key_queue == 0) {
-        return;
-    }
-
-    GLint * p_key = &a_key_queue[0];
-    GLint * p_end = &a_key_queue[last_key_queue];
-    for (; p_key < p_end; p_key++) {
-        switch (*p_key) {
-            case GLFW_KEY_ESCAPE:
-                glfwSetWindowShouldClose(current_window, GLFW_TRUE);
-            break;
-            case GLFW_KEY_TAB:
-                 if (key_down[GLFW_KEY_TAB]) {
-                    if (key_down[GLFW_KEY_RIGHT_SHIFT]) {
-                        input_mode_fps = !input_mode_fps;
-                        printf("Input fps mode: %s\n", input_mode_fps ? "ON" : "OFF");
-                    } else {
-                        mod_index = (mod_index + 1) % 3;
-                        printf("New mod axis: %d\n", mod_index);
-                    }
-                }
-            break;
-        }
-    }
-    key_queue_reset();
-}
-
-void
-process_on_frame_events(void)
-{
-
-    const GLchar * mod_axis = "";
-
-    switch (mod_index) {
-        case 0:
-            mod_axis = "x";
-        break;
-        case 1:
-            mod_axis = "y";
-        break;
-        case 2:
-            mod_axis = "z";
-        break;
-    }
-
-    GLfloat mod_value = 0.001f;
-    if (key_down[GLFW_KEY_RIGHT_SHIFT]) {
-        mod_value *= 100;
-    }
-
-
-    if (key_down[GLFW_KEY_Q]) {
-        draw_object.points[mod_index] += mod_value;
-        printf("new 1st %s-value: %f\n", mod_axis, draw_object.points[mod_index]);
-    }
-
-    GLfloat speed_camera = 0.05f;
-
-    if (key_down[GLFW_KEY_W]) {
-        if (!input_mode_fps) {
-            m4_model[mod_index][3] += mod_value;
-            printf("new model %s-value: %f\n", mod_axis, m4_model[mod_index][3]);
-        } else {
-            printf("WALKING FOWRARD!\n");
-        }
-    }
-
-    if (key_down[GLFW_KEY_A]) {
-        if (!input_mode_fps) {
-            draw_object.points[mod_index] -= mod_value;
-            printf("new 1st %s-value: %f\n", mod_axis, draw_object.points[mod_index]);
-        } else {
-            printf("WALKING LEFT!\n");
-        }
-    }
-
-    if (key_down[GLFW_KEY_S]) {
-        if (!input_mode_fps) {
-            m4_model[mod_index][3] -= mod_value;
-            printf("new model %s-value: %f\n", mod_axis, m4_model[mod_index][3]);
-        } else {
-            printf("WALKING BACKWARDS!\n");
-        }
-    }
-
-    if (key_down[GLFW_KEY_D]) {
-        if (!input_mode_fps) {
-            view_far -= mod_value;
-            printf("new view_far value: %f\n", view_far);
-        } else {
-            printf("WALKING RIGHT!\n");
-        }
-    }
-
-    if (key_down[GLFW_KEY_E]) {
-        view_far += mod_value;
-        printf("new view_far value: %f\n", view_far);
-    }
-
-    if (key_down[GLFW_KEY_R]) {
-        v3_camera_position.raw[mod_index] -= mod_value;
-        printf("new camera-%s-position: %f\n", mod_axis, v3_camera_position.raw[mod_index]);
-    }
-    if (key_down[GLFW_KEY_F]) {
-        v3_camera_position.raw[mod_index] += mod_value;
-        printf("new camera-%s-position: %f\n", mod_axis, v3_camera_position.raw[mod_index]);
-    }
-}
-
 GLFWwindow *
 setup_glfw(void)
 {
@@ -1122,6 +1007,125 @@ tests_ok(void)
     printf("Tests run: %d\n", tests_run);
     return results == NULL;
 }
+
+GLuint mod_index = 2;
+GLboolean input_mode_fps = GL_TRUE;
+
+void
+process_on_keyupdate_events(void)
+{
+    if (last_key_queue == 0) {
+        return;
+    }
+
+    GLint * p_key = &a_key_queue[0];
+    GLint * p_end = &a_key_queue[last_key_queue];
+    for (; p_key < p_end; p_key++) {
+        switch (*p_key) {
+            case GLFW_KEY_ESCAPE:
+                glfwSetWindowShouldClose(current_window, GLFW_TRUE);
+            break;
+            case GLFW_KEY_TAB:
+                 if (key_down[GLFW_KEY_TAB]) {
+                    if (key_down[GLFW_KEY_RIGHT_SHIFT]) {
+                        input_mode_fps = !input_mode_fps;
+                        printf("Input fps mode: %s\n", input_mode_fps ? "ON" : "OFF");
+                    } else {
+                        mod_index = (mod_index + 1) % 3;
+                        printf("New mod axis: %d\n", mod_index);
+                    }
+                }
+            break;
+        }
+    }
+    key_queue_reset();
+}
+
+void
+process_on_frame_events(void)
+{
+
+    const GLchar * mod_axis = "";
+
+    switch (mod_index) {
+        case 0:
+            mod_axis = "x";
+        break;
+        case 1:
+            mod_axis = "y";
+        break;
+        case 2:
+            mod_axis = "z";
+        break;
+    }
+
+    GLfloat mod_value = 0.001f;
+    if (key_down[GLFW_KEY_RIGHT_SHIFT]) {
+        mod_value *= 100;
+    }
+
+
+    if (key_down[GLFW_KEY_Q]) {
+        draw_object.points[mod_index] += mod_value;
+        printf("new 1st %s-value: %f\n", mod_axis, draw_object.points[mod_index]);
+    }
+
+    GLfloat speed_camera = 0.05f;
+
+    struct v3 v3_forward_back = {0};
+    struct v3 v3_left_right = {0};
+
+    if (key_down[GLFW_KEY_W]) {
+        if (!input_mode_fps) {
+            m4_model[mod_index][3] += mod_value;
+            printf("new model %s-value: %f\n", mod_axis, m4_model[mod_index][3]);
+        } else {
+            printf("WALKING FOWRARD!\n");
+        }
+    }
+
+    if (key_down[GLFW_KEY_A]) {
+        if (!input_mode_fps) {
+            draw_object.points[mod_index] -= mod_value;
+            printf("new 1st %s-value: %f\n", mod_axis, draw_object.points[mod_index]);
+        } else {
+            printf("WALKING LEFT!\n");
+        }
+    }
+
+    if (key_down[GLFW_KEY_S]) {
+        if (!input_mode_fps) {
+            m4_model[mod_index][3] -= mod_value;
+            printf("new model %s-value: %f\n", mod_axis, m4_model[mod_index][3]);
+        } else {
+            printf("WALKING BACKWARDS!\n");
+        }
+    }
+
+    if (key_down[GLFW_KEY_D]) {
+        if (!input_mode_fps) {
+            view_far -= mod_value;
+            printf("new view_far value: %f\n", view_far);
+        } else {
+            printf("WALKING RIGHT!\n");
+        }
+    }
+
+    if (key_down[GLFW_KEY_E]) {
+        view_far += mod_value;
+        printf("new view_far value: %f\n", view_far);
+    }
+
+    if (key_down[GLFW_KEY_R]) {
+        v3_camera_position.raw[mod_index] -= mod_value;
+        printf("new camera-%s-position: %f\n", mod_axis, v3_camera_position.raw[mod_index]);
+    }
+    if (key_down[GLFW_KEY_F]) {
+        v3_camera_position.raw[mod_index] += mod_value;
+        printf("new camera-%s-position: %f\n", mod_axis, v3_camera_position.raw[mod_index]);
+    }
+}
+
 
 int
 main(void)

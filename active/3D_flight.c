@@ -798,6 +798,30 @@ test_v3_mulv3(void)
 }
 
 static inline void
+v3_mulf(struct v3 * result, struct v3 * a, GLfloat f)
+{
+    for (size_t i=0; i<3; i++) {
+        result->raw[i] = a->raw[i] * f;
+    }
+}
+
+const char *
+test_v3_mulf(void)
+{
+    struct v3 a = {{{1.0f, 2.0f, 3.0f}}};
+    float f = 10.0f;
+
+    struct v3 correct = {{{10.0f, 20.0f, 30.0f}}};
+    struct v3 result = {0};
+
+    v3_mulf(&result, &a, f);
+    mu_assert("Result of v3 a * f not correct.",
+            v3_equals(&correct, &result) == GL_TRUE);
+
+    return NULL;
+}
+
+static inline void
 v3_subv3(struct v3 * result, struct v3 * a, struct v3 * b)
 {
     for (size_t i=0; i<3; i++) {
@@ -1082,6 +1106,7 @@ all_tests(void)
     mu_run_test(test_v3_normalize);
     mu_run_test(test_v3_cross);
     mu_run_test(test_m4_transpose);
+    mu_run_test(test_v3_mulf);
     return NULL;
 }
 

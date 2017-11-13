@@ -1287,8 +1287,8 @@ main(void)
                 m4_mvp[0]           // Pointer to matrix data.
         );
 
-        m4_transpose(m4_mvp, m4_mvp);
-        m4_printf(m4_mvp);
+//        m4_transpose(m4_mvp, m4_mvp);
+//        m4_printf(m4_mvp);
 
         /* Update buffer data. */
         glBindBuffer(GL_ARRAY_BUFFER, 1);

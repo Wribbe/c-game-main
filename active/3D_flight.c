@@ -114,6 +114,7 @@ keyboard_key_callback(GLFWwindow * window, int key, int scancode, int action,
 }
 
 GLuint mod_index = 2;
+GLboolean input_mode_fps = GL_TRUE;
 
 void
 process_on_keyupdate_events(void)
@@ -130,9 +131,14 @@ process_on_keyupdate_events(void)
                 glfwSetWindowShouldClose(current_window, GLFW_TRUE);
             break;
             case GLFW_KEY_TAB:
-                if (key_down[GLFW_KEY_TAB]) {
-                    mod_index = (mod_index + 1) % 3;
-                    printf("New mod axis: %d\n", mod_index);
+                 if (key_down[GLFW_KEY_TAB]) {
+                    if (key_down[GLFW_KEY_RIGHT_SHIFT]) {
+                        input_mode_fps = !input_mode_fps;
+                        printf("Input fps mode: %s\n", input_mode_fps ? "ON" : "OFF");
+                    } else {
+                        mod_index = (mod_index + 1) % 3;
+                        printf("New mod axis: %d\n", mod_index);
+                    }
                 }
             break;
         }
@@ -163,10 +169,14 @@ process_on_frame_events(void)
         mod_value *= 100;
     }
 
+
     if (key_down[GLFW_KEY_Q]) {
         draw_object.points[mod_index] += mod_value;
         printf("new 1st %s-value: %f\n", mod_axis, draw_object.points[mod_index]);
     }
+
+    GLfloat speed_camera = 0.05f;
+
     if (key_down[GLFW_KEY_A]) {
         draw_object.points[mod_index] -= mod_value;
         printf("new 1st %s-value: %f\n", mod_axis, draw_object.points[mod_index]);

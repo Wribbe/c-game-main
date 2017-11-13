@@ -1116,7 +1116,7 @@ mouse_position_callback(GLFWwindow * window, double x, double y)
     }
 
     double offset_x = mouse_x - mouse_x_prev;
-    double offset_y = mouse_y - mouse_y_prev;
+    double offset_y = mouse_y_prev - mouse_y;
 
     mouse_x_prev = mouse_x;
     mouse_y_prev = mouse_y;

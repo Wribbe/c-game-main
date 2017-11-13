@@ -15,7 +15,7 @@
 #define WINDOW_WIDTH 1440
 #define WINDOW_HEIGHT 900
 
-GLfloat view_yfov = M_PI/2;
+GLfloat view_yfov = M_PI/4;
 GLfloat view_near = 0.1f;
 GLfloat view_far = 100.0f;
 GLfloat view_aspect_ratio = (float)WINDOW_WIDTH/(float)WINDOW_HEIGHT;

@@ -69,8 +69,8 @@ m4 m4_view = {
 };
 
 struct v3 v3_camera_position = {{{0.0f, 0.0f, 3.0f}}};
-struct v3 v3_camera_looks_at = {{{0.0f, 0.0f, 0.0f}}};
-struct v3 v3_camera_vector_up = {{{0.0f, 1.0f, 0.0f}}};
+struct v3 v3_camera_direction = {{{0.0f, 0.0f, -1.0f}}};
+struct v3 v3_camera_up = {{{0.0f, 1.0f, 0.0f}}};
 
 #define SIZE_KEY_QUEUE 200
 size_t last_key_queue = 0;
@@ -1075,12 +1075,19 @@ process_on_frame_events(void)
     struct v3 v3_forward_back = {0};
     struct v3 v3_left_right = {0};
 
+    // Calculate forward/backward vector.
+    v3_mulf(&v3_forward_back, &v3_camera_direction, speed_camera);
+    // Calculate left/right vector.
+    v3_cross(&v3_left_right, &v3_camera_direction, &v3_camera_up);
+    v3_normalize(&v3_left_right, &v3_left_right);
+    v3_mulf(&v3_left_right, &v3_left_right, speed_camera);
+
     if (key_down[GLFW_KEY_W]) {
         if (!input_mode_fps) {
             m4_model[mod_index][3] += mod_value;
             printf("new model %s-value: %f\n", mod_axis, m4_model[mod_index][3]);
         } else {
-            printf("WALKING FOWRARD!\n");
+            v3_addv3(&v3_camera_position, &v3_camera_position, &v3_forward_back);
         }
     }
 
@@ -1089,7 +1096,7 @@ process_on_frame_events(void)
             draw_object.points[mod_index] -= mod_value;
             printf("new 1st %s-value: %f\n", mod_axis, draw_object.points[mod_index]);
         } else {
-            printf("WALKING LEFT!\n");
+            v3_subv3(&v3_camera_position, &v3_camera_position, &v3_left_right);
         }
     }
 
@@ -1098,7 +1105,7 @@ process_on_frame_events(void)
             m4_model[mod_index][3] -= mod_value;
             printf("new model %s-value: %f\n", mod_axis, m4_model[mod_index][3]);
         } else {
-            printf("WALKING BACKWARDS!\n");
+            v3_subv3(&v3_camera_position, &v3_camera_position, &v3_forward_back);
         }
     }
 
@@ -1107,7 +1114,7 @@ process_on_frame_events(void)
             view_far -= mod_value;
             printf("new view_far value: %f\n", view_far);
         } else {
-            printf("WALKING RIGHT!\n");
+            v3_addv3(&v3_camera_position, &v3_camera_position, &v3_left_right);
         }
     }
 
@@ -1184,11 +1191,14 @@ main(void)
                 view_far            // The positional value of the far plane.
         );
 
+        struct v3 v3_camera_looks_at = {0};
+        v3_addv3(&v3_camera_looks_at, &v3_camera_position, &v3_camera_direction);
+
         m4_look_at(
                 m4_view,            // Where to store result of computation.
                 &v3_camera_position,// vec3 representing camera position.
                 &v3_camera_looks_at,// vec3 representing where camera is looking.
-                &v3_camera_vector_up// vec3 representing camera up direction.
+                &v3_camera_up       // vec3 representing camera up direction.
         );
 
         m4_mul(m4_mvp, m4_view, m4_model);

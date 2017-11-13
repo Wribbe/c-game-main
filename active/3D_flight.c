@@ -25,6 +25,9 @@ GLboolean key_down[500] = {0};
 GLFWwindow * current_window = NULL;
 GLboolean updated_keys = GL_FALSE;
 
+double mouse_x = 0;
+double mouse_y = 0;
+
 typedef GLfloat m4[4][4];
 
 struct draw_object {
@@ -113,6 +116,14 @@ keyboard_key_callback(GLFWwindow * window, int key, int scancode, int action,
     key_queue_append(key);
 }
 
+static void
+mouse_position_callback(GLFWwindow * window, double x, double y)
+{
+    UNUSED(window);
+    mouse_x = x;
+    mouse_y = y;
+}
+
 GLFWwindow *
 setup_glfw(void)
 {
@@ -151,6 +162,7 @@ setup_glfw(void)
             glGetString(GL_SHADING_LANGUAGE_VERSION));
 
     glfwSetKeyCallback(window, keyboard_key_callback);
+    glfwSetCursorPosCallback(window, mouse_position_callback);
     current_window = window;
 
     return window;

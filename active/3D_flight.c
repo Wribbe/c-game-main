@@ -1190,6 +1190,18 @@ setup_glfw(void)
     return window;
 }
 
+void
+m4_printf(m4 m)
+{
+    printf("\n");
+    for (size_t i=0; i<4; i++) {
+        for (size_t j=0; j<4; j++) {
+            printf("%f,", m[i][j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
 
 
 int
@@ -1274,6 +1286,9 @@ main(void)
                 GL_FALSE,            // Supplied matrices are in row-major order?
                 m4_mvp[0]           // Pointer to matrix data.
         );
+
+        m4_transpose(m4_mvp, m4_mvp);
+        m4_printf(m4_mvp);
 
         /* Update buffer data. */
         glBindBuffer(GL_ARRAY_BUFFER, 1);

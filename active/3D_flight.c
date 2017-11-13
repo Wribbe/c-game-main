@@ -471,13 +471,15 @@ const GLchar * source_shader_vertex =
 const GLchar * source_shader_fragment =
 "#version 330 core\n"
 "\n"
+"uniform sampler2D sampler_texture;\n"
+"\n"
 "in vec2 coords_uv;\n"
 "\n"
 "out vec4 frag_color;\n"
 "\n"
 "void main() {\n"
-"  //frag_color = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
-"  frag_color = vec4(coords_uv, 0.0f, 1.0f);\n"
+"  frag_color = texture(sampler_texture, coords_uv);\n"
+"  //frag_color = vec4(coords_uv, 0.0f, 1.0f);\n"
 "}\n";
 
 GLuint
@@ -986,15 +988,19 @@ m4_look_at(m4 result,
 GLuint
 generate_texture_checkers(void)
 {
+
     /* Checkers-pattern data. */
     GLubyte data_texture_checkerboard[] = {
         0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
         0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
         0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
         0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
         0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
-        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
-        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
     };
 
     /* Get unused texture id. */
@@ -1021,6 +1027,15 @@ generate_texture_checkers(void)
                     GL_UNSIGNED_BYTE,         // Data type.
                     data_texture_checkerboard // Pointer to data.
     );
+
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
     return id_texture;
 }

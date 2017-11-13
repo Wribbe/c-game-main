@@ -27,6 +27,13 @@ GLboolean updated_keys = GL_FALSE;
 
 double mouse_x = 0;
 double mouse_y = 0;
+double mouse_x_prev = (double)WINDOW_WIDTH / 2.0f;
+double mouse_y_prev = (double)WINDOW_HEIGHT / 2.0f;
+GLfloat mouse_sensitivity = 0.05f;
+GLfloat mouse_pitch = 0.0f;
+GLfloat mouse_yaw = 0.0f;
+GLfloat mouse_pitch_max = (M_PI/2)-0.1f;
+GLfloat mouse_pitch_min = -(M_PI/2)+0.1f;
 
 typedef GLfloat m4[4][4];
 
@@ -93,79 +100,6 @@ void
 key_queue_reset(void)
 {
     last_key_queue = 0;
-}
-
-static void
-keyboard_key_callback(GLFWwindow * window, int key, int scancode, int action,
-        int mods)
-{
-    UNUSED(mods);
-    UNUSED(scancode);
-    UNUSED(window);
-
-    /* Ignore repeat actions. */
-    if (action == GLFW_REPEAT) {
-        return;
-    }
-
-    if (action == GLFW_PRESS) {
-        key_down[key] = GL_TRUE;
-    } else {
-        key_down[key] = GL_FALSE;
-    }
-    key_queue_append(key);
-}
-
-static void
-mouse_position_callback(GLFWwindow * window, double x, double y)
-{
-    UNUSED(window);
-    mouse_x = x;
-    mouse_y = y;
-}
-
-GLFWwindow *
-setup_glfw(void)
-{
-    GLFWwindow * window;
-
-    if (!glfwInit()) {
-        fprintf(stderr, "Could not initialize glfw, aborting.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-    window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "HELLO WORLD", NULL, NULL);
-    if (!window) {
-        fprintf(stderr, "Could not create window, aborting.\n");
-        glfwTerminate();
-        exit(EXIT_FAILURE);
-    }
-
-    /* Make window context current one. */
-    glfwMakeContextCurrent(window);
-
-    if (gl3wInit()) {
-        fprintf(stderr, "Could not initialize gl3w, aborting.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (!gl3wIsSupported(3, 3)) {
-        fprintf(stderr, "Profile 3.3 not supported, aborting.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("OpenGL %s, GLSL %s\n", glGetString(GL_VERSION),
-            glGetString(GL_SHADING_LANGUAGE_VERSION));
-
-    glfwSetKeyCallback(window, keyboard_key_callback);
-    glfwSetCursorPosCallback(window, mouse_position_callback);
-    current_window = window;
-
-    return window;
 }
 
 void
@@ -1144,6 +1078,117 @@ process_on_frame_events(void)
         printf("new camera-%s-position: %f\n", mod_axis, v3_camera_position.raw[mod_index]);
     }
 }
+
+static void
+keyboard_key_callback(GLFWwindow * window, int key, int scancode, int action,
+        int mods)
+{
+    UNUSED(mods);
+    UNUSED(scancode);
+    UNUSED(window);
+
+    /* Ignore repeat actions. */
+    if (action == GLFW_REPEAT) {
+        return;
+    }
+
+    if (action == GLFW_PRESS) {
+        key_down[key] = GL_TRUE;
+    } else {
+        key_down[key] = GL_FALSE;
+    }
+    key_queue_append(key);
+}
+
+GLboolean first_input_mouse = GL_TRUE;
+
+static void
+mouse_position_callback(GLFWwindow * window, double x, double y)
+{
+    UNUSED(window);
+    mouse_x = x;
+    mouse_y = y;
+
+    if (first_input_mouse) {
+        mouse_x_prev = x;
+        mouse_y_prev = y;
+        first_input_mouse = GL_FALSE;
+    }
+
+    double offset_x = mouse_x - mouse_x_prev;
+    double offset_y = mouse_y - mouse_y_prev;
+
+    mouse_x_prev = mouse_x;
+    mouse_y_prev = mouse_y;
+
+    offset_x *= mouse_sensitivity;
+    offset_y *= mouse_sensitivity;
+
+    mouse_yaw += offset_x;
+    mouse_pitch += offset_y;
+
+    if (mouse_pitch > mouse_pitch_max) {
+        mouse_pitch = mouse_pitch_max;
+    } else if (mouse_pitch < mouse_pitch_min) {
+        mouse_pitch = mouse_pitch_min;
+    }
+
+    GLfloat cos_pitch = cosf(mouse_pitch);
+    GLfloat cos_yaw = cosf(mouse_yaw);
+
+    GLfloat sin_pitch = sinf(mouse_pitch);
+    GLfloat sin_yaw = sinf(mouse_yaw);
+
+    v3_camera_direction.x = cos_pitch * cos_yaw;
+    v3_camera_direction.y = sin_pitch;
+    v3_camera_direction.z = cos_pitch * sin_yaw;
+    v3_normalize(&v3_camera_direction, &v3_camera_direction);
+}
+
+GLFWwindow *
+setup_glfw(void)
+{
+    GLFWwindow * window;
+
+    if (!glfwInit()) {
+        fprintf(stderr, "Could not initialize glfw, aborting.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "HELLO WORLD", NULL, NULL);
+    if (!window) {
+        fprintf(stderr, "Could not create window, aborting.\n");
+        glfwTerminate();
+        exit(EXIT_FAILURE);
+    }
+
+    /* Make window context current one. */
+    glfwMakeContextCurrent(window);
+
+    if (gl3wInit()) {
+        fprintf(stderr, "Could not initialize gl3w, aborting.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (!gl3wIsSupported(3, 3)) {
+        fprintf(stderr, "Profile 3.3 not supported, aborting.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("OpenGL %s, GLSL %s\n", glGetString(GL_VERSION),
+            glGetString(GL_SHADING_LANGUAGE_VERSION));
+
+    glfwSetKeyCallback(window, keyboard_key_callback);
+    glfwSetCursorPosCallback(window, mouse_position_callback);
+    current_window = window;
+
+    return window;
+}
+
 
 
 int

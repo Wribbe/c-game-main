@@ -1240,32 +1240,37 @@ main(void)
         process_on_frame_events();
 
         /* Re-calculate matrices. */
-        m4_perspective(
+        //m4_perspective(
+        mat4x4_perspective(
                 m4_projection,      // Where to store the projection matrix.
                 view_yfov,          // Vertical field of view in radians.
                 view_aspect_ratio,  // The aspect-ratio of the screen.
                 view_near,          // The positional value of the near plane.
                 view_far            // The positional value of the far plane.
         );
+//        m4_transpose(m4_projection, m4_projection);
 
         struct v3 v3_camera_looks_at = {0};
         v3_addv3(&v3_camera_looks_at, &v3_camera_position, &v3_camera_direction);
 
-        m4_look_at(
+        //m4_look_at(
+        mat4x4_look_at(
                 m4_view,            // Where to store result of computation.
-                &v3_camera_position,// vec3 representing camera position.
-                &v3_camera_looks_at,// vec3 representing where camera is looking.
-                &v3_camera_up       // vec3 representing camera up direction.
+                v3_camera_position.raw,// vec3 representing camera position.
+                v3_camera_looks_at.raw,// vec3 representing where camera is looking.
+                v3_camera_up.raw       // vec3 representing camera up direction.
         );
+//        m4_transpose(m4_view, m4_view);
 
-        m4_mul(m4_mvp, m4_view, m4_model);
-        m4_mul(m4_mvp, m4_projection, m4_mvp);
+        mat4x4_mul(m4_mvp, m4_view, m4_model);
+        mat4x4_mul(m4_mvp, m4_projection, m4_mvp);
 
         /* Load mvp matrix into vertex shader. */
         glUniformMatrix4fv(
                 location_m4_mvp,    // Uniform location.
                 1,                  // Number of matrices.
-                GL_TRUE,            // Supplied matrices are in row-major order?
+//                GL_TRUE,            // Supplied matrices are in row-major order?
+                GL_FALSE,            // Supplied matrices are in row-major order?
                 m4_mvp[0]           // Pointer to matrix data.
         );
 

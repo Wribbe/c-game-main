@@ -346,10 +346,10 @@ create_plane(struct v3 * center, GLfloat width, GLfloat height)
     GLfloat cy = center->y;
     GLfloat cz = center->z;
 
-    struct v3 top_left = {{{cx-hw, cy+hh, cz}}};
-    struct v3 top_right = {{{cx+hw, cy+hh, cz}}};
-    struct v3 bot_left = {{{cx-hw, cy-hh, cz}}};
-    struct v3 bot_right = {{{cx+hw, cy-hh, cz}}};
+    struct v3 top_left = {{{cx-hw, cy, cz+hh}}};
+    struct v3 top_right = {{{cx+hw, cy, cz+hh}}};
+    struct v3 bot_left = {{{cx-hw, cy, cz-hh}}};
+    struct v3 bot_right = {{{cx+hw, cy, cz-hh}}};
 
     struct v3 points[] = {
         // First triangle.

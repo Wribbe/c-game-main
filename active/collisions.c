@@ -180,6 +180,27 @@ read_file(const GLchar * filename)
     return buffer;
 }
 
+void
+obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat * vertices,
+        GLsizei * num_indices, GLfloat * indices)
+{
+    const GLchar * current = data;
+    const GLchar * newline = data;
+
+    while(*current != '\0') {
+        while(*newline != '\n') {
+            newline++;
+        }
+        // Do some parsing.
+        printf("NEWLINE!\n");
+        printf("%.*s\n", (int)(newline-current), current);
+
+        // Increment newline and assign current to new start.
+        newline++;
+        current = newline;
+    }
+}
+
 int
 main(void)
 {
@@ -215,9 +236,16 @@ main(void)
     /* Enable vertex attribute pointer. */
     glEnableVertexAttribArray(attribute_vertex_data);
 
-    GLchar * str_suzanne = read_file("suzanne.obj");
+    const GLchar * filename = "suzanne.obj";
+    GLchar * str_suzanne = read_file(filename);
 
-    printf("Contents of suzanne.obj file:\n%s\n", str_suzanne);
+    GLfloat * suzanne_vertices = NULL;
+    GLsizei num_suzanne_vertices = 0;
+    GLfloat * suzanne_indices = NULL;
+    GLsizei num_suzanne_indices = 0;
+
+    obj_parse_data(str_suzanne, &num_suzanne_vertices, suzanne_vertices,
+            &num_suzanne_indices, suzanne_indices);
 
     while (!glfwWindowShouldClose(window)) {
 

@@ -40,11 +40,14 @@ typedef GLfloat m4[4][4];
 struct draw_object {
     GLsizei num_vertices;
     GLsizei num_uv_coords;
+    GLuint vao;
     GLfloat * points;
     GLfloat * uv_coords;
 };
 
-struct draw_object draw_object = {0};
+#define MAX_DRAW_OBJECTS 200
+struct draw_object a_draw_objects[MAX_DRAW_OBJECTS] = {0};
+GLsizei a_draw_objects_first_empty = 1; // 0 reserved for errors.
 
 struct v3 {
     union {
@@ -130,9 +133,88 @@ draw_object_set_uv_coords(struct draw_object * obj, GLfloat * coords,
     memcpy(obj->uv_coords, coords, size_data);
 }
 
-void
-create_cube(struct draw_object * obj, struct v3 * center, GLfloat side)
+GLuint
+setup_buffers(struct draw_object * draw_object)
 {
+    GLuint vbo = 0; // Vertex buffer object.
+    GLuint vao = 0; // Vertex array object.
+
+    /* Generate vertex array object name. */
+    glGenVertexArrays(1, &vao);
+    /* Bind vertex array object. */
+    glBindVertexArray(vao);
+
+    /* Generate vertex buffer object name. */
+    glGenBuffers(1, &vbo);
+    /* Bind vertex buffer object as array buffer. */
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+    /* Populate buffer with data. */
+    size_t num_floats = draw_object->num_vertices;
+    glBufferData(GL_ARRAY_BUFFER, num_floats*sizeof(GLfloat),
+            draw_object->points, GL_STATIC_DRAW);
+
+    /* Setup and enable vertex data attribute pointer. */
+    GLuint attribute_vertex_data = 0;
+    glEnableVertexAttribArray(attribute_vertex_data);
+    glVertexAttribPointer(
+            attribute_vertex_data, // Target to enable.
+            3,         // Number of elements per 'chunk'.
+            GL_FLOAT,  // Size of each element.
+            GL_FALSE,  // Should openGL normalize the elements?
+            0,         // Stride, is there an offset between chunks?
+            (void*)0   // Pointer to first set of vertex data.
+    );
+
+    /* Create secondary buffer for uv-coordinates. */
+    GLuint vbo_uv = 0; // Vertex buffer object for uv-coordinates.
+    glGenBuffers(1, &vbo_uv);
+    /* Bind new buffer. */
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_uv);
+
+    /* Populate new buffer with data. */
+    glBufferData(GL_ARRAY_BUFFER, draw_object->num_uv_coords*sizeof(GLfloat),
+            draw_object->uv_coords, GL_STATIC_DRAW);
+
+    /* Setup and enable attribute pointer for uv-coordinates. */
+    GLuint attribute_uv_coordinates = 1;
+    glEnableVertexAttribArray(attribute_uv_coordinates);
+    glVertexAttribPointer(
+            attribute_uv_coordinates,
+            2,
+            GL_FLOAT,
+            GL_FALSE,
+            0,
+            (void*)0
+    );
+
+    /* Un-bind the vertex buffer and vertex array objects. */
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    return vao;
+}
+
+GLuint
+get_id_obj(void)
+{
+    if (a_draw_objects_first_empty >= MAX_DRAW_OBJECTS) {
+        fprintf(stderr, "Maximum draw object reached.\n");
+        return 0;
+    }
+    return a_draw_objects_first_empty++;
+}
+
+GLuint
+create_cube(struct v3 * center, GLfloat side)
+{
+    GLuint id_obj = get_id_obj();
+    if (id_obj < 1) {
+        return id_obj;
+    }
+
+    struct draw_object * obj = &a_draw_objects[id_obj];
+
     GLfloat hs = side/2.0f;
     GLfloat cx = center->x;
     GLfloat cy = center->y;
@@ -240,75 +322,75 @@ create_cube(struct draw_object * obj, struct v3 * center, GLfloat side)
 
     draw_object_set_vertice_data(obj, points, SIZE(points));
     draw_object_set_uv_coords(obj, uv_coords, SIZE(uv_coords));
+    obj->vao = setup_buffers(obj);
+
+    return id_obj;
+}
+
+
+GLuint
+create_plane(struct v3 * center, GLfloat width, GLfloat height)
+    /* Creates a plane oriented along the x/z - plane. */
+{
+    GLuint id_obj = get_id_obj();
+    if (id_obj < 1) {
+        return id_obj;
+    }
+
+    struct draw_object * obj = &a_draw_objects[id_obj];
+
+    GLfloat hw = width/2.0f;
+    GLfloat hh = height/2.0f;
+
+    GLfloat cx = center->x;
+    GLfloat cy = center->y;
+    GLfloat cz = center->z;
+
+    struct v3 top_left = {{{cx-hw, cy+hh, cz}}};
+    struct v3 top_right = {{{cx+hw, cy+hh, cz}}};
+    struct v3 bot_left = {{{cx-hw, cy-hh, cz}}};
+    struct v3 bot_right = {{{cx+hw, cy-hh, cz}}};
+
+    struct v3 points[] = {
+        // First triangle.
+        top_left,
+        bot_left,
+        top_right,
+        // Second triangle.
+        top_right,
+        bot_right,
+        bot_left,
+    };
+
+    GLfloat uv_coords[] = {
+        0.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        1.0f, 1.0f,
+        1.0f, 0.0f,
+        0.0f, 0.0f,
+    };
+
+    draw_object_set_vertice_data(obj, points, SIZE(points));
+    draw_object_set_uv_coords(obj, uv_coords, SIZE(uv_coords));
+    obj->vao = setup_buffers(obj);
+
+    return id_obj;
 }
 
 void
 draw_objects()
 {
-    glDrawArrays(GL_TRIANGLES, 0, draw_object.num_vertices/3);
+    struct draw_object * obj = a_draw_objects;
+    struct draw_object * stop = &a_draw_objects[a_draw_objects_first_empty];
+
+    for (; obj < stop; obj++) {
+        glBindVertexArray(obj->vao);
+        glDrawArrays(GL_TRIANGLES, 0, obj->num_vertices/3);
+        glBindVertexArray(0);
+    }
 }
 
-GLuint
-setup_buffers()
-{
-    GLuint vbo = 0; // Vertex buffer object.
-    GLuint vao = 0; // Vertex array object.
-
-    /* Generate vertex array object name. */
-    glGenVertexArrays(1, &vao);
-    /* Bind vertex array object. */
-    glBindVertexArray(vao);
-
-    /* Generate vertex buffer object name. */
-    glGenBuffers(1, &vbo);
-    /* Bind vertex buffer object as array buffer. */
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-    /* Populate buffer with data. */
-    size_t num_floats = draw_object.num_vertices;
-    glBufferData(GL_ARRAY_BUFFER, num_floats*sizeof(GLfloat),
-            draw_object.points, GL_STATIC_DRAW);
-
-    /* Setup and enable vertex data attribute pointer. */
-    GLuint attribute_vertex_data = 0;
-    glEnableVertexAttribArray(attribute_vertex_data);
-    glVertexAttribPointer(
-            attribute_vertex_data, // Target to enable.
-            3,         // Number of elements per 'chunk'.
-            GL_FLOAT,  // Size of each element.
-            GL_FALSE,  // Should openGL normalize the elements?
-            0,         // Stride, is there an offset between chunks?
-            (void*)0   // Pointer to first set of vertex data.
-    );
-
-    /* Create secondary buffer for uv-coordinates. */
-    GLuint vbo_uv = 0; // Vertex buffer object for uv-coordinates.
-    glGenBuffers(1, &vbo_uv);
-    /* Bind new buffer. */
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_uv);
-
-    /* Populate new buffer with data. */
-    glBufferData(GL_ARRAY_BUFFER, draw_object.num_uv_coords*sizeof(GLfloat),
-            draw_object.uv_coords, GL_STATIC_DRAW);
-
-    /* Setup and enable attribute pointer for uv-coordinates. */
-    GLuint attribute_uv_coordinates = 1;
-    glEnableVertexAttribArray(attribute_uv_coordinates);
-    glVertexAttribPointer(
-            attribute_uv_coordinates,
-            2,
-            GL_FLOAT,
-            GL_FALSE,
-            0,
-            (void*)0
-    );
-
-    /* Un-bind the vertex buffer and vertex array objects. */
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    return vao;
-}
 
 const GLchar * source_shader_vertex =
 "#version 330 core\n"
@@ -1015,8 +1097,8 @@ process_on_frame_events(void)
 
 
     if (key_down[GLFW_KEY_Q]) {
-        draw_object.points[mod_index] += mod_value;
-        printf("new 1st %s-value: %f\n", mod_axis, draw_object.points[mod_index]);
+        //draw_object.points[mod_index] += mod_value;
+        //printf("new 1st %s-value: %f\n", mod_axis, draw_object.points[mod_index]);
     }
 
     GLfloat speed_camera = 0.05f;
@@ -1042,8 +1124,8 @@ process_on_frame_events(void)
 
     if (key_down[GLFW_KEY_A]) {
         if (!input_mode_fps) {
-            draw_object.points[mod_index] -= mod_value;
-            printf("new 1st %s-value: %f\n", mod_axis, draw_object.points[mod_index]);
+            //draw_object.points[mod_index] -= mod_value;
+            //printf("new 1st %s-value: %f\n", mod_axis, draw_object.points[mod_index]);
         } else {
             v3_subv3(&v3_camera_position, &v3_camera_position, &v3_left_right);
         }
@@ -1219,13 +1301,18 @@ main(void)
     /* Setup geometry. */
     struct v3 cube_center = {{{0.0f, 0.0f, 0.0f}}};
     GLfloat cube_side = 1.0f;
-    create_cube(&draw_object, &cube_center, cube_side);
+    GLuint id_cube = create_cube(&cube_center, cube_side);
+
+    struct v3 plane_center = {{{0.0f, -2.0f, 0.0f}}};
+    GLfloat plane_width = 2.0f;
+    GLfloat plane_height = 4.0f;
+    GLuint id_plane = create_plane(&plane_center, plane_width, plane_height);
 
     /* Setup buffers and shaders. */
-    GLuint id_vao = setup_buffers();
+//    GLuint id_vao = setup_buffers();
     GLuint id_program = setup_shaders();
 
-    glBindVertexArray(id_vao);
+//    glBindVertexArray(id_vao);
     glUseProgram(id_program);
 
     m4 m4_mvp = {
@@ -1296,9 +1383,9 @@ main(void)
 //        m4_printf(m4_mvp);
 
         /* Update buffer data. */
-        glBindBuffer(GL_ARRAY_BUFFER, 1);
-        glBufferData(GL_ARRAY_BUFFER, draw_object.num_vertices*sizeof(GLfloat),
-                draw_object.points, GL_STATIC_DRAW);
+//        glBindBuffer(GL_ARRAY_BUFFER, 1);
+//        glBufferData(GL_ARRAY_BUFFER, draw_object.num_vertices*sizeof(GLfloat),
+//                draw_object.points, GL_STATIC_DRAW);
 
         /* Draw */
         draw_objects();

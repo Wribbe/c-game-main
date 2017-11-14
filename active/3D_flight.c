@@ -1315,8 +1315,8 @@ main(void)
     GLuint id_cube = create_cube(&cube_center, cube_side);
 
     struct v3 plane_center = {{{0.0f, -2.0f, 0.0f}}};
-    GLfloat plane_width = 2.0f;
-    GLfloat plane_height = 4.0f;
+    GLfloat plane_width = 10.0f;
+    GLfloat plane_height = 10.0f;
     GLuint id_plane = create_plane(&plane_center, plane_width, plane_height);
 
     /* Setup buffers and shaders. */

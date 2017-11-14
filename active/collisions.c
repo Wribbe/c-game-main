@@ -135,6 +135,13 @@ setup_shaders()
     return program_shader;
 }
 
+GLfloat vertices[] = {
+     0.0f,  0.5f, 0.0f,
+    -0.5f, -0.5f, 0.0f,
+     0.5f, -0.5f, 0.0f,
+};
+
+GLubyte indices[] = {0,1,2};
 
 int
 main(void)
@@ -143,6 +150,34 @@ main(void)
 
     GLuint program_shader = setup_shaders();
     glUseProgram(program_shader);
+
+    GLuint vbo = 0;
+    GLuint vao = 0;
+
+    /* Setup vertex array object. */
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    /* Setup vertex buffer object. */
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+    /* Populate buffer with data. */
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    /* Setup vertex attribute pointer. */
+    GLuint attribute_vertex_data = 0;
+    glVertexAttribPointer(
+            attribute_vertex_data, // Attribute index.
+            3,          // Number of elements per vertex.
+            GL_FLOAT,   // Data type of element.
+            GL_FALSE,   // Specify if data is normalized.
+            0,          // Stride = 0 -> elements tightly packed.
+            0           // Offset-pointer to first element.
+    );
+    /* Enable vertex attribute pointer. */
+    glEnableVertexAttribArray(attribute_vertex_data);
+
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -153,6 +188,7 @@ main(void)
         glfwPollEvents();
 
         /* Draw. */
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
 
         /* Swap. */
         glfwSwapBuffers(window);

@@ -153,6 +153,33 @@ GLubyte indices[] = {
     3, // Bottom right.
 };
 
+GLchar *
+read_file(const GLchar * filename)
+{
+    FILE * handle_file = fopen(filename, "r");
+
+    if (handle_file == NULL) {
+        return NULL;
+    }
+
+    /* Figure out data size. */
+    fseek(handle_file, 0, SEEK_END);
+    size_t size_data = ftell(handle_file);
+    rewind(handle_file);
+
+    /* Allocate enough memory to store data. */
+    GLchar * buffer = malloc(size_data + 1);
+
+    /* Read the data from file. */
+    size_t size_read_data = fread(buffer, 1, size_data, handle_file);
+
+    /* Null-terminate the data. */
+    buffer[size_data] = '\0';
+
+    fclose(handle_file);
+    return buffer;
+}
+
 int
 main(void)
 {
@@ -188,6 +215,9 @@ main(void)
     /* Enable vertex attribute pointer. */
     glEnableVertexAttribArray(attribute_vertex_data);
 
+    GLchar * str_suzanne = read_file("suzanne.obj");
+
+    printf("Contents of suzanne.obj file:\n%s\n", str_suzanne);
 
     while (!glfwWindowShouldClose(window)) {
 

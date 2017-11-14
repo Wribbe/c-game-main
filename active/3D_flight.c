@@ -1075,6 +1075,8 @@ process_on_keyupdate_events(void)
     key_queue_reset();
 }
 
+GLboolean camera_on_ground = GL_FALSE;
+
 void
 process_on_frame_events(void)
 {
@@ -1105,6 +1107,7 @@ process_on_frame_events(void)
     }
 
     GLfloat speed_camera = 4.5f*time_delta;
+    GLfloat force_gravity = -0.5*speed_camera;
 
     struct v3 v3_forward_back = {0};
     struct v3 v3_left_right = {0};
@@ -1166,9 +1169,16 @@ process_on_frame_events(void)
         printf("new camera-%s-position: %f\n", mod_axis, v3_camera_position.raw[mod_index]);
     }
 
+    if (objs_collision(v3_camera_position, &(struct v3){{{0.0f, 1.0f, 0.0f}}})) {
+        camera_on_ground = GL_TRUE;
+    } else {
+        camera_on_ground = GL_FALSE;
+    }
+
     /* Set gravity on camera momentum vector. */
-    GLfloat force_gravity = -0.5*speed_camera;
-    v3_camera_momentum.y = force_gravity;
+    if (!camera_on_ground) {
+        v3_camera_momentum.y = force_gravity;
+    }
 
     /* Add camera momentum to current camera position. */
     v3_addv3(&v3_camera_position, &v3_camera_position, &v3_camera_momentum);

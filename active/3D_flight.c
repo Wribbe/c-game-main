@@ -35,6 +35,8 @@ GLfloat mouse_yaw = 0.0f;
 GLfloat mouse_pitch_max = (M_PI/2)-0.1f;
 GLfloat mouse_pitch_min = -(M_PI/2)+0.1f;
 
+GLfloat time_delta = 0;
+
 typedef GLfloat m4[4][4];
 
 struct draw_object {
@@ -1102,7 +1104,7 @@ process_on_frame_events(void)
         //printf("new 1st %s-value: %f\n", mod_axis, draw_object.points[mod_index]);
     }
 
-    GLfloat speed_camera = 0.05f;
+    GLfloat speed_camera = 4.5f*time_delta;
 
     struct v3 v3_forward_back = {0};
     struct v3 v3_left_right = {0};
@@ -1353,7 +1355,14 @@ main(void)
     GLuint id_texture = generate_texture_checkers();
     glBindTexture(GL_TEXTURE_2D, id_texture);
 
+    GLfloat time_prev = glfwGetTime();
+    GLfloat time_current = 0;
+
     while (!glfwWindowShouldClose(window)) {
+
+        time_current = glfwGetTime();
+        time_delta = time_current - time_prev;
+        time_prev = time_current;
 
         /* Clear color and depth buffers. */
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

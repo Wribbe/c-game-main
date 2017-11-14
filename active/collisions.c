@@ -187,18 +187,58 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat * vertices,
     const GLchar * current = data;
     const GLchar * newline = data;
 
+    GLsizei parsed_vertices = 0;
+    GLsizei parsed_indices = 0;
+
+    GLsizei increment_vertice = 200;
+    GLsizei increment_indices = 200;
+
+    GLsizei max_vertices = 500;
+    GLsizei max_indices = 500;
+
+    /* Allocate memory for vertices and uv coordinates. */
+    vertices = malloc(sizeof(GLfloat)*max_vertices);
+    indices = malloc(sizeof(GLfloat)*max_indices);
+
+    GLchar tag[3];
+
+    GLboolean seen_f = GL_FALSE;
+    GLboolean seen_vn = GL_FALSE;
+    GLboolean seen_v = GL_FALSE;
+
+    const GLchar * TAG_FACE = "f";
+    const GLchar * TAG_NORMAL = "vn";
+    const GLchar * TAG_VERTICE = "v";
+
     while(*current != '\0') {
         while(*newline != '\n') {
             newline++;
         }
+
+        /* Grab the tag. */
+        sscanf(current, "%2s", tag);
+        printf("Got tag: <<%s>>\n", tag);
+
+        if (strcmp(tag, TAG_FACE) == 0 && !seen_f) {
+            seen_f = GL_TRUE;
+        } else if (strcmp(tag, TAG_NORMAL) == 0 && !seen_vn) {
+            seen_vn = GL_TRUE;
+        } else if (strcmp(tag, TAG_VERTICE) == 0 && !seen_v) {
+            seen_v = GL_TRUE;
+        }
+
         // Do some parsing.
-        printf("NEWLINE!\n");
         printf("%.*s\n", (int)(newline-current), current);
 
         // Increment newline and assign current to new start.
         newline++;
         current = newline;
     }
+
+    printf("Seen the following tags: f: %s, vn: %s, v: %s\n",
+            seen_f ? "YES" : "NO",
+            seen_vn ? "YES" : "NO",
+            seen_v ? "YES" : "NO");
 }
 
 int

@@ -1169,11 +1169,11 @@ process_on_frame_events(void)
         printf("new camera-%s-position: %f\n", mod_axis, v3_camera_position.raw[mod_index]);
     }
 
-    if (objs_collision(v3_camera_position, &(struct v3){{{0.0f, 1.0f, 0.0f}}})) {
-        camera_on_ground = GL_TRUE;
-    } else {
-        camera_on_ground = GL_FALSE;
-    }
+//    if (objs_collision(v3_camera_position, &(struct v3){{{0.0f, 1.0f, 0.0f}}})) {
+//        camera_on_ground = GL_TRUE;
+//    } else {
+//        camera_on_ground = GL_FALSE;
+//    }
 
     /* Set gravity on camera momentum vector. */
     if (!camera_on_ground) {

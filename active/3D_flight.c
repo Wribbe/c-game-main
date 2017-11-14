@@ -1289,6 +1289,17 @@ m4_printf(m4 m)
     printf("\n");
 }
 
+void
+deallocate_draw_objects(void)
+{
+    struct draw_object * obj = a_draw_objects;
+    struct draw_object * stop = &a_draw_objects[a_draw_objects_first_empty];
+
+    for (; obj < stop; obj++) {
+        free(obj->points);
+        free(obj->uv_coords);
+    }
+}
 
 int
 main(void)
@@ -1395,4 +1406,5 @@ main(void)
 
     }
     glfwTerminate();
+    deallocate_draw_objects();
 }

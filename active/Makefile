@@ -9,7 +9,7 @@ FONT_FLAGS := -I/usr/include/freetype2 -I/usr/include/libpng16 \
 
 CC=gcc
 
-all: main test_freetype 3D_flight
+all: main test_freetype 3D_flight collisions
 
 main.o : main.c
 	${CC} -c $^ ${CFLAGS}
@@ -27,6 +27,9 @@ test_freetype : test_freetype.o gl3w.o
 	${CC} $^ -o $@ ${CFLAGS} ${GRAPHICS_FLAGS} ${GENERAL_LIBRARIES} ${FONT_FLAGS}
 
 3D_flight: 3D_flight.o gl3w.o
+	${CC} $^ -o $@ ${CFLAGS} ${GRAPHICS_FLAGS} ${GENERAL_LIBRARIES} ${FONT_FLAGS}
+
+collisions: collisions.o gl3w.o
 	${CC} $^ -o $@ ${CFLAGS} ${GRAPHICS_FLAGS} ${GENERAL_LIBRARIES} ${FONT_FLAGS}
 
 clean:

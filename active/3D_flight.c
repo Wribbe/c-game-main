@@ -29,7 +29,7 @@ double mouse_x = 0;
 double mouse_y = 0;
 double mouse_x_prev = (double)WINDOW_WIDTH / 2.0f;
 double mouse_y_prev = (double)WINDOW_HEIGHT / 2.0f;
-GLfloat mouse_sensitivity = 0.005f;
+GLfloat mouse_sensitivity = 0.001f;
 GLfloat mouse_pitch = 0.0f;
 GLfloat mouse_yaw = 0.0f;
 GLfloat mouse_pitch_max = (M_PI/2)-0.1f;
@@ -84,6 +84,7 @@ m4 m4_view = {
 struct v3 v3_camera_position = {{{0.0f, 0.0f, 3.0f}}};
 struct v3 v3_camera_direction = {{{0.0f, 0.0f, -1.0f}}};
 struct v3 v3_camera_up = {{{0.0f, 1.0f, 0.0f}}};
+struct v3 v3_camera_momentum = {{{0.0f, 0.0f, 0.0f}}};
 
 #define SIZE_KEY_QUEUE 200
 size_t last_key_queue = 0;
@@ -1162,6 +1163,13 @@ process_on_frame_events(void)
         v3_camera_position.raw[mod_index] += mod_value;
         printf("new camera-%s-position: %f\n", mod_axis, v3_camera_position.raw[mod_index]);
     }
+
+    /* Set gravity on camera momentum vector. */
+    GLfloat force_gravity = -0.5*speed_camera;
+    v3_camera_momentum.y = force_gravity;
+
+    /* Add camera momentum to current camera position. */
+    v3_addv3(&v3_camera_position, &v3_camera_position, &v3_camera_momentum);
 }
 
 static void

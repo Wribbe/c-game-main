@@ -136,12 +136,22 @@ setup_shaders()
 }
 
 GLfloat vertices[] = {
-     0.0f,  0.5f, 0.0f,
-    -0.5f, -0.5f, 0.0f,
-     0.5f, -0.5f, 0.0f,
+    -0.5f,  0.5f, 0.0f, // Top left.
+     0.5f,  0.5f, 0.0f, // Top right.
+    -0.5f, -0.5f, 0.0f, // Bottom left.
+     0.5f, -0.5f, 0.0f, // Bottom right.
 };
 
-GLubyte indices[] = {0,1,2};
+GLubyte indices[] = {
+    // First triangle.
+    0, // Top left.
+    2, // Bottom left.
+    1, // Top right.
+    // Second triangle.
+    1, // Top right.
+    2, // Bottom left.
+    3, // Bottom right.
+};
 
 int
 main(void)

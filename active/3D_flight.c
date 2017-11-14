@@ -1109,14 +1109,15 @@ static void
 mouse_position_callback(GLFWwindow * window, double x, double y)
 {
     UNUSED(window);
-    mouse_x = x;
-    mouse_y = y;
 
     if (first_input_mouse) {
-        mouse_x_prev = x;
-        mouse_y_prev = y;
+        glfwSetCursorPos(window, mouse_x_prev, mouse_y_prev);
         first_input_mouse = GL_FALSE;
+        return;
     }
+
+    mouse_x = x;
+    mouse_y = y;
 
     double offset_x = mouse_x - mouse_x_prev;
     double offset_y = mouse_y_prev - mouse_y;
@@ -1142,9 +1143,9 @@ mouse_position_callback(GLFWwindow * window, double x, double y)
     GLfloat sin_pitch = sinf(mouse_pitch);
     GLfloat sin_yaw = sinf(mouse_yaw);
 
-    v3_camera_direction.x = cos_pitch * cos_yaw;
+    v3_camera_direction.x = cos_pitch * sin_yaw;
     v3_camera_direction.y = sin_pitch;
-    v3_camera_direction.z = cos_pitch * sin_yaw;
+    v3_camera_direction.z = -cos_pitch * cos_yaw;
     v3_normalize(&v3_camera_direction, &v3_camera_direction);
 }
 

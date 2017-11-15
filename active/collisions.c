@@ -328,6 +328,21 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertice
     *r_indices= indices;
 }
 
+static void
+callback_key_method(GLFWwindow * window, int key, int scancode, int action,
+        int mods)
+{
+
+    UNUSED(mods);
+    UNUSED(scancode);
+
+    if (action == GLFW_PRESS) {
+        if (key == GLFW_KEY_ESCAPE) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+    }
+}
+
 int
 main(void)
 {
@@ -420,6 +435,8 @@ main(void)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_obj_indices);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*num_obj_indices,
             obj_indices, GL_STATIC_DRAW);
+
+    glfwSetKeyCallback(window, callback_key_method);
 
     while (!glfwWindowShouldClose(window)) {
 

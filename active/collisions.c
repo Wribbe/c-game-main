@@ -376,6 +376,9 @@ double mouse_yaw = 0;
 
 double two_pi = 2*M_PI;
 
+
+GLboolean key_down[512] = {0};
+
 static void
 callback_mouse_position_method(GLFWwindow * w, double x, double y)
 {
@@ -410,9 +413,23 @@ callback_key_method(GLFWwindow * window, int key, int scancode, int action,
         int mods)
 {
 
+    if (action == GLFW_REPEAT) {
+        return;
+    }
+
     UNUSED(mods);
     UNUSED(scancode);
 
+    if (key_down[GLFW_KEY_ESCAPE]) {
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+    } else {
+        key_down[key] = action == GLFW_PRESS ? GL_TRUE : GL_FALSE;
+    }
+}
+
+void
+process_frame_events(void)
+{
     GLfloat speed_camera_delta = speed_camera * time_delta;
 
     vec3 vec3_forward = {0};
@@ -422,28 +439,21 @@ callback_key_method(GLFWwindow * window, int key, int scancode, int action,
     vec3_mul_cross(vec3_right, vec3_camera_direction, vec3_camera_up);
     vec3_norm(vec3_right, vec3_right);
     vec3_scale(vec3_right, vec3_right, speed_camera_delta);
-
-
-    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-        if (key == GLFW_KEY_ESCAPE) {
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
-        }
-        if (key == GLFW_KEY_W) { // Go forward in camera direction.
-            vec3_add(vec3_camera_position, vec3_camera_position,
-                    vec3_forward);
-        }
-        if (key == GLFW_KEY_S) { // Go backward in camera direction.
-            vec3_sub(vec3_camera_position, vec3_camera_position,
-                    vec3_forward);
-        }
-        if (key == GLFW_KEY_D) { // Go along right direction.
-            vec3_add(vec3_camera_position, vec3_camera_position,
-                    vec3_right);
-        }
-        if (key == GLFW_KEY_A) { // Go along opposite to right direction.
-            vec3_sub(vec3_camera_position, vec3_camera_position,
-                    vec3_right);
-        }
+    if (key_down[GLFW_KEY_W]) { // Go forward in camera direction.
+        vec3_add(vec3_camera_position, vec3_camera_position,
+                vec3_forward);
+    }
+    if (key_down[GLFW_KEY_S]) { // Go backward in camera direction.
+        vec3_sub(vec3_camera_position, vec3_camera_position,
+                vec3_forward);
+    }
+    if (key_down[GLFW_KEY_D]) { // Go along right direction.
+        vec3_add(vec3_camera_position, vec3_camera_position,
+                vec3_right);
+    }
+    if (key_down[GLFW_KEY_A]) { // Go along opposite to right direction.
+        vec3_sub(vec3_camera_position, vec3_camera_position,
+                vec3_right);
     }
 }
 
@@ -482,8 +492,8 @@ main(void)
     /* Enable vertex attribute pointer. */
     glEnableVertexAttribArray(attribute_vertex_data);
 
-    //const GLchar * filename = "suzanne.obj";
-    const GLchar * filename = "cube.obj";
+    const GLchar * filename = "suzanne.obj";
+    //const GLchar * filename = "cube.obj";
     GLchar * str_obj = read_file(filename);
     if (str_obj == NULL) {
         fprintf(stderr, "Could not open %s, aborting.\n", filename);
@@ -565,6 +575,8 @@ main(void)
 
         /* Poll events. */
         glfwPollEvents();
+        process_frame_events();
+
 
         /* Re-calculate view matrix. */
         vec3 vec3_camera_center = {0};

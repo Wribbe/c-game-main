@@ -182,7 +182,7 @@ read_file(const GLchar * filename)
 
 void
 obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertices,
-        GLsizei * num_indices, GLfloat ** r_indices)
+        GLsizei * num_indices, GLuint ** r_indices)
 {
     const GLchar * current = data;
     const GLchar * newline = data;
@@ -201,7 +201,7 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertice
     if (vertices == NULL) {
         fprintf(stderr, "Could not allocate memory for vertices!\n");
     }
-    GLfloat * indices = malloc(sizeof(GLfloat)*max_indices);
+    GLuint * indices = malloc(sizeof(GLuint)*max_indices);
 
     size_t s_tag = 3;
     GLchar tag[s_tag];
@@ -363,16 +363,63 @@ main(void)
     /* Enable vertex attribute pointer. */
     glEnableVertexAttribArray(attribute_vertex_data);
 
-    const GLchar * filename = "suzanne.obj";
-    GLchar * str_suzanne = read_file(filename);
+    //const GLchar * filename = "suzanne.obj";
+    const GLchar * filename = "cube.obj";
+    GLchar * str_obj = read_file(filename);
+    if (str_obj == NULL) {
+        fprintf(stderr, "Could not open %s, aborting.\n", filename);
+        return EXIT_FAILURE;
+    }
 
-    GLfloat * suzanne_vertices = NULL;
-    GLsizei num_suzanne_vertices = 0;
-    GLfloat * suzanne_indices = NULL;
-    GLsizei num_suzanne_indices = 0;
+    GLfloat * obj_vertices = NULL;
+    GLsizei num_obj_vertices = 0;
+    GLuint * obj_indices = NULL;
+    GLsizei num_obj_indices = 0;
 
-    obj_parse_data(str_suzanne, &num_suzanne_vertices, &suzanne_vertices,
-            &num_suzanne_indices, &suzanne_indices);
+    obj_parse_data(str_obj, &num_obj_vertices, &obj_vertices,
+            &num_obj_indices, &obj_indices);
+
+    /* Unbind current vertex-array and vertex-buffer object. */
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    /* Create a new vao for obj. */
+    GLuint vao_obj = 0;
+    glGenVertexArrays(1, &vao_obj);
+
+    /* Bind the new vao. */
+    glBindVertexArray(vao_obj);
+
+    /* Create a buffer for obj. */
+    GLuint vbo_obj = 0;
+    glGenBuffers(1, &vbo_obj);
+
+    /* Bind new buffer. */
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_obj);
+
+    /* Populate buffer with data. */
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_obj_vertices,
+            obj_vertices, GL_STATIC_DRAW);
+
+    /* Is it necessary to setup a new vertex attribute pointer? */
+    glVertexAttribPointer(
+            attribute_vertex_data, // Attribute index.
+            3,          // Number of elements per vertex.
+            GL_FLOAT,   // Data type of element.
+            GL_FALSE,   // Specify if data is normalized.
+            0,          // Stride = 0 -> elements tightly packed.
+            0           // Offset-pointer to first element.
+    );
+    /* Enable vertex attribute pointer. */
+    glEnableVertexAttribArray(attribute_vertex_data);
+
+    /* Create buffer for indices. */
+    GLuint vbo_obj_indices = 0;
+    glGenBuffers(1, &vbo_obj_indices);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_obj_indices);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*num_obj_indices,
+            obj_indices, GL_STATIC_DRAW);
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -383,7 +430,12 @@ main(void)
         glfwPollEvents();
 
         /* Draw. */
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
+//        glBindVertexArray(vao);
+//        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
+
+        glBindVertexArray(vao_obj);
+        glDrawElements(GL_TRIANGLES, num_obj_indices, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
 
         /* Swap. */
         glfwSwapBuffers(window);

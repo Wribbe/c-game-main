@@ -367,6 +367,16 @@ vec3 vec3_camera_position = {0.0f, 0.0f, 13.0f};
 
 GLfloat speed_camera = 10.0f;
 
+double mouse_x = (float)WINDOW_WIDTH/2.0f;
+double mouse_y = (float)WINDOW_HEIGHT/2.0f;
+
+static void
+callback_mouse_position_method(GLFWwindow * w, double x, double y)
+{
+    UNUSED(w);
+    printf("Mouse: %f, %f\n", x, y);
+}
+
 static void
 callback_key_method(GLFWwindow * window, int key, int scancode, int action,
         int mods)
@@ -503,6 +513,7 @@ main(void)
             obj_indices, GL_STATIC_DRAW);
 
     glfwSetKeyCallback(window, callback_key_method);
+    glfwSetCursorPosCallback(window, callback_mouse_position_method);
 
     GLuint ulocation_m4_mvp = glGetUniformLocation(id_shader_program,
             "m4_mvp");

@@ -367,14 +367,42 @@ vec3 vec3_camera_position = {0.0f, 0.0f, 13.0f};
 
 GLfloat speed_camera = 10.0f;
 
-double mouse_x = (float)WINDOW_WIDTH/2.0f;
-double mouse_y = (float)WINDOW_HEIGHT/2.0f;
+double mouse_x_prev = (float)WINDOW_WIDTH/2.0f;
+double mouse_y_prev = (float)WINDOW_HEIGHT/2.0f;
+GLboolean input_mouse_first = GL_TRUE;
+
+double mouse_pitch = 0;
+double mouse_yaw = 0;
+
+double two_pi = 2*M_PI;
 
 static void
 callback_mouse_position_method(GLFWwindow * w, double x, double y)
 {
-    UNUSED(w);
-    printf("Mouse: %f, %f\n", x, y);
+    if (input_mouse_first) {
+        glfwSetCursorPos(w, mouse_x_prev, mouse_y_prev);
+        input_mouse_first = GL_FALSE;
+        return;
+    }
+
+    double diff_x = x - mouse_x_prev;
+    double diff_y = mouse_y_prev - y;
+
+    double mouse_sensitivity = 0.0005f;
+
+    diff_x *= mouse_sensitivity;
+    diff_y *= mouse_sensitivity;
+
+    mouse_pitch += diff_y;
+    mouse_yaw += diff_x;
+
+    mouse_x_prev = x;
+    mouse_y_prev = y;
+
+    /* diff_x = 0, and diff_y = 0 should result in {0,0,-1} direction. */
+    vec3_camera_direction[0] = cos(mouse_pitch) * sin(mouse_yaw);
+    vec3_camera_direction[1] = sin(mouse_pitch);
+    vec3_camera_direction[2] = -cos(mouse_pitch) * cos(mouse_yaw);
 }
 
 static void
@@ -514,6 +542,7 @@ main(void)
 
     glfwSetKeyCallback(window, callback_key_method);
     glfwSetCursorPosCallback(window, callback_mouse_position_method);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     GLuint ulocation_m4_mvp = glGetUniformLocation(id_shader_program,
             "m4_mvp");

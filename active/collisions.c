@@ -206,10 +206,10 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
     size_t s_tag = 3;
     GLchar tag[s_tag];
 
-    size_t s_format = 256;
-    GLchar format_f[s_format];
-    GLchar format_vn[s_format];
-    GLchar format_v[s_format];
+    #define S_FORMAT 256
+    GLchar format_f[S_FORMAT] = {0};
+    GLchar format_vn[S_FORMAT] = {0};
+    GLchar format_v[S_FORMAT]= {0};
 
     const GLchar * TAG_FACE = "f";
     const GLchar * TAG_NORMAL = "vn";
@@ -219,9 +219,7 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
     GLfloat f2  = 0;
     GLfloat f3  = 0;
 
-    GLuint u1 = 0;
-    GLuint u2 = 0;
-    GLuint u3 = 0;
+    GLuint f_values[3] = {0};
 
     size_t s_trip = 100;
     GLchar t1[s_trip];
@@ -229,11 +227,11 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
     GLchar t3[s_trip];
 
     /* Construct sscanf format string. */
-    snprintf(format_f, s_format,
-            "%%*%zus %%%zu[^ ] %%%zu[^ ] %%%zu[^ ]"
+    snprintf(format_f, S_FORMAT,
+            "%%*%zus %%%zu[^ \n] %%%zu[^ \n] %%%zu[^ \n]"
             ,s_tag, s_trip, s_trip, s_trip);
 
-    snprintf(format_v, s_format, "%%*%zus %%f %%f %%f", s_tag);
+    snprintf(format_v, S_FORMAT, "%%*%zus %%f %%f %%f", s_tag);
 
     while(*current != '\0') {
         while(*newline != '\n') {
@@ -245,7 +243,66 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
 
         if (strcmp(tag, TAG_FACE) == 0) {
             /* Get current triplets. */
-            printf("Format string for face tag: %s\n", format_f);
+//            printf("Format string for face tag: %s\n", format_f);
+
+            printf("Current line: %.*s\n", (int)(newline-current), current);
+            const GLchar * start = current+2; // Skip the 't ' tag.
+            GLuint * current_f_value = f_values;
+            for(;;) {
+                /* Going to assume that there is always a vertice index. */
+                int scanned = sscanf(start, "%u", current_f_value++);
+                if (scanned == 0) {
+                    *(current_f_value-1) = 0; // No value was parsed.
+                } else {
+                    printf("Scanned %u\n", *(current_f_value-1));
+                }
+                int spin = 1;
+                char c;
+                while(spin) {
+                    c = *start;
+                    switch (c) {
+                        case '\n':
+                        case ' ':
+                        case '/':
+                            spin = 0;
+                        break;
+                        default:
+                            start++;
+                        break;
+                    }
+                }
+                if (c == ' ' || c == '\n') {
+                    /* Handle the parsed values and reset the current_f_value
+                     * pointer. */
+                    if (f_values[0] != 0) { // Vertice index was parsed.
+                        printf("Vertice index: %u\n",  f_values[0]);
+                    }
+                    if (f_values[1] != 0) { // Texture index was parsed.
+                        printf("Texture index: %u\n",  f_values[1]);
+                    }
+                    if (f_values[2] != 0) { // Face normal index was parsed.
+                        printf("Normal index: %u\n",  f_values[2]);
+                    }
+                    current_f_value = f_values;
+                }
+
+                if (c == '\n') {
+                    break; // End the outer for-loop.
+                }
+
+                /* Skip any 'delimiter' that was not \n. */
+                start++;
+                printf("Continuing on: %.*s\n", (int)(newline-start), start);
+            }
+            //sscanf(current, format_f, t1, t2, t3);
+            //printf("Got following triplets: <%s> <%s> <%s>\n", t1, t2, t3);
+            //printf("Splitting the first triplet with strtok.\n");
+            //char * token = strtok(t1, "/");
+            //printf("Got token: %s\n", token);
+            //token = strtok(NULL, "/");
+            //printf("Got token: %s\n", token);
+            //token = strtok(NULL, "/");
+            //printf("Got token: %s\n", token);
         } else if (strcmp(tag, TAG_NORMAL) == 0) {
         } else if (strcmp(tag, TAG_VERTICE) == 0) {
             /* Asterisk in format string ignores assignment. %*3s will ignore

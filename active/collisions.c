@@ -58,10 +58,12 @@ setup_glfw(void)
 const GLchar * source_shader_vertex =
 "#version 330 core\n"
 "\n"
+"uniform mat4 m4_mvp;\n"
+"\n"
 "layout (location=0) in vec3 vertex_data;\n"
 "\n"
 "void main() {\n"
-"  gl_Position = vec4(vertex_data, 1.0f);\n"
+"  gl_Position = m4_mvp * vec4(vertex_data, 1.0f);\n"
 "}\n";
 
 const GLchar * source_shader_fragment =
@@ -328,6 +330,39 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertice
     *r_indices= indices;
 }
 
+mat4x4 m4_projection = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
+mat4x4 m4_view = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
+mat4x4 m4_model = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
+mat4x4 m4_mvp = {
+    {1.0f, 0.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},
+};
+
+
+vec3 vec3_camera_up = {0.0f, 1.0f, 0.0f};
+vec3 vec3_camera_direction  = {0.0f, 0.0f, -1.0f};
+vec3 vec3_camera_position = {0.0f, 0.0f, 13.0f};
+
 static void
 callback_key_method(GLFWwindow * window, int key, int scancode, int action,
         int mods)
@@ -348,8 +383,8 @@ main(void)
 {
     GLFWwindow * window = setup_glfw();
 
-    GLuint program_shader = setup_shaders();
-    glUseProgram(program_shader);
+    GLuint id_shader_program = setup_shaders();
+    glUseProgram(id_shader_program);
 
     GLuint vbo = 0;
     GLuint vao = 0;
@@ -438,6 +473,13 @@ main(void)
 
     glfwSetKeyCallback(window, callback_key_method);
 
+    GLuint ulocation_m4_mvp = glGetUniformLocation(id_shader_program,
+            "m4_mvp");
+
+    /* Set projection matrix as a perspective matrix. */
+    mat4x4_perspective(m4_projection, M_PI/4,
+            (float)WINDOW_WIDTH/(float)WINDOW_HEIGHT, 0.1f, 100.0f);
+
     while (!glfwWindowShouldClose(window)) {
 
         /* Clear color and depth buffers. */
@@ -445,6 +487,23 @@ main(void)
 
         /* Poll events. */
         glfwPollEvents();
+
+        /* Re-calculate view matrix. */
+        vec3 vec3_camera_center = {0};
+        vec3_add(vec3_camera_center, vec3_camera_position, vec3_camera_direction);
+        mat4x4_look_at(m4_view, vec3_camera_position, vec3_camera_center,
+                vec3_camera_up);
+
+        /* Re-calculate mvp matrix. */
+        mat4x4_mul(m4_mvp, m4_view, m4_model);
+        mat4x4_mul(m4_mvp, m4_projection, m4_mvp);
+
+        /* Supply mvp matrix to vertex shader. */
+        glUniformMatrix4fv(
+                ulocation_m4_mvp,
+                1,
+                GL_FALSE,
+                m4_mvp[0]);
 
         /* Draw. */
 //        glBindVertexArray(vao);

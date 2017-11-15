@@ -181,8 +181,8 @@ read_file(const GLchar * filename)
 }
 
 void
-obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
-        GLsizei * num_indices, GLfloat ** indices)
+obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertices,
+        GLsizei * num_indices, GLfloat ** r_indices)
 {
     const GLchar * current = data;
     const GLchar * newline = data;
@@ -197,17 +197,16 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
     GLsizei max_indices = 600;
 
     /* Allocate memory for vertices and uv coordinates. */
-    GLfloat * local_vertices = malloc(sizeof(GLfloat)*max_vertices);
-    if (local_vertices == NULL) {
+    GLfloat * vertices = malloc(sizeof(GLfloat)*max_vertices);
+    if (vertices == NULL) {
         fprintf(stderr, "Could not allocate memory for vertices!\n");
     }
-    indices = malloc(sizeof(GLfloat)*max_indices);
+    GLfloat * indices = malloc(sizeof(GLfloat)*max_indices);
 
     size_t s_tag = 3;
     GLchar tag[s_tag];
 
     #define S_FORMAT 256
-    GLchar format_f[S_FORMAT] = {0};
     GLchar format_vn[S_FORMAT] = {0};
     GLchar format_v[S_FORMAT]= {0};
 
@@ -221,16 +220,6 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
 
     GLuint f_values[3] = {0};
 
-    size_t s_trip = 100;
-    GLchar t1[s_trip];
-    GLchar t2[s_trip];
-    GLchar t3[s_trip];
-
-    /* Construct sscanf format string. */
-    snprintf(format_f, S_FORMAT,
-            "%%*%zus %%%zu[^ \n] %%%zu[^ \n] %%%zu[^ \n]"
-            ,s_tag, s_trip, s_trip, s_trip);
-
     snprintf(format_v, S_FORMAT, "%%*%zus %%f %%f %%f", s_tag);
 
     while(*current != '\0') {
@@ -239,13 +228,11 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
         }
 
         /* Grab the tag. */
-        sscanf(current, "%2s", tag);
+        sscanf(current, "%3s", tag);
 
         if (strcmp(tag, TAG_FACE) == 0) {
-            /* Get current triplets. */
-//            printf("Format string for face tag: %s\n", format_f);
 
-            printf("Current line: %.*s\n", (int)(newline-current), current);
+//            printf("Current line: %.*s\n", (int)(newline-current), current);
             const GLchar * start = current+2; // Skip the 't ' tag.
             GLuint * current_f_value = f_values;
             for(;;) {
@@ -253,8 +240,8 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
                 int scanned = sscanf(start, "%u", current_f_value++);
                 if (scanned == 0) {
                     *(current_f_value-1) = 0; // No value was parsed.
-                } else {
-                    printf("Scanned %u\n", *(current_f_value-1));
+//                } else {
+//                    printf("Scanned %u\n", *(current_f_value-1));
                 }
                 int spin = 1;
                 char c;
@@ -275,13 +262,20 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
                     /* Handle the parsed values and reset the current_f_value
                      * pointer. */
                     if (f_values[0] != 0) { // Vertice index was parsed.
-                        printf("Vertice index: %u\n",  f_values[0]);
+//                        printf("Vertice index: %u\n",  f_values[0]);
+                        indices[parsed_indices++] = f_values[0]-1;
+                        /* Check if there is more room, otherwise expand. */
+                        if (parsed_indices >= max_indices) {
+                            max_indices += increment_indices;
+                            indices = realloc(indices,
+                                    sizeof(GLfloat)*max_indices);
+                        }
                     }
                     if (f_values[1] != 0) { // Texture index was parsed.
-                        printf("Texture index: %u\n",  f_values[1]);
+//                        printf("Texture index: %u\n",  f_values[1]);
                     }
                     if (f_values[2] != 0) { // Face normal index was parsed.
-                        printf("Normal index: %u\n",  f_values[2]);
+//                        printf("Normal index: %u\n",  f_values[2]);
                     }
                     current_f_value = f_values;
                 }
@@ -292,7 +286,7 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
 
                 /* Skip any 'delimiter' that was not \n. */
                 start++;
-                printf("Continuing on: %.*s\n", (int)(newline-start), start);
+//                printf("Continuing on: %.*s\n", (int)(newline-start), start);
             }
             //sscanf(current, format_f, t1, t2, t3);
             //printf("Got following triplets: <%s> <%s> <%s>\n", t1, t2, t3);
@@ -311,13 +305,13 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
             /* Check if there is enough room. */
             if (parsed_vertices+3 >= max_vertices) {
                 max_vertices += increment_vertices;
-                local_vertices = realloc(local_vertices,
+                vertices = realloc(vertices,
                         sizeof(GLfloat)*max_vertices);
             }
             /* Put vertices in array. */
-            local_vertices[parsed_vertices++] = f1;
-            local_vertices[parsed_vertices++] = f2;
-            local_vertices[parsed_vertices++] = f3;
+            vertices[parsed_vertices++] = f1;
+            vertices[parsed_vertices++] = f2;
+            vertices[parsed_vertices++] = f3;
         }
 
 
@@ -328,13 +322,19 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
 
     /* Fit the vertice data. */
     if (parsed_vertices != max_vertices) {
-        local_vertices = realloc(local_vertices, sizeof(GLfloat)*parsed_vertices);
+        vertices = realloc(vertices, sizeof(GLfloat)*parsed_vertices);
     }
     /* Set the number of parsed vertices. */
     *num_vertices = parsed_vertices;
 
     /* Bind the vertices back to the supplied pointer. */
-    *vertices = local_vertices;
+    *r_vertices = vertices;
+
+    /* Set the number of parsed indices. */
+    *num_indices = parsed_indices;
+
+    /* Bind the indices back to the supplied pointer. */
+    *r_indices= indices;
 }
 
 int
@@ -381,7 +381,7 @@ main(void)
     GLsizei num_suzanne_indices = 0;
 
     obj_parse_data(str_suzanne, &num_suzanne_vertices, &suzanne_vertices,
-            &num_suzanne_indices, suzanne_indices);
+            &num_suzanne_indices, &suzanne_indices);
 
     while (!glfwWindowShouldClose(window)) {
 

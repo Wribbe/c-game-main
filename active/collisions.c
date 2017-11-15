@@ -15,6 +15,8 @@
 #define WINDOW_WIDTH 1440
 #define WINDOW_HEIGHT 900
 
+double time_delta = 0.0f;
+
 GLFWwindow *
 setup_glfw(void)
 {
@@ -363,6 +365,8 @@ vec3 vec3_camera_up = {0.0f, 1.0f, 0.0f};
 vec3 vec3_camera_direction  = {0.0f, 0.0f, -1.0f};
 vec3 vec3_camera_position = {0.0f, 0.0f, 13.0f};
 
+GLfloat speed_camera = 10.0f;
+
 static void
 callback_key_method(GLFWwindow * window, int key, int scancode, int action,
         int mods)
@@ -371,9 +375,36 @@ callback_key_method(GLFWwindow * window, int key, int scancode, int action,
     UNUSED(mods);
     UNUSED(scancode);
 
-    if (action == GLFW_PRESS) {
+    GLfloat speed_camera_delta = speed_camera * time_delta;
+
+    vec3 vec3_forward = {0};
+    vec3_scale(vec3_forward, vec3_camera_direction, speed_camera_delta);
+
+    vec3 vec3_right = {0};
+    vec3_mul_cross(vec3_right, vec3_camera_direction, vec3_camera_up);
+    vec3_norm(vec3_right, vec3_right);
+    vec3_scale(vec3_right, vec3_right, speed_camera_delta);
+
+
+    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
         if (key == GLFW_KEY_ESCAPE) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+        if (key == GLFW_KEY_W) { // Go forward in camera direction.
+            vec3_add(vec3_camera_position, vec3_camera_position,
+                    vec3_forward);
+        }
+        if (key == GLFW_KEY_S) { // Go backward in camera direction.
+            vec3_sub(vec3_camera_position, vec3_camera_position,
+                    vec3_forward);
+        }
+        if (key == GLFW_KEY_D) { // Go along right direction.
+            vec3_add(vec3_camera_position, vec3_camera_position,
+                    vec3_right);
+        }
+        if (key == GLFW_KEY_A) { // Go along opposite to right direction.
+            vec3_sub(vec3_camera_position, vec3_camera_position,
+                    vec3_right);
         }
     }
 }
@@ -480,7 +511,14 @@ main(void)
     mat4x4_perspective(m4_projection, M_PI/4,
             (float)WINDOW_WIDTH/(float)WINDOW_HEIGHT, 0.1f, 100.0f);
 
+    double time_prev = glfwGetTime();
+    double time_now = 0;
+
     while (!glfwWindowShouldClose(window)) {
+
+        time_now = glfwGetTime();
+        time_delta = time_now - time_prev;
+        time_prev = time_now;
 
         /* Clear color and depth buffers. */
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

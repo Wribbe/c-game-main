@@ -231,18 +231,18 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertice
         sscanf(current, "%3s", tag);
 
         if (strcmp(tag, TAG_FACE) == 0) {
-
-//            printf("Current line: %.*s\n", (int)(newline-current), current);
             const GLchar * start = current+2; // Skip the 't ' tag.
             GLuint * current_f_value = f_values;
             for(;;) {
+
                 /* Going to assume that there is always a vertice index. */
                 int scanned = sscanf(start, "%u", current_f_value++);
                 if (scanned == 0) {
                     *(current_f_value-1) = 0; // No value was parsed.
-//                } else {
-//                    printf("Scanned %u\n", *(current_f_value-1));
                 }
+
+                /* Loop and parse until either a / is found triplet is ended
+                 * with a space. */
                 int spin = 1;
                 char c;
                 while(spin) {
@@ -258,11 +258,12 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertice
                         break;
                     }
                 }
+
+                /* Check for tripled and end-of-line delimiters.*/
                 if (c == ' ' || c == '\n') {
                     /* Handle the parsed values and reset the current_f_value
                      * pointer. */
                     if (f_values[0] != 0) { // Vertice index was parsed.
-//                        printf("Vertice index: %u\n",  f_values[0]);
                         indices[parsed_indices++] = f_values[0]-1;
                         /* Check if there is more room, otherwise expand. */
                         if (parsed_indices >= max_indices) {
@@ -284,19 +285,9 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertice
                     break; // End the outer for-loop.
                 }
 
-                /* Skip any 'delimiter' that was not \n. */
+                /* Skip any 'delimiter' that was not a newline. */
                 start++;
-//                printf("Continuing on: %.*s\n", (int)(newline-start), start);
             }
-            //sscanf(current, format_f, t1, t2, t3);
-            //printf("Got following triplets: <%s> <%s> <%s>\n", t1, t2, t3);
-            //printf("Splitting the first triplet with strtok.\n");
-            //char * token = strtok(t1, "/");
-            //printf("Got token: %s\n", token);
-            //token = strtok(NULL, "/");
-            //printf("Got token: %s\n", token);
-            //token = strtok(NULL, "/");
-            //printf("Got token: %s\n", token);
         } else if (strcmp(tag, TAG_NORMAL) == 0) {
         } else if (strcmp(tag, TAG_VERTICE) == 0) {
             /* Asterisk in format string ignores assignment. %*3s will ignore

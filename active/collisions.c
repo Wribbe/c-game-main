@@ -203,7 +203,13 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
     }
     indices = malloc(sizeof(GLfloat)*max_indices);
 
-    GLchar tag[3] = {0};
+    size_t s_tag = 3;
+    GLchar tag[s_tag];
+
+    size_t s_format = 256;
+    GLchar format_f[s_format];
+    GLchar format_vn[s_format];
+    GLchar format_v[s_format];
 
     const GLchar * TAG_FACE = "f";
     const GLchar * TAG_NORMAL = "vn";
@@ -217,6 +223,18 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
     GLuint u2 = 0;
     GLuint u3 = 0;
 
+    size_t s_trip = 100;
+    GLchar t1[s_trip];
+    GLchar t2[s_trip];
+    GLchar t3[s_trip];
+
+    /* Construct sscanf format string. */
+    snprintf(format_f, s_format,
+            "%%*%zus %%%zu[^ ] %%%zu[^ ] %%%zu[^ ]"
+            ,s_tag, s_trip, s_trip, s_trip);
+
+    snprintf(format_v, s_format, "%%*%zus %%f %%f %%f", s_tag);
+
     while(*current != '\0') {
         while(*newline != '\n') {
             newline++;
@@ -226,11 +244,13 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
         sscanf(current, "%2s", tag);
 
         if (strcmp(tag, TAG_FACE) == 0) {
+            /* Get current triplets. */
+            printf("Format string for face tag: %s\n", format_f);
         } else if (strcmp(tag, TAG_NORMAL) == 0) {
         } else if (strcmp(tag, TAG_VERTICE) == 0) {
             /* Asterisk in format string ignores assignment. %*3s will ignore
              * strings of length up to and including 3. */
-            sscanf(current, "%*3s %f %f %f", &f1, &f2, &f3);
+            sscanf(current, format_v, &f1, &f2, &f3);
             /* Check if there is enough room. */
             if (parsed_vertices+3 >= max_vertices) {
                 max_vertices += increment_vertices;

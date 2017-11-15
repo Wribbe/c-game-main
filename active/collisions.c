@@ -181,8 +181,8 @@ read_file(const GLchar * filename)
 }
 
 void
-obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat * vertices,
-        GLsizei * num_indices, GLfloat * indices)
+obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** vertices,
+        GLsizei * num_indices, GLfloat ** indices)
 {
     const GLchar * current = data;
     const GLchar * newline = data;
@@ -190,25 +190,32 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat * vertices,
     GLsizei parsed_vertices = 0;
     GLsizei parsed_indices = 0;
 
-    GLsizei increment_vertice = 200;
-    GLsizei increment_indices = 200;
+    GLsizei increment_vertices = 300;
+    GLsizei increment_indices = 300;
 
-    GLsizei max_vertices = 500;
-    GLsizei max_indices = 500;
+    GLsizei max_vertices = 600;
+    GLsizei max_indices = 600;
 
     /* Allocate memory for vertices and uv coordinates. */
-    vertices = malloc(sizeof(GLfloat)*max_vertices);
+    GLfloat * local_vertices = malloc(sizeof(GLfloat)*max_vertices);
+    if (local_vertices == NULL) {
+        fprintf(stderr, "Could not allocate memory for vertices!\n");
+    }
     indices = malloc(sizeof(GLfloat)*max_indices);
 
-    GLchar tag[3];
-
-    GLboolean seen_f = GL_FALSE;
-    GLboolean seen_vn = GL_FALSE;
-    GLboolean seen_v = GL_FALSE;
+    GLchar tag[3] = {0};
 
     const GLchar * TAG_FACE = "f";
     const GLchar * TAG_NORMAL = "vn";
     const GLchar * TAG_VERTICE = "v";
+
+    GLfloat f1  = 0;
+    GLfloat f2  = 0;
+    GLfloat f3  = 0;
+
+    GLuint u1 = 0;
+    GLuint u2 = 0;
+    GLuint u3 = 0;
 
     while(*current != '\0') {
         while(*newline != '\n') {
@@ -217,28 +224,40 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat * vertices,
 
         /* Grab the tag. */
         sscanf(current, "%2s", tag);
-        printf("Got tag: <<%s>>\n", tag);
 
-        if (strcmp(tag, TAG_FACE) == 0 && !seen_f) {
-            seen_f = GL_TRUE;
-        } else if (strcmp(tag, TAG_NORMAL) == 0 && !seen_vn) {
-            seen_vn = GL_TRUE;
-        } else if (strcmp(tag, TAG_VERTICE) == 0 && !seen_v) {
-            seen_v = GL_TRUE;
+        if (strcmp(tag, TAG_FACE) == 0) {
+        } else if (strcmp(tag, TAG_NORMAL) == 0) {
+        } else if (strcmp(tag, TAG_VERTICE) == 0) {
+            /* Asterisk in format string ignores assignment. %*3s will ignore
+             * strings of length up to and including 3. */
+            sscanf(current, "%*3s %f %f %f", &f1, &f2, &f3);
+            /* Check if there is enough room. */
+            if (parsed_vertices+3 >= max_vertices) {
+                max_vertices += increment_vertices;
+                local_vertices = realloc(local_vertices,
+                        sizeof(GLfloat)*max_vertices);
+            }
+            /* Put vertices in array. */
+            local_vertices[parsed_vertices++] = f1;
+            local_vertices[parsed_vertices++] = f2;
+            local_vertices[parsed_vertices++] = f3;
         }
 
-        // Do some parsing.
-        printf("%.*s\n", (int)(newline-current), current);
 
         // Increment newline and assign current to new start.
         newline++;
         current = newline;
     }
 
-    printf("Seen the following tags: f: %s, vn: %s, v: %s\n",
-            seen_f ? "YES" : "NO",
-            seen_vn ? "YES" : "NO",
-            seen_v ? "YES" : "NO");
+    /* Fit the vertice data. */
+    if (parsed_vertices != max_vertices) {
+        local_vertices = realloc(local_vertices, sizeof(GLfloat)*parsed_vertices);
+    }
+    /* Set the number of parsed vertices. */
+    *num_vertices = parsed_vertices;
+
+    /* Bind the vertices back to the supplied pointer. */
+    *vertices = local_vertices;
 }
 
 int
@@ -284,7 +303,7 @@ main(void)
     GLfloat * suzanne_indices = NULL;
     GLsizei num_suzanne_indices = 0;
 
-    obj_parse_data(str_suzanne, &num_suzanne_vertices, suzanne_vertices,
+    obj_parse_data(str_suzanne, &num_suzanne_vertices, &suzanne_vertices,
             &num_suzanne_indices, suzanne_indices);
 
     while (!glfwWindowShouldClose(window)) {

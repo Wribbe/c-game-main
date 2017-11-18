@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+GLOBAL_INDENT_STEP = 2
+
 def format_imports(list_libs):
 
     def wrapper(lib):
@@ -125,6 +127,23 @@ def function_to_string(dict_function):
 
     return '\n'.join(buffer_string_return)
 
+def function_increment_indent(dict_function):
+    dict_function[function_key_indent] += GLOBAL_INDENT_STEP
+
+def function_decrement_indent(dict_function):
+    dict_function[function_key_indent] -= GLOBAL_INDENT_STEP
+    if dict_function[function_key_indent] < 0:
+        dict_function[function_key_indent] = 0
+
+def function_open(dict_function, contexct_type, condition):
+    context_line = "{} ({}) {{".format(contexct_type, condition)
+    function_add(dict_function, context_line)
+    function_increment_indent(dict_function)
+
+def function_close(dict_function):
+    function_decrement_indent(dict_function)
+    function_add(dict_function, "}")
+
 output_key_includes = "includes"
 output_key_definitions = "definitions"
 output_key_functions = "functions"
@@ -216,12 +235,16 @@ def main():
     output_add_includes(output_main, includes)
     output_add_definitions(output_main, definitions)
 
+    output_add_function(output_main, function_glfw_setup())
+
     main = function_get("int", "main")
     function_add(main, printf("HELLO WORLD!"))
     function_add(main, printf("HELLO WORLD 2!"))
     function_add(main, printf("HELLO %s %d!", "CUSTOM WORLD!", 4))
 
-    output_add_function(output_main, function_glfw_setup())
+    function_open(main, "while", "!glfwWindowShouldClose(window)");
+    function_close(main);
+
     output_add_function(output_main, main)
 
     output_print(output_main)

@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 
-prefix_local_lib = "!L"
-
 def format_imports(list_libs):
 
     def wrapper(lib):
-        if lib.startswith(prefix_local_lib):
-            lib = lib.replace(prefix_local_lib, '')
-            return "#include \"{}.h\"".format(lib)
+        if not lib.startswith('<'):
+            return "#include \"{}\"".format(lib)
         else:
-            return "#include <{}.h>".format(lib)
+            return "#include {}".format(lib)
 
     list_formatted = []
     for lib in list_libs:
-        list_formatted.append(wrapper(lib))
+        if lib.strip():
+            list_formatted.append(wrapper(lib))
+        else:
+            list_formatted.append("")
     return '\n'.join(list_formatted)
 
 def printf(string_format, variables=[]):
@@ -50,55 +50,157 @@ def function_add(dict_function, string_function):
     indent = dict_function[function_key_indent]
     function_body.append("{}{}".format(' '*indent, string_function))
 
+def function_glfw_setup():
+
+    function = function_get("GLFWwindow *", "setup_glfw")
+
+    glfw_setup_code = \
+    """
+    GLFWwindow * window;
+
+    if (!glfwInit()) {
+        fprintf(stderr, "Could not initialize glfw, aborting.\\n");
+        exit(EXIT_FAILURE);
+    }
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "HELLO WORLD", NULL, NULL);
+    if (!window) {
+        fprintf(stderr, "Could not create window, aborting.\\n");
+        glfwTerminate();
+        exit(EXIT_FAILURE);
+    }
+
+    /* Make window context current one. */
+    glfwMakeContextCurrent(window);
+
+    if (gl3wInit()) {
+        fprintf(stderr, "Could not initialize gl3w, aborting.\\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (!gl3wIsSupported(3, 3)) {
+        fprintf(stderr, "Profile 3.3 not supported, aborting.\\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("OpenGL %s, GLSL %s\\n", glGetString(GL_VERSION),
+            glGetString(GL_SHADING_LANGUAGE_VERSION));
+
+    return window;
+    """
+    function_add(function, glfw_setup_code)
+    return function
+
+def function_to_string(dict_function):
+
+    buffer_string_return = []
+
+    # Get return type.
+    return_type = dict_function[function_key_return_type]
+    buffer_string_return.append(return_type)
+
+    # Construct function definition.
+    function_definiton = ""
+    function_definiton += dict_function[function_key_name] + '('
+    arguments = dict_function[function_key_arguments]
+    if not arguments:
+        function_definiton += "void"
+    else:
+        function_definiton += ', '.join(arguments)
+    function_definiton += ')'
+    # Append function definition.
+    buffer_string_return.append(function_definiton)
+
+    # Open function scope.
+    buffer_string_return.append("{")
+    # Add body.
+    function_body = '\n'.join(dict_function[function_key_body])
+    buffer_string_return.append(function_body)
+    # Close function scope.
+    buffer_string_return.append("}")
+
+    return '\n'.join(buffer_string_return)
+
+
 def main():
 
-    list_output = []
+    output_key_includes = "includes"
+    output_key_defines = "defines"
+    output_key_functions = "functions"
 
-    def output_add(string):
-        list_output.append(string)
+    output = {
+        output_key_includes : [],
+        output_key_defines : {},
+        output_key_functions : [],
+    }
 
-    def output_sep():
-        list_output.append("")
+    def output_add_includes(list_includes):
+        if type(list_includes) == str:
+            list_includes = [list_includes]
+        elif type(list_includes) != list:
+            list_includes = [list_includes]
+
+        output_list_includes = output[output_key_includes]
+
+        for include in list_includes:
+            if not include.strip():
+                output_list_includes.append("")
+                continue
+
+            if not include.startswith("<"):
+                include = "\"{}\"".format(include)
+            include = "#include {}".format(include)
+            output_list_includes.append(include)
+
+    def output_add_function(dict_function):
+        output[output_key_functions].append(dict_function)
 
     def output_print():
-        print('\n'.join(list_output))
 
-    def output_dump_function(dict_function):
-        # Add return type.
-        output_add(dict_function[function_key_return_type])
-        # Construct function name.
-        buffer_name = ""
-        buffer_name += dict_function[function_key_name] + '('
-        arguments = dict_function[function_key_arguments]
-        if not arguments:
-            buffer_name += "void"
-        else:
-            buffer_name += ', '.join(arguments)
-        buffer_name += ')'
-        # Add function name.
-        output_add(buffer_name)
-        # Open function scope.
-        output_add("{")
-        # Add body.
-        output_add('\n'.join(dict_function[function_key_body]))
-        # Close function scope.
-        output_add("}")
-        output_sep()
+        output_buffer = []
 
-    imports = [
-        "stdlib",
-        "stdio",
+        def sep():
+            output_buffer.append("")
+
+        # Print inclusions.
+        for include in output[output_key_includes]:
+            output_buffer.append(include)
+        sep()
+
+        # Print all functions.
+        for function in output[output_key_functions]:
+            output_buffer.append(function_to_string(function))
+            sep()
+
+        final_output = '\n'.join(output_buffer)
+        print(final_output.strip())
+
+
+    includes = [
+        "<math.h>",
+        "<stdio.h>",
+        "<stdlib.h>",
+        "<string.h>",
+        "",
+        "gl3w.h",
+        "<GLFW/glfw3.h>",
+        "",
+        "linmath.h",
     ]
 
-    output_add(format_imports(imports))
-    output_sep()
+    output_add_includes(includes)
 
     main = function_get("int", "main")
     function_add(main, printf("HELLO WORLD!"))
     function_add(main, printf("HELLO WORLD 2!"))
     function_add(main, printf("HELLO %s %d!", ["CUSTOM WORLD!", 4]))
 
-    output_dump_function(main)
+    output_add_function(function_glfw_setup())
+    output_add_function(main)
 
     output_print()
 

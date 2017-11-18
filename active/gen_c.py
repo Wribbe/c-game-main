@@ -16,7 +16,7 @@ def format_imports(list_libs):
             list_formatted.append("")
     return '\n'.join(list_formatted)
 
-def printf(string_format, variables=[]):
+def printf(string_format, *variables):
     buffer_returnstring = ["\"{}\\n\"".format(string_format)]
     new_vars = []
     for var in variables:
@@ -219,7 +219,7 @@ def main():
     main = function_get("int", "main")
     function_add(main, printf("HELLO WORLD!"))
     function_add(main, printf("HELLO WORLD 2!"))
-    function_add(main, printf("HELLO %s %d!", ["CUSTOM WORLD!", 4]))
+    function_add(main, printf("HELLO %s %d!", "CUSTOM WORLD!", 4))
 
     output_add_function(output_main, function_glfw_setup())
     output_add_function(output_main, main)

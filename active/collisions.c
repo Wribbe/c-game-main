@@ -457,6 +457,29 @@ process_frame_events(void)
     }
 }
 
+struct object_drawable {
+    GLsizei num_vertices;
+    GLsizei num_indices;
+    GLsizei num_normals;
+    GLfloat * vertices;
+    GLfloat * normals;
+    GLuint * indices;
+};
+
+struct object {
+    struct object_drawable * drawable;
+    mat4x4 model;
+    vec3 velocity;
+};
+
+#define MAX_DRAWABLE_OBJECTS 300
+struct object_drawable r_objects_drawable[MAX_DRAWABLE_OBJECTS];
+GLsizei object_drawable_first_empty = 0;
+
+#define MAX_OBJECTS 200
+struct object r_objects[MAX_OBJECTS];
+GLsizei object_first_empty = 0;
+
 int
 main(void)
 {

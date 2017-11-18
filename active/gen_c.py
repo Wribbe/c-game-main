@@ -49,7 +49,7 @@ def function_get(type_return, string_name, arguments=[]):
 
     return dict_function
 
-def function_add(dict_function, string_function):
+def function_body_add(dict_function, string_function):
     function_body = dict_function[function_key_body]
     indent = dict_function[function_key_indent]
     function_body.append("{}{}".format(' '*indent, string_function))
@@ -96,7 +96,7 @@ def function_glfw_setup():
 
     return window;
     """
-    function_add(function, glfw_setup_code)
+    function_body_add(function, glfw_setup_code)
     return function
 
 def function_to_string(dict_function):
@@ -151,12 +151,12 @@ def function_context_peek(dict_function, index=-1):
 def function_context_open(dict_function, contexct_type, condition):
     context_line = "{} ({}) {{".format(contexct_type, condition)
     function_context_add(dict_function, contexct_type)
-    function_add(dict_function, context_line)
+    function_body_add(dict_function, context_line)
     function_increment_indent(dict_function)
 
 def function_context_close(dict_function):
     function_decrement_indent(dict_function)
-    function_add(dict_function, "}")
+    function_body_add(dict_function, "}")
     return function_context_pop(dict_function)
 
 output_key_includes = "includes"
@@ -253,9 +253,9 @@ def main():
     output_add_function(output_main, function_glfw_setup())
 
     main = function_get("int", "main")
-    function_add(main, printf("HELLO WORLD!"))
-    function_add(main, printf("HELLO WORLD 2!"))
-    function_add(main, printf("HELLO %s %d!", "CUSTOM WORLD!", 4))
+    function_body_add(main, printf("HELLO WORLD!"))
+    function_body_add(main, printf("HELLO WORLD 2!"))
+    function_body_add(main, printf("HELLO %s %d!", "CUSTOM WORLD!", 4))
 
     function_context_open(main, "while", "!glfwWindowShouldClose(window)");
     function_context_close(main);

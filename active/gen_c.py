@@ -34,6 +34,7 @@ function_key_name = "name"
 function_key_return_type = "return_type"
 function_key_arguments = "arguments"
 function_key_indent = "current_indentation"
+function_key_open_contexts = "open_contexts"
 
 def function_get(type_return, string_name, arguments=[]):
 
@@ -43,6 +44,7 @@ def function_get(type_return, string_name, arguments=[]):
             function_key_return_type: type_return,
             function_key_arguments : arguments,
             function_key_indent : 2,
+            function_key_open_contexts : [],
     }
 
     return dict_function
@@ -135,14 +137,27 @@ def function_decrement_indent(dict_function):
     if dict_function[function_key_indent] < 0:
         dict_function[function_key_indent] = 0
 
-def function_open(dict_function, contexct_type, condition):
+def function_context_add(dict_function, context):
+    dict_function[function_key_open_contexts].append(context)
+
+def function_context_pop(dict_function):
+    context = dict_function[function_key_open_contexts].pop()
+    return context
+
+def function_context_peek(dict_function, index=-1):
+    context = dict_function[function_key_open_contexts].get(index)
+    return context
+
+def function_context_open(dict_function, contexct_type, condition):
     context_line = "{} ({}) {{".format(contexct_type, condition)
+    function_context_add(dict_function, contexct_type)
     function_add(dict_function, context_line)
     function_increment_indent(dict_function)
 
-def function_close(dict_function):
+def function_context_close(dict_function):
     function_decrement_indent(dict_function)
     function_add(dict_function, "}")
+    return function_context_pop(dict_function)
 
 output_key_includes = "includes"
 output_key_definitions = "definitions"
@@ -242,8 +257,8 @@ def main():
     function_add(main, printf("HELLO WORLD 2!"))
     function_add(main, printf("HELLO %s %d!", "CUSTOM WORLD!", 4))
 
-    function_open(main, "while", "!glfwWindowShouldClose(window)");
-    function_close(main);
+    function_context_open(main, "while", "!glfwWindowShouldClose(window)");
+    function_context_close(main);
 
     output_add_function(output_main, main)
 

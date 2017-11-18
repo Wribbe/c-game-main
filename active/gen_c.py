@@ -49,10 +49,17 @@ def function_get(type_return, string_name, arguments=[]):
 
     return dict_function
 
-def function_body_add(dict_function, string_function):
+def function_body_add(dict_function, string):
     function_body = dict_function[function_key_body]
     indent = dict_function[function_key_indent]
-    function_body.append("{}{}".format(' '*indent, string_function))
+    function_body.append("{}{}".format(' '*indent, string))
+
+def function_body_append_to_last(dict_function, string):
+    function_body = dict_function[function_key_body]
+    if not function_body: # No body currently, use add instead.
+        function_body_add(dict_function, string)
+    else: # Modify the last string in body.
+        function_body[-1] += string
 
 def function_glfw_setup():
 
@@ -145,19 +152,32 @@ def function_context_pop(dict_function):
     return context
 
 def function_context_peek(dict_function, index=-1):
-    context = dict_function[function_key_open_contexts].get(index)
-    return context
+    list_context = dict_function[function_key_open_contexts]
+    if not list_context:
+        return ""
+    return list_context[index]
 
 def function_context_open(dict_function, contexct_type, condition):
+
+    # Build context line.
     context_line = "{} ({}) {{".format(contexct_type, condition)
     function_context_add(dict_function, contexct_type)
-    function_body_add(dict_function, context_line)
+
+    # Add the context line.
+    if contexct_type in ["else", "else if"]:
+        function_context_close(dict_function)
+        function_body_append_to_last(dict_function, " "+context_line)
+    else:
+        function_body_add(dict_function, context_line)
+
+    # Additional indent increment for context body.
     function_increment_indent(dict_function)
 
 def function_context_close(dict_function):
+    context_previous = function_context_pop(dict_function)
     function_decrement_indent(dict_function)
     function_body_add(dict_function, "}")
-    return function_context_pop(dict_function)
+    return context_previous
 
 output_key_includes = "includes"
 output_key_definitions = "definitions"
@@ -258,6 +278,22 @@ def main():
     function_body_add(main, printf("HELLO %s %d!", "CUSTOM WORLD!", 4))
 
     function_context_open(main, "while", "!glfwWindowShouldClose(window)");
+
+    function_context_open(main, "if", "!glfwWindowShouldClose(window)");
+    function_body_add(main, printf("HELLO WORLD 1!"))
+    function_body_add(main, printf("HELLO WORLD 2!"))
+    function_context_open(main, "else if", "!glfwWindowShouldClose(window)");
+    function_body_add(main, printf("HELLO WORLD 1!"))
+    function_body_add(main, printf("HELLO WORLD 2!"))
+    function_context_open(main, "else if", "!glfwWindowShouldClose(window)");
+    function_body_add(main, printf("HELLO WORLD 1!"))
+    function_body_add(main, printf("HELLO WORLD 2!"))
+    function_context_open(main, "else", "!glfwWindowShouldClose(window)");
+    function_body_add(main, printf("HELLO WORLD 1!"))
+    function_body_add(main, printf("HELLO WORLD 2!"))
+
+    function_context_close(main);
+
     function_context_close(main);
 
     output_add_function(output_main, main)

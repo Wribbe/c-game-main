@@ -289,6 +289,12 @@ def main():
     function_body_add(main, printf("HELLO WORLD 1!"))
     function_body_add(main, printf("HELLO WORLD 2!"))
     function_context_open(main, "else", "!glfwWindowShouldClose(window)");
+    function_context_open(main, "while", "!glfwWindowShouldClose(window)");
+    function_body_add(main, printf("HELLO WORLD 1!"))
+    function_context_open(main, "if", "!glfwWindowShouldClose(window)");
+    function_body_add(main, printf("HELLO WORLD 1!"))
+    function_context_close(main);
+    function_context_close(main);
     function_body_add(main, printf("HELLO WORLD 1!"))
     function_body_add(main, printf("HELLO WORLD 2!"))
 

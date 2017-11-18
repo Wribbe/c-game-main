@@ -129,12 +129,12 @@ def function_to_string(dict_function):
 def main():
 
     output_key_includes = "includes"
-    output_key_defines = "defines"
+    output_key_definitions = "definitions"
     output_key_functions = "functions"
 
     output = {
         output_key_includes : [],
-        output_key_defines : {},
+        output_key_definitions : {},
         output_key_functions : [],
     }
 
@@ -159,6 +159,9 @@ def main():
     def output_add_function(dict_function):
         output[output_key_functions].append(dict_function)
 
+    def output_add_definitions(dict_definitions):
+        output[output_key_definitions].update(dict_definitions)
+
     def output_print():
 
         output_buffer = []
@@ -169,6 +172,13 @@ def main():
         # Print inclusions.
         for include in output[output_key_includes]:
             output_buffer.append(include)
+        sep()
+
+        # Print definitions.
+        for definition_name, value in output[output_key_definitions].items():
+            output_buffer.append("#define {} {}".format(
+                definition_name.upper(),
+                value))
         sep()
 
         # Print all functions.
@@ -192,7 +202,13 @@ def main():
         "linmath.h",
     ]
 
+    definitions = {
+        "window_width" : 1440,
+        "window_height" : 900,
+    }
+
     output_add_includes(includes)
+    output_add_definitions(definitions)
 
     main = function_get("int", "main")
     function_add(main, printf("HELLO WORLD!"))

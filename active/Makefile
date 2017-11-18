@@ -9,7 +9,7 @@ FONT_FLAGS := -I/usr/include/freetype2 -I/usr/include/libpng16 \
 
 CC=gcc
 
-all: main test_freetype 3D_flight collisions
+all: main test_freetype 3D_flight collisions gen_c
 
 main.o : main.c
 	${CC} -c $^ ${CFLAGS}
@@ -30,6 +30,12 @@ test_freetype : test_freetype.o gl3w.o
 	${CC} $^ -o $@ ${CFLAGS} ${GRAPHICS_FLAGS} ${GENERAL_LIBRARIES} ${FONT_FLAGS}
 
 collisions: collisions.o gl3w.o
+	${CC} $^ -o $@ ${CFLAGS} ${GRAPHICS_FLAGS} ${GENERAL_LIBRARIES} ${FONT_FLAGS}
+
+gen_c.c: gen_c.py
+	./$^ > $@
+
+gen_c: gen_c.o gl3w.o
 	${CC} $^ -o $@ ${CFLAGS} ${GRAPHICS_FLAGS} ${GENERAL_LIBRARIES} ${FONT_FLAGS}
 
 clean:

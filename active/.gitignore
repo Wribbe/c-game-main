@@ -3,3 +3,5 @@ test_freetype
 libpng
 3D_flight
 collisions
+gen_c
+gen_c.c

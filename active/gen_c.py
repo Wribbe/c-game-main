@@ -125,70 +125,76 @@ def function_to_string(dict_function):
 
     return '\n'.join(buffer_string_return)
 
+output_key_includes = "includes"
+output_key_definitions = "definitions"
+output_key_functions = "functions"
 
-def main():
-
-    output_key_includes = "includes"
-    output_key_definitions = "definitions"
-    output_key_functions = "functions"
-
+def output_get():
     output = {
         output_key_includes : [],
         output_key_definitions : {},
         output_key_functions : [],
     }
+    return output
 
-    def output_add_includes(list_includes):
-        if type(list_includes) == str:
-            list_includes = [list_includes]
-        elif type(list_includes) != list:
-            list_includes = [list_includes]
+def output_add_includes(output, list_includes):
+    if type(list_includes) == str:
+        list_includes = [list_includes]
+    elif type(list_includes) != list:
+        list_includes = [list_includes]
 
-        output_list_includes = output[output_key_includes]
+    output_list_includes = output[output_key_includes]
 
-        for include in list_includes:
-            if not include.strip():
-                output_list_includes.append("")
-                continue
+    for include in list_includes:
+        if not include.strip():
+            output_list_includes.append("")
+            continue
 
-            if not include.startswith("<"):
-                include = "\"{}\"".format(include)
-            include = "#include {}".format(include)
-            output_list_includes.append(include)
+        if not include.startswith("<"):
+            include = "\"{}\"".format(include)
+        include = "#include {}".format(include)
+        output_list_includes.append(include)
 
-    def output_add_function(dict_function):
-        output[output_key_functions].append(dict_function)
+def output_add_function(output, dict_function):
+    output[output_key_functions].append(dict_function)
 
-    def output_add_definitions(dict_definitions):
-        output[output_key_definitions].update(dict_definitions)
+def output_add_definitions(output, dict_definitions):
+    output[output_key_definitions].update(dict_definitions)
 
-    def output_print():
+def output_to_string(output):
 
-        output_buffer = []
+    output_buffer = []
 
-        def sep():
-            output_buffer.append("")
+    def sep():
+        output_buffer.append("")
 
-        # Print inclusions.
-        for include in output[output_key_includes]:
-            output_buffer.append(include)
+    # Print inclusions.
+    for include in output[output_key_includes]:
+        output_buffer.append(include)
+    sep()
+
+    # Print definitions.
+    for definition_name, value in output[output_key_definitions].items():
+        output_buffer.append("#define {} {}".format(
+            definition_name.upper(),
+            value))
+    sep()
+
+    # Print all functions.
+    for function in output[output_key_functions]:
+        output_buffer.append(function_to_string(function))
         sep()
 
-        # Print definitions.
-        for definition_name, value in output[output_key_definitions].items():
-            output_buffer.append("#define {} {}".format(
-                definition_name.upper(),
-                value))
-        sep()
+    final_string = '\n'.join(output_buffer)
+    return final_string
 
-        # Print all functions.
-        for function in output[output_key_functions]:
-            output_buffer.append(function_to_string(function))
-            sep()
+def output_print(output):
 
-        final_output = '\n'.join(output_buffer)
-        print(final_output.strip())
+    print(output_to_string(output))
 
+def main():
+
+    output_main = output_get()
 
     includes = [
         "<math.h>",
@@ -207,18 +213,18 @@ def main():
         "window_height" : 900,
     }
 
-    output_add_includes(includes)
-    output_add_definitions(definitions)
+    output_add_includes(output_main, includes)
+    output_add_definitions(output_main, definitions)
 
     main = function_get("int", "main")
     function_add(main, printf("HELLO WORLD!"))
     function_add(main, printf("HELLO WORLD 2!"))
     function_add(main, printf("HELLO %s %d!", ["CUSTOM WORLD!", 4]))
 
-    output_add_function(function_glfw_setup())
-    output_add_function(main)
+    output_add_function(output_main, function_glfw_setup())
+    output_add_function(output_main, main)
 
-    output_print()
+    output_print(output_main)
 
 if __name__ == "__main__":
         main()

@@ -520,6 +520,78 @@ get_id_object(void)
     return object_first_empty++;
 }
 
+void
+object_drawable_setup_values(struct object_drawable * drawable,
+        GLsizei num_vertices,
+        GLsizei num_indices,
+        GLsizei num_normals,
+        GLfloat * vertices,
+        GLuint * indices,
+        GLfloat * normals)
+{
+    /* Set drawable parameters and bind pointers. */
+    drawable->num_vertices = num_vertices;
+    drawable->num_indices = num_indices;
+    drawable->num_normals = num_normals;
+
+    drawable->vertices = vertices;
+    drawable->indices = indices;
+    drawable->normals = NULL;
+}
+
+void
+object_drawable_setup_buffers(struct object_drawable * drawable)
+{
+    GLuint vao = 0;
+    GLuint vbo = 0;
+
+    /* Unbind any currently bound vertex-array and vertex-buffer object. */
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    /* Setup vertex array object. */
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    drawable->vao = vao;
+
+    /* Setup vertex buffer object. */
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+    /* Populate bound array_buffer with vertice data. */
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*drawable->num_vertices,
+            drawable->vertices, GL_STATIC_DRAW);
+
+    /* Setup vertex attribute pointer. */
+    GLuint attribute_vertex_data = 0;
+    glVertexAttribPointer(
+            attribute_vertex_data, // Attribute index.
+            3,          // Number of elements per vertex.
+            GL_FLOAT,   // Data type of element.
+            GL_FALSE,   // Specify if data is normalized.
+            0,          // Stride = 0 -> elements tightly packed.
+            0           // Offset-pointer to first element.
+    );
+    /* Enable vertex attribute pointer. */
+    glEnableVertexAttribArray(attribute_vertex_data);
+
+    /* Create buffer for indices. */
+    GLuint vbo_obj_indices = 0;
+    glGenBuffers(1, &vbo_obj_indices);
+
+    /* Populate indices buffer. */
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_obj_indices);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*drawable->num_indices,
+            drawable->indices, GL_STATIC_DRAW);
+
+    /* Unbind all buffers. */
+    glBindVertexArray(0); // Important that this is done first!
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+
 GLsizei
 object_from_obj(const GLchar * filename)
 {
@@ -545,23 +617,6 @@ object_from_obj(const GLchar * filename)
     struct object_drawable * drawable = &r_objects_drawable[id_drawable];
     object->drawable = drawable;
 
-    GLuint vbo = 0;
-    GLuint vao = 0;
-
-    /* Unbind any currently bound vertex-array and vertex-buffer object. */
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    /* Setup vertex array object. */
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
-    drawable->vao = vao;
-
-    /* Setup vertex buffer object. */
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
     GLfloat * obj_vertices = NULL;
     GLsizei num_obj_vertices = 0;
     GLuint * obj_indices = NULL;
@@ -575,45 +630,17 @@ object_from_obj(const GLchar * filename)
         return EXIT_FAILURE;
     }
 
-    /* Set drawable parameters and bind pointers. */
-    drawable->num_vertices = num_obj_vertices;
-    drawable->num_indices = num_obj_indices;
-    drawable->num_normals = 0;
+    /* Set variables and bind data pointers for drawable. */
+    object_drawable_setup_values(drawable,
+            num_obj_vertices,
+            num_obj_indices,
+            0,
+            obj_vertices,
+            obj_indices,
+            NULL);
 
-    drawable->vertices = obj_vertices;
-    drawable->indices = obj_indices;
-    drawable->normals = NULL;
-
-    /* Populate bound array_buffer with data. */
-    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_obj_vertices,
-            obj_vertices, GL_STATIC_DRAW);
-
-    /* Setup vertex attribute pointer. */
-    GLuint attribute_vertex_data = 0;
-    glVertexAttribPointer(
-            attribute_vertex_data, // Attribute index.
-            3,          // Number of elements per vertex.
-            GL_FLOAT,   // Data type of element.
-            GL_FALSE,   // Specify if data is normalized.
-            0,          // Stride = 0 -> elements tightly packed.
-            0           // Offset-pointer to first element.
-    );
-    /* Enable vertex attribute pointer. */
-    glEnableVertexAttribArray(attribute_vertex_data);
-
-    /* Create buffer for indices. */
-    GLuint vbo_obj_indices = 0;
-    glGenBuffers(1, &vbo_obj_indices);
-
-    /* Populate indices buffer. */
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_obj_indices);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*num_obj_indices,
-            obj_indices, GL_STATIC_DRAW);
-
-    /* Unbind all buffers. */
-    glBindVertexArray(0); // Important that this is done first!
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    /* Set up correct buffer structures and vao for binding. */
+    object_drawable_setup_buffers(drawable);
 
     /* Return id. */
     return id_object;

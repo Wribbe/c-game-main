@@ -784,6 +784,27 @@ object_translate(GLuint id_object, vec3 direction)
     }
 }
 
+void
+object_rotate_x(GLuint id_object, GLfloat angle)
+{
+    mat4x4 * m = &r_objects[id_object].model;
+    mat4x4_rotate_X(*m, *m, angle);
+}
+
+void
+object_rotate_y(GLuint id_object, GLfloat angle)
+{
+    mat4x4 * m = &r_objects[id_object].model;
+    mat4x4_rotate_Y(*m, *m, angle);
+}
+
+void
+object_rotate_z(GLuint id_object, GLfloat angle)
+{
+    mat4x4 * m = &r_objects[id_object].model;
+    mat4x4_rotate_Z(*m, *m, angle);
+}
+
 
 int
 main(void)
@@ -835,7 +856,7 @@ main(void)
     object_set_program(id_plane, program_red);
 
     object_translate(id_plane, (vec3){1.0f, 1.0f, 1.0f});
-    object_translate(id_cube, (vec3){2.0f, -1.3f, 0.0f});
+    object_translate(id_cube, (vec3){2.4f, -1.3f, 0.0f});
     object_translate(id_suzanne, (vec3){0.0f, 0.0f, 3.0f});
     object_translate(id_sphere, (vec3){-2.0f, -1.0f, 0.0f});
 
@@ -865,6 +886,16 @@ main(void)
         /* Poll events. */
         glfwPollEvents();
         process_frame_events();
+
+        /* Rotate objects. */
+
+        object_rotate_x(id_plane, M_PI/2*time_delta);
+        object_rotate_z(id_plane, M_PI/2*time_delta);
+
+        object_rotate_y(id_suzanne, M_PI/8*time_delta);
+
+        object_rotate_x(id_cube, M_PI/3*time_delta);
+        object_rotate_z(id_cube, M_PI/2*time_delta);
 
         /* Re-calculate view matrix. */
         vec3 vec3_camera_center = {0};

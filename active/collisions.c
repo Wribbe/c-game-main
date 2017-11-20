@@ -658,6 +658,69 @@ draw_objects(void)
     }
 }
 
+GLsizei
+object_create_plane(GLfloat width, GLfloat height)
+{
+    GLsizei id_object = get_id_object();
+    if (id_object < 1) {
+        return id_object;
+    }
+
+    struct object * object = &r_objects[id_object];
+
+    GLsizei id_drawable = get_id_drawable_object();
+    if (id_drawable < 1) { // No objects left.
+        object->drawable = NULL;
+        return id_object;
+    }
+
+    struct object_drawable * drawable = &r_objects_drawable[id_drawable];
+    object->drawable = drawable;
+
+    GLfloat hw = width/2.0f;
+    GLfloat hh = height/2.0f;
+
+    GLfloat vertices[] = {
+        -hw, 0.0f, -hh, // Top left.
+         hw, 0.0f, -hh, // Top right.
+        -hw, 0.0f,  hh, // Bottom left.
+         hw, 0.0f,  hh, // Bottom right.
+    };
+
+    GLuint indices[] = {
+        0, 2, 1, // First CCW triangle.
+        1, 2, 3, // Second CCW triangle.
+    };
+
+    /* Allocate memory for vertices and indices. */
+    GLfloat * data_vertices = malloc(sizeof(vertices));
+    if (data_vertices == NULL) {
+        fprintf(stderr,
+                "Could not allocate data for vertices when creating plane.\n");
+        return 0;
+    }
+    memcpy(data_vertices, vertices, sizeof(vertices));
+
+    GLuint * data_indices = malloc(sizeof(indices));
+    if (data_indices == NULL) {
+        fprintf(stderr,
+                "Could not allocate data for indices when creating plane.\n");
+        return 0;
+    }
+    memcpy(data_indices, indices, sizeof(indices));
+
+    object_drawable_setup_values(drawable,
+            SIZE(vertices),
+            SIZE(indices),
+            0,
+            data_vertices,
+            data_indices,
+            NULL);
+    object_drawable_setup_buffers(drawable);
+
+    return id_object;
+}
+
 int
 main(void)
 {
@@ -684,6 +747,12 @@ main(void)
     if (id_sphere < 1) {
         fprintf(stderr, "Error on loading %s from disk, aborting.\n",
                 filename_obj);
+        return EXIT_FAILURE;
+    }
+
+    GLsizei id_plane = object_create_plane(4.0f, 4.0f);
+    if (id_plane < 1) {
+        fprintf(stderr, "Error creating plane, aborting.\n");
         return EXIT_FAILURE;
     }
 

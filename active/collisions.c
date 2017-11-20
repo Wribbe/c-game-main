@@ -16,6 +16,7 @@
 #define WINDOW_HEIGHT 900
 
 double time_delta = 0.0f;
+GLuint program_default;
 
 GLFWwindow *
 setup_glfw(void)
@@ -75,8 +76,16 @@ const GLchar * source_shader_fragment =
 "  gl_FragColor = vec4(1.0f);\n"
 "}\n";
 
+const GLchar * source_shader_fragment_red =
+"#version 330 core\n"
+"\n"
+"void main() {\n"
+"  gl_FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);\n"
+"}\n";
+
 GLuint
-setup_shaders()
+get_program(const GLchar * source_shader_vertex,
+        const GLchar * source_shader_fragment)
 {
     /* Create vertex and fragment shaders. */
     GLuint shader_vertex = glCreateShader(GL_VERTEX_SHADER);
@@ -102,6 +111,7 @@ setup_shaders()
                 buffer_error_message);
         fprintf(stderr, "Error on compiling vertex shader: %s\n\n%s\n",
                 buffer_error_message, source_shader_vertex);
+        return 0;
     }
 
     /* Check compilation status of fragment shader. */
@@ -111,32 +121,40 @@ setup_shaders()
                 buffer_error_message);
         fprintf(stderr, "Error on compiling fragment shader: %s\n\n%s\n",
                 buffer_error_message, source_shader_fragment);
+        return 0;
     }
 
     /* Create shader program. */
-    GLuint program_shader = glCreateProgram();
+    GLuint id_program = glCreateProgram();
 
     /* Attach compiled shaders. */
-    glAttachShader(program_shader, shader_vertex);
-    glAttachShader(program_shader, shader_fragment);
+    glAttachShader(id_program, shader_vertex);
+    glAttachShader(id_program, shader_fragment);
 
     /* Link the shader program. */
-    glLinkProgram(program_shader);
+    glLinkProgram(id_program);
 
     /* Check link status. */
-    glGetProgramiv(program_shader, GL_LINK_STATUS, &operation_successful);
+    glGetProgramiv(id_program, GL_LINK_STATUS, &operation_successful);
     if (!operation_successful) {
-        glGetProgramInfoLog(program_shader, size_error_buffer, NULL,
+        glGetProgramInfoLog(id_program, size_error_buffer, NULL,
                 buffer_error_message);
         fprintf(stderr, "Error on linking the shader program: %s\n",
                 buffer_error_message);
+        return 0;
     }
 
     /* Delete compiled shaders. */
     glDeleteShader(shader_vertex);
     glDeleteShader(shader_fragment);
 
-    return program_shader;
+    return id_program;
+}
+
+GLuint
+setup_default_shader()
+{
+    return get_program(source_shader_vertex, source_shader_fragment);
 }
 
 GLfloat vertices[] = {
@@ -185,8 +203,8 @@ read_file(const GLchar * filename)
 }
 
 GLint
-obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertices,
-        GLsizei * num_indices, GLuint ** r_indices)
+obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** ret_vertices,
+        GLsizei * num_indices, GLuint ** ret_indices)
 {
     const GLchar * current = data;
     const GLchar * newline = data;
@@ -342,13 +360,13 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertice
     *num_vertices = parsed_vertices;
 
     /* Bind the vertices back to the supplied pointer. */
-    *r_vertices = vertices;
+    *ret_vertices = vertices;
 
     /* Set the number of parsed indices. */
     *num_indices = parsed_indices;
 
     /* Bind the indices back to the supplied pointer. */
-    *r_indices= indices;
+    *ret_indices= indices;
 
     return 1;
 }
@@ -496,6 +514,7 @@ struct object {
     struct object_drawable * drawable;
     mat4x4 model;
     vec3 velocity;
+    GLuint program;
 };
 
 #define MAX_OBJECTS 900
@@ -508,7 +527,14 @@ get_id_drawable_object(void)
     if (object_drawable_first_empty >= MAX_DRAWABLE_OBJECTS) {
         return 0;
     }
-    return object_drawable_first_empty++;
+    GLsizei id = object_drawable_first_empty++;
+    /* Set default program. */
+    r_objects[id].program = program_default;
+    /* Set model to unity matrix. */
+    for (size_t i=0; i<4; i++) {
+        r_objects[id].model[i][i] = 1.0f;
+    }
+    return id;
 }
 
 GLsizei
@@ -653,6 +679,7 @@ draw_objects(void)
     struct object * stop = &r_objects[object_first_empty];
     for (; object < stop; object++) {
         glBindVertexArray(object->drawable->vao);
+        glUseProgram(object->program);
         glDrawElements(GL_TRIANGLES, object->drawable->num_indices, GL_UNSIGNED_INT, NULL);
         glBindVertexArray(0);
     }
@@ -721,10 +748,20 @@ object_create_plane(GLfloat width, GLfloat height)
     return id_object;
 }
 
+void
+object_set_program(GLuint id_object, GLuint id_program)
+{
+    r_objects[id_object].program = id_program;
+}
+
+
 int
 main(void)
 {
     GLFWwindow * window = setup_glfw();
+    program_default = setup_default_shader();
+
+    GLuint program_red = get_program(source_shader_vertex, source_shader_fragment_red);
 
     const GLchar * filename_obj = "cube.obj";
     GLsizei id_cube = object_from_obj(filename_obj);
@@ -755,16 +792,11 @@ main(void)
         fprintf(stderr, "Error creating plane, aborting.\n");
         return EXIT_FAILURE;
     }
-
-    GLuint id_shader_program = setup_shaders();
-    glUseProgram(id_shader_program);
+    object_set_program(id_plane, program_red);
 
     glfwSetKeyCallback(window, callback_key_method);
     glfwSetCursorPosCallback(window, callback_mouse_position_method);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-    GLuint ulocation_m4_mvp = glGetUniformLocation(id_shader_program,
-            "m4_mvp");
 
     /* Set projection matrix as a perspective matrix. */
     mat4x4_perspective(m4_projection, M_PI/4,
@@ -792,16 +824,25 @@ main(void)
         mat4x4_look_at(m4_view, vec3_camera_position, vec3_camera_center,
                 vec3_camera_up);
 
-        /* Re-calculate mvp matrix. */
-        mat4x4_mul(m4_mvp, m4_view, m4_model);
-        mat4x4_mul(m4_mvp, m4_projection, m4_mvp);
+        /* Re-calculate mvp matrix for all objects. */
+        struct object * object = &r_objects[1];
+        struct object * stop = &r_objects[object_first_empty];
+        for (; object < stop; object++) {
 
-        /* Supply mvp matrix to vertex shader. */
-        glUniformMatrix4fv(
-                ulocation_m4_mvp,
-                1,
-                GL_FALSE,
-                m4_mvp[0]);
+            mat4x4_mul(m4_mvp, m4_view, object->model);
+            mat4x4_mul(m4_mvp, m4_projection, m4_mvp);
+
+            glUseProgram(object->program);
+            GLuint ulocation_m4_mvp = glGetUniformLocation(object->program,
+                    "m4_mvp");
+
+            /* Supply mvp matrix to vertex shader. */
+            glUniformMatrix4fv(
+                    ulocation_m4_mvp,
+                    1,
+                    GL_FALSE,
+                    m4_mvp[0]);
+        }
 
         /* Draw. */
         draw_objects();

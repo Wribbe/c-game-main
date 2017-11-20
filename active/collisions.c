@@ -184,7 +184,7 @@ read_file(const GLchar * filename)
     return buffer;
 }
 
-void
+GLint
 obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertices,
         GLsizei * num_indices, GLuint ** r_indices)
 {
@@ -204,8 +204,13 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertice
     GLfloat * vertices = malloc(sizeof(GLfloat)*max_vertices);
     if (vertices == NULL) {
         fprintf(stderr, "Could not allocate memory for vertices!\n");
+        return -1;
     }
     GLuint * indices = malloc(sizeof(GLuint)*max_indices);
+    if (indices == NULL) {
+        fprintf(stderr, "Could not allocate memory for indices!\n");
+        return -1;
+    }
 
     size_t s_tag = 3;
     GLchar tag[s_tag];
@@ -273,7 +278,12 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertice
                         if (parsed_indices >= max_indices) {
                             max_indices += increment_indices;
                             indices = realloc(indices,
-                                    sizeof(GLfloat)*max_indices);
+                                    sizeof(GLuint)*max_indices);
+                            if (indices == NULL) {
+                                fprintf(stderr, "Error while expanding memory"
+                                                " for the indices.\n");
+                                return -1;
+                            }
                         }
                     }
                     if (f_values[1] != 0) { // Texture index was parsed.
@@ -302,6 +312,11 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertice
                 max_vertices += increment_vertices;
                 vertices = realloc(vertices,
                         sizeof(GLfloat)*max_vertices);
+                if (vertices == NULL) {
+                    fprintf(stderr, "Error while expanding memory"
+                                    " for the vertices.\n");
+                    return -1;
+                }
             }
             /* Put vertices in array. */
             vertices[parsed_vertices++] = f1;
@@ -318,6 +333,10 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertice
     /* Fit the vertice data. */
     if (parsed_vertices != max_vertices) {
         vertices = realloc(vertices, sizeof(GLfloat)*parsed_vertices);
+        if (vertices == NULL) {
+            fprintf(stderr, "Error while re-fitting memory for the vertices.\n");
+            return -1;
+        }
     }
     /* Set the number of parsed vertices. */
     *num_vertices = parsed_vertices;
@@ -330,6 +349,8 @@ obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** r_vertice
 
     /* Bind the indices back to the supplied pointer. */
     *r_indices= indices;
+
+    return 1;
 }
 
 mat4x4 m4_projection = {
@@ -458,6 +479,7 @@ process_frame_events(void)
 }
 
 struct object_drawable {
+    GLuint vao;
     GLsizei num_vertices;
     GLsizei num_indices;
     GLsizei num_normals;
@@ -466,94 +488,108 @@ struct object_drawable {
     GLuint * indices;
 };
 
+#define MAX_DRAWABLE_OBJECTS 300
+struct object_drawable r_objects_drawable[MAX_DRAWABLE_OBJECTS] = {0};
+GLsizei object_drawable_first_empty = 1; // 0 used for errors.
+
 struct object {
     struct object_drawable * drawable;
     mat4x4 model;
     vec3 velocity;
 };
 
-#define MAX_DRAWABLE_OBJECTS 300
-struct object_drawable r_objects_drawable[MAX_DRAWABLE_OBJECTS];
-GLsizei object_drawable_first_empty = 0;
+#define MAX_OBJECTS 900
+struct object r_objects[MAX_OBJECTS] = {0};
+GLsizei object_first_empty = 1; // 0 used for errors.
 
-#define MAX_OBJECTS 200
-struct object r_objects[MAX_OBJECTS];
-GLsizei object_first_empty = 0;
-
-int
-main(void)
+GLsizei
+get_id_drawable_object(void)
 {
-    GLFWwindow * window = setup_glfw();
+    if (object_drawable_first_empty >= MAX_DRAWABLE_OBJECTS) {
+        return 0;
+    }
+    return object_drawable_first_empty++;
+}
 
-    GLuint id_shader_program = setup_shaders();
-    glUseProgram(id_shader_program);
+GLsizei
+get_id_object(void)
+{
+    if (object_first_empty >= MAX_OBJECTS) {
+        return 0;
+    }
+    return object_first_empty++;
+}
+
+GLsizei
+object_from_obj(const GLchar * filename)
+{
+    //const GLchar * filename = "cube.obj";
+    GLchar * str_obj = read_file(filename);
+    if (str_obj == NULL) {
+        return 0;
+    }
+
+    GLsizei id_object = get_id_object();
+    if (id_object < 1) {
+        return id_object;
+    }
+
+    struct object * object = &r_objects[id_object];
+
+    GLsizei id_drawable = get_id_drawable_object();
+    if (id_drawable < 1) { // No objects left.
+        object->drawable = NULL;
+        return id_object;
+    }
+
+    struct object_drawable * drawable = &r_objects_drawable[id_drawable];
+    object->drawable = drawable;
 
     GLuint vbo = 0;
     GLuint vao = 0;
+
+    /* Unbind any currently bound vertex-array and vertex-buffer object. */
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 
     /* Setup vertex array object. */
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
+    drawable->vao = vao;
+
     /* Setup vertex buffer object. */
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-    /* Populate buffer with data. */
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    /* Setup vertex attribute pointer. */
-    GLuint attribute_vertex_data = 0;
-    glVertexAttribPointer(
-            attribute_vertex_data, // Attribute index.
-            3,          // Number of elements per vertex.
-            GL_FLOAT,   // Data type of element.
-            GL_FALSE,   // Specify if data is normalized.
-            0,          // Stride = 0 -> elements tightly packed.
-            0           // Offset-pointer to first element.
-    );
-    /* Enable vertex attribute pointer. */
-    glEnableVertexAttribArray(attribute_vertex_data);
-
-    const GLchar * filename = "suzanne.obj";
-    //const GLchar * filename = "cube.obj";
-    GLchar * str_obj = read_file(filename);
-    if (str_obj == NULL) {
-        fprintf(stderr, "Could not open %s, aborting.\n", filename);
-        return EXIT_FAILURE;
-    }
 
     GLfloat * obj_vertices = NULL;
     GLsizei num_obj_vertices = 0;
     GLuint * obj_indices = NULL;
     GLsizei num_obj_indices = 0;
 
-    obj_parse_data(str_obj, &num_obj_vertices, &obj_vertices,
+    GLint status = obj_parse_data(str_obj, &num_obj_vertices, &obj_vertices,
             &num_obj_indices, &obj_indices);
+    if (status < 0) {
+        fprintf(stderr,
+                "Something went wrong with the obj-parsing, aborting.\n");
+        return EXIT_FAILURE;
+    }
 
-    /* Unbind current vertex-array and vertex-buffer object. */
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    /* Set drawable parameters and bind pointers. */
+    drawable->num_vertices = num_obj_vertices;
+    drawable->num_indices = num_obj_indices;
+    drawable->num_normals = 0;
 
-    /* Create a new vao for obj. */
-    GLuint vao_obj = 0;
-    glGenVertexArrays(1, &vao_obj);
+    drawable->vertices = obj_vertices;
+    drawable->indices = obj_indices;
+    drawable->normals = NULL;
 
-    /* Bind the new vao. */
-    glBindVertexArray(vao_obj);
-
-    /* Create a buffer for obj. */
-    GLuint vbo_obj = 0;
-    glGenBuffers(1, &vbo_obj);
-
-    /* Bind new buffer. */
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_obj);
-
-    /* Populate buffer with data. */
+    /* Populate bound array_buffer with data. */
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_obj_vertices,
             obj_vertices, GL_STATIC_DRAW);
 
-    /* Is it necessary to setup a new vertex attribute pointer? */
+    /* Setup vertex attribute pointer. */
+    GLuint attribute_vertex_data = 0;
     glVertexAttribPointer(
             attribute_vertex_data, // Attribute index.
             3,          // Number of elements per vertex.
@@ -569,9 +605,55 @@ main(void)
     GLuint vbo_obj_indices = 0;
     glGenBuffers(1, &vbo_obj_indices);
 
+    /* Populate indices buffer. */
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_obj_indices);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*num_obj_indices,
             obj_indices, GL_STATIC_DRAW);
+
+    /* Unbind all buffers. */
+    glBindVertexArray(0); // Important that this is done first!
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    /* Return id. */
+    return id_object;
+}
+
+void
+draw_objects(void)
+{
+    struct object * object = &r_objects[1];
+    struct object * stop = &r_objects[object_first_empty];
+    for (; object < stop; object++) {
+        glBindVertexArray(object->drawable->vao);
+        glDrawElements(GL_TRIANGLES, object->drawable->num_indices, GL_UNSIGNED_INT, NULL);
+        glBindVertexArray(0);
+    }
+}
+
+int
+main(void)
+{
+    GLFWwindow * window = setup_glfw();
+
+    const GLchar * filename_obj = "cube.obj";
+    GLsizei id_cube = object_from_obj(filename_obj);
+    if (id_cube < 1) {
+        fprintf(stderr, "Error on loading %s from disk, aborting.\n",
+                filename_obj);
+        return EXIT_FAILURE;
+    }
+
+    filename_obj = "suzanne.obj";
+    GLsizei id_suzanne = object_from_obj(filename_obj);
+    if (id_suzanne < 1) {
+        fprintf(stderr, "Error on loading %s from disk, aborting.\n",
+                filename_obj);
+        return EXIT_FAILURE;
+    }
+
+    GLuint id_shader_program = setup_shaders();
+    glUseProgram(id_shader_program);
 
     glfwSetKeyCallback(window, callback_key_method);
     glfwSetCursorPosCallback(window, callback_mouse_position_method);
@@ -600,7 +682,6 @@ main(void)
         glfwPollEvents();
         process_frame_events();
 
-
         /* Re-calculate view matrix. */
         vec3 vec3_camera_center = {0};
         vec3_add(vec3_camera_center, vec3_camera_position, vec3_camera_direction);
@@ -619,16 +700,15 @@ main(void)
                 m4_mvp[0]);
 
         /* Draw. */
-//        glBindVertexArray(vao);
-//        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
-
-        glBindVertexArray(vao_obj);
-        glDrawElements(GL_TRIANGLES, num_obj_indices, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
+        draw_objects();
 
         /* Swap. */
         glfwSwapBuffers(window);
 
+        GLenum err;
+        while((err = glGetError()) != GL_NO_ERROR) {
+            printf("GLerror: %u\n", err);
+        }
     }
     glfwTerminate();
 }

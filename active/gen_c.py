@@ -35,6 +35,7 @@ function_key_return_type = "return_type"
 function_key_arguments = "arguments"
 function_key_indent = "current_indentation"
 function_key_open_contexts = "open_contexts"
+function_key_defined_varaibles = "defined_variables"
 
 def function_get(type_return, string_name, arguments=[]):
 
@@ -45,6 +46,7 @@ def function_get(type_return, string_name, arguments=[]):
             function_key_arguments : arguments,
             function_key_indent : 2,
             function_key_open_contexts : [],
+            function_key_defined_varaibles : set(),
     }
 
     return dict_function
@@ -179,6 +181,40 @@ def function_context_close(dict_function):
     function_body_add(dict_function, "}")
     return context_previous
 
+assign_key_name_variable = "assignment_variable_name"
+assign_key_assign_string = "assignment_string"
+assign_key_assign_type = "assignment_type"
+
+def assign(name_variable, string_value, string_type, *arguments):
+
+    if string_value.endswith(")"): # Value is a function.
+        string_value = string_value[:-1] # Cut last ')'.
+        string_assign_value = "{}{}".format(string_value, ', '.join(arguments))
+        string_assign_value += ")"
+    else:
+        string_assign_value = string_value
+
+    dict_assignment = {
+            assign_key_name_variable : name_variable,
+            assign_key_assign_string : string_assign_value,
+            assign_key_assign_type : string_type,
+    }
+
+    return dict_assignment
+
+def function_add_assignment(dict_function, dict_assignment):
+    name_variable = dict_assignment[assign_key_name_variable]
+    string_value = dict_assignment[assign_key_assign_string]
+    function_variable_set = dict_function[function_key_defined_varaibles]
+    if name_variable not in function_variable_set:
+        function_variable_set.add(name_variable)
+        name_variable = "{} {}".format(dict_assignment[assign_key_assign_type],
+                name_variable)
+    function_body_add(dict_function, "{} = {};".format(name_variable, string_value))
+
+def function_get_name(dict_function):
+    return "{}()".format(dict_function[function_key_name])
+
 output_key_includes = "includes"
 output_key_definitions = "definitions"
 output_key_functions = "functions"
@@ -243,7 +279,6 @@ def output_to_string(output):
     return final_string
 
 def output_print(output):
-
     print(output_to_string(output))
 
 def main():
@@ -273,34 +308,21 @@ def main():
     output_add_function(output_main, function_glfw_setup())
 
     main = function_get("int", "main")
-    function_body_add(main, printf("HELLO WORLD!"))
-    function_body_add(main, printf("HELLO WORLD 2!"))
-    function_body_add(main, printf("HELLO %s %d!", "CUSTOM WORLD!", 4))
 
-    function_context_open(main, "while", "!glfwWindowShouldClose(window)");
+    name_window = "window"
+    assignment_window = assign(name_window,
+            function_get_name(function_glfw_setup()), "GLFWwindow *")
+    function_add_assignment(main, assignment_window)
 
-    function_context_open(main, "if", "!glfwWindowShouldClose(window)");
-    function_body_add(main, printf("HELLO WORLD 1!"))
-    function_body_add(main, printf("HELLO WORLD 2!"))
-    function_context_open(main, "else if", "!glfwWindowShouldClose(window)");
-    function_body_add(main, printf("HELLO WORLD 1!"))
-    function_body_add(main, printf("HELLO WORLD 2!"))
-    function_context_open(main, "else if", "!glfwWindowShouldClose(window)");
-    function_body_add(main, printf("HELLO WORLD 1!"))
-    function_body_add(main, printf("HELLO WORLD 2!"))
-    function_context_open(main, "else", "!glfwWindowShouldClose(window)");
-    function_context_open(main, "while", "!glfwWindowShouldClose(window)");
-    function_body_add(main, printf("HELLO WORLD 1!"))
-    function_context_open(main, "if", "!glfwWindowShouldClose(window)");
-    function_body_add(main, printf("HELLO WORLD 1!"))
-    function_context_close(main);
-    function_context_close(main);
-    function_body_add(main, printf("HELLO WORLD 1!"))
-    function_body_add(main, printf("HELLO WORLD 2!"))
+    function_context_open(main, "while",
+            "!glfwWindowShouldClose({})".format(name_window))
+
+    function_body_add(main, "glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);")
+    function_body_add(main, "glfwPollEvents();")
+    function_body_add(main, "glfwSwapBuffers({});".format(name_window))
 
     function_context_close(main);
-
-    function_context_close(main);
+    function_body_add(main, "glfwTerminate();")
 
     output_add_function(output_main, main)
 

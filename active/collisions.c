@@ -83,6 +83,27 @@ const GLchar * source_shader_fragment_red =
 "  gl_FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);\n"
 "}\n";
 
+const GLchar * source_shader_fragment_green =
+"#version 330 core\n"
+"\n"
+"void main() {\n"
+"  gl_FragColor = vec4(0.0f, 1.0f, 0.0f, 1.0f);\n"
+"}\n";
+
+const GLchar * source_shader_fragment_blue =
+"#version 330 core\n"
+"\n"
+"void main() {\n"
+"  gl_FragColor = vec4(0.0f, 0.0f, 1.0f, 1.0f);\n"
+"}\n";
+
+const GLchar * source_shader_fragment_pink =
+"#version 330 core\n"
+"\n"
+"void main() {\n"
+"  gl_FragColor = vec4(1.0f, 0.8f, 0.9f, 1.0f);\n"
+"}\n";
+
 GLuint
 get_program(const GLchar * source_shader_vertex,
         const GLchar * source_shader_fragment)
@@ -761,7 +782,14 @@ main(void)
     GLFWwindow * window = setup_glfw();
     program_default = setup_default_shader();
 
-    GLuint program_red = get_program(source_shader_vertex, source_shader_fragment_red);
+    GLuint program_red = get_program(source_shader_vertex,
+            source_shader_fragment_red);
+    GLuint program_green = get_program(source_shader_vertex,
+            source_shader_fragment_green);
+    GLuint program_blue = get_program(source_shader_vertex,
+            source_shader_fragment_blue);
+    GLuint program_pink = get_program(source_shader_vertex,
+            source_shader_fragment_pink);
 
     const GLchar * filename_obj = "cube.obj";
     GLsizei id_cube = object_from_obj(filename_obj);
@@ -770,6 +798,7 @@ main(void)
                 filename_obj);
         return EXIT_FAILURE;
     }
+    object_set_program(id_cube, program_pink);
 
     filename_obj = "suzanne.obj";
     GLsizei id_suzanne = object_from_obj(filename_obj);
@@ -778,6 +807,7 @@ main(void)
                 filename_obj);
         return EXIT_FAILURE;
     }
+    object_set_program(id_suzanne, program_green);
 
     filename_obj = "sphere.obj";
     GLsizei id_sphere = object_from_obj(filename_obj);
@@ -786,6 +816,7 @@ main(void)
                 filename_obj);
         return EXIT_FAILURE;
     }
+    object_set_program(id_sphere, program_blue);
 
     GLsizei id_plane = object_create_plane(4.0f, 4.0f);
     if (id_plane < 1) {

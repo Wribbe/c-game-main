@@ -122,7 +122,7 @@ get_program(const GLchar * source_shader_vertex,
 
     /* Prepare error data structures. */
     GLint operation_successful = 0;
-    GLsizei size_error_buffer = 1024;
+    size_t size_error_buffer = 1024;
     GLchar buffer_error_message[size_error_buffer];
 
     /* Check compilation status of vertex shader. */
@@ -224,20 +224,20 @@ read_file(const GLchar * filename)
 }
 
 GLint
-obj_parse_data(const GLchar * data, GLsizei * num_vertices, GLfloat ** ret_vertices,
-        GLsizei * num_indices, GLuint ** ret_indices)
+obj_parse_data(const GLchar * data, size_t * num_vertices, GLfloat ** ret_vertices,
+        size_t * num_indices, GLuint ** ret_indices)
 {
     const GLchar * current = data;
     const GLchar * newline = data;
 
-    GLsizei parsed_vertices = 0;
-    GLsizei parsed_indices = 0;
+    size_t parsed_vertices = 0;
+    size_t parsed_indices = 0;
 
-    GLsizei increment_vertices = 300;
-    GLsizei increment_indices = 300;
+    size_t increment_vertices = 300;
+    size_t increment_indices = 300;
 
-    GLsizei max_vertices = 600;
-    GLsizei max_indices = 600;
+    size_t max_vertices = 600;
+    size_t max_indices = 600;
 
     /* Allocate memory for vertices and uv coordinates. */
     GLfloat * vertices = malloc(sizeof(GLfloat)*max_vertices);
@@ -519,9 +519,9 @@ process_frame_events(void)
 
 struct object_drawable {
     GLuint vao;
-    GLsizei num_vertices;
-    GLsizei num_indices;
-    GLsizei num_normals;
+    size_t num_vertices;
+    size_t num_indices;
+    size_t num_normals;
     GLfloat * vertices;
     GLfloat * normals;
     GLuint * indices;
@@ -529,7 +529,7 @@ struct object_drawable {
 
 #define MAX_DRAWABLE_OBJECTS 300
 struct object_drawable r_objects_drawable[MAX_DRAWABLE_OBJECTS] = {0};
-GLsizei object_drawable_first_empty = 1; // 0 used for errors.
+size_t object_drawable_first_empty = 1; // 0 used for errors.
 
 struct object {
     struct object_drawable * drawable;
@@ -540,15 +540,15 @@ struct object {
 
 #define MAX_OBJECTS 900
 struct object r_objects[MAX_OBJECTS] = {0};
-GLsizei object_first_empty = 1; // 0 used for errors.
+size_t object_first_empty = 1; // 0 used for errors.
 
-GLsizei
+GLuint
 get_id_drawable_object(void)
 {
     if (object_drawable_first_empty >= MAX_DRAWABLE_OBJECTS) {
         return 0;
     }
-    GLsizei id = object_drawable_first_empty++;
+    GLuint id = object_drawable_first_empty++;
     /* Set default program. */
     r_objects[id].program = program_default;
     /* Set model to unity matrix. */
@@ -558,7 +558,7 @@ get_id_drawable_object(void)
     return id;
 }
 
-GLsizei
+GLuint
 get_id_object(void)
 {
     if (object_first_empty >= MAX_OBJECTS) {
@@ -569,9 +569,9 @@ get_id_object(void)
 
 void
 object_drawable_setup_values(struct object_drawable * drawable,
-        GLsizei num_vertices,
-        GLsizei num_indices,
-        GLsizei num_normals,
+        size_t num_vertices,
+        size_t num_indices,
+        size_t num_normals,
         GLfloat * vertices,
         GLuint * indices,
         GLfloat * normals)
@@ -639,7 +639,7 @@ object_drawable_setup_buffers(struct object_drawable * drawable)
 }
 
 
-GLsizei
+GLuint
 object_from_obj(const GLchar * filename)
 {
     //const GLchar * filename = "cube.obj";
@@ -648,14 +648,14 @@ object_from_obj(const GLchar * filename)
         return 0;
     }
 
-    GLsizei id_object = get_id_object();
+    size_t id_object = get_id_object();
     if (id_object < 1) {
         return id_object;
     }
 
     struct object * object = &r_objects[id_object];
 
-    GLsizei id_drawable = get_id_drawable_object();
+    size_t id_drawable = get_id_drawable_object();
     if (id_drawable < 1) { // No objects left.
         object->drawable = NULL;
         return id_object;
@@ -665,9 +665,9 @@ object_from_obj(const GLchar * filename)
     object->drawable = drawable;
 
     GLfloat * obj_vertices = NULL;
-    GLsizei num_obj_vertices = 0;
+    size_t num_obj_vertices = 0;
     GLuint * obj_indices = NULL;
-    GLsizei num_obj_indices = 0;
+    size_t num_obj_indices = 0;
 
     GLint status = obj_parse_data(str_obj, &num_obj_vertices, &obj_vertices,
             &num_obj_indices, &obj_indices);
@@ -694,29 +694,26 @@ object_from_obj(const GLchar * filename)
 }
 
 void
-draw_objects(void)
+draw_object(GLuint id_object)
 {
-    struct object * object = &r_objects[1];
-    struct object * stop = &r_objects[object_first_empty];
-    for (; object < stop; object++) {
-        glBindVertexArray(object->drawable->vao);
-        glUseProgram(object->program);
-        glDrawElements(GL_TRIANGLES, object->drawable->num_indices, GL_UNSIGNED_INT, NULL);
-        glBindVertexArray(0);
-    }
+    struct object * object = &r_objects[id_object];
+    glBindVertexArray(object->drawable->vao);
+    glUseProgram(object->program);
+    glDrawElements(GL_TRIANGLES, object->drawable->num_indices, GL_UNSIGNED_INT, NULL);
+    glBindVertexArray(0);
 }
 
-GLsizei
+GLuint
 object_create_plane(GLfloat width, GLfloat height)
 {
-    GLsizei id_object = get_id_object();
+    GLuint id_object = get_id_object();
     if (id_object < 1) {
         return id_object;
     }
 
     struct object * object = &r_objects[id_object];
 
-    GLsizei id_drawable = get_id_drawable_object();
+    GLuint id_drawable = get_id_drawable_object();
     if (id_drawable < 1) { // No objects left.
         object->drawable = NULL;
         return id_object;
@@ -822,7 +819,7 @@ main(void)
             source_shader_fragment_pink);
 
     const GLchar * filename_obj = "cube.obj";
-    GLsizei id_cube = object_from_obj(filename_obj);
+    GLuint id_cube = object_from_obj(filename_obj);
     if (id_cube < 1) {
         fprintf(stderr, "Error on loading %s from disk, aborting.\n",
                 filename_obj);
@@ -831,7 +828,7 @@ main(void)
     object_set_program(id_cube, program_pink);
 
     filename_obj = "suzanne.obj";
-    GLsizei id_suzanne = object_from_obj(filename_obj);
+    GLuint id_suzanne = object_from_obj(filename_obj);
     if (id_suzanne < 1) {
         fprintf(stderr, "Error on loading %s from disk, aborting.\n",
                 filename_obj);
@@ -840,7 +837,7 @@ main(void)
     object_set_program(id_suzanne, program_green);
 
     filename_obj = "sphere.obj";
-    GLsizei id_sphere = object_from_obj(filename_obj);
+    GLuint id_sphere = object_from_obj(filename_obj);
     if (id_sphere < 1) {
         fprintf(stderr, "Error on loading %s from disk, aborting.\n",
                 filename_obj);
@@ -848,12 +845,19 @@ main(void)
     }
     object_set_program(id_sphere, program_blue);
 
-    GLsizei id_plane = object_create_plane(4.0f, 4.0f);
+    GLuint id_plane = object_create_plane(4.0f, 4.0f);
     if (id_plane < 1) {
         fprintf(stderr, "Error creating plane, aborting.\n");
         return EXIT_FAILURE;
     }
-    object_set_program(id_plane, program_red);
+
+    GLuint id_floor = object_create_plane(10.0f, 10.0f);
+    if (id_floor < 1) {
+        fprintf(stderr, "Error creating floor, aborting.\n");
+        return EXIT_FAILURE;
+    }
+    object_set_program(id_floor, program_blue);
+    object_translate(id_floor, (vec3){0.0f, -4.0f, 0.0f});
 
     object_translate(id_plane, (vec3){1.0f, 1.0f, 1.0f});
     object_translate(id_cube, (vec3){2.4f, -1.3f, 0.0f});
@@ -904,9 +908,9 @@ main(void)
                 vec3_camera_up);
 
         /* Re-calculate mvp matrix for all objects. */
-        struct object * object = &r_objects[1];
-        struct object * stop = &r_objects[object_first_empty];
-        for (; object < stop; object++) {
+        for (size_t i=1; i<object_first_empty; i++) {
+
+            struct object * object = &r_objects[i];
 
             mat4x4_mul(m4_mvp, m4_view, object->model);
             mat4x4_mul(m4_mvp, m4_projection, m4_mvp);
@@ -921,10 +925,11 @@ main(void)
                     1,
                     GL_FALSE,
                     m4_mvp[0]);
+
+            /* Draw. */
+            draw_object(i);
         }
 
-        /* Draw. */
-        draw_objects();
 
         /* Swap. */
         glfwSwapBuffers(window);

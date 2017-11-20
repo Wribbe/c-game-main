@@ -805,6 +805,9 @@ main(void)
     double time_prev = glfwGetTime();
     double time_now = 0;
 
+    /* Enable depth testing. */
+    glEnable(GL_DEPTH_TEST);
+
     while (!glfwWindowShouldClose(window)) {
 
         time_now = glfwGetTime();

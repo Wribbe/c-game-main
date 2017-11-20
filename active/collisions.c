@@ -17,6 +17,19 @@
 
 double time_delta = 0.0f;
 GLuint program_default;
+GLuint indices_bound[] = {
+    // Front face.
+    0, 1, // Front top line.
+    1, 3, // Front right line.
+    3, 2, // Front bottom line.
+    2, 1, // Front left line.
+    // Back face.
+    3, 4, // Back top line.
+    4, 7, // Back right line.
+    7, 6, // Back bottom line.
+    6, 5, // Back left line.
+};
+GLuint vao_bound = 0;
 
 GLFWwindow *
 setup_glfw(void)
@@ -389,9 +402,6 @@ obj_parse_data(const GLchar * data, size_t * num_vertices, GLfloat ** ret_vertic
     /* Bind the indices back to the supplied pointer. */
     *ret_indices= indices;
 
-    /* Free the read data. */
-    free(data);
-
     return 1;
 }
 
@@ -539,6 +549,7 @@ struct object {
     mat4x4 model;
     vec3 velocity;
     GLuint program;
+    vec3 bounds[8];
 };
 
 #define MAX_OBJECTS 900
@@ -642,6 +653,61 @@ object_drawable_setup_buffers(struct object_drawable * drawable)
 }
 
 
+void
+object_create_bounds(struct object * object)
+{
+    GLfloat * vertices = object->drawable->vertices;
+    GLfloat * stop = vertices+object->drawable->num_vertices;
+
+    GLfloat max_x = *vertices++;
+    GLfloat min_x = max_x;
+
+    GLfloat max_y = *vertices++;
+    GLfloat min_y = max_y;
+
+    GLfloat max_z = *vertices++;
+    GLfloat min_z = max_z;
+
+    for(; vertices < stop; vertices += 3) {
+        GLfloat x = *vertices;
+        GLfloat y = *vertices+1;
+        GLfloat z = *vertices+2;
+
+        if (x > max_x) {
+            max_x = x;
+        }
+        if (x < min_x) {
+            min_x = x;
+        }
+
+        if (y > max_y) {
+            max_y = y;
+        }
+        if (y < min_y) {
+            min_y = y;
+        }
+
+        if (z > max_z) {
+            max_z = z;
+        }
+        if (z < min_z) {
+            min_z = z;
+        }
+
+    }
+    vec3 bounds[] = {
+        {min_x, max_y, min_z}, // #0 Front Top Left.
+        {max_x, max_y, min_z}, // #1 Front Top Right.
+        {min_x, min_y, min_z}, // #2 Front Bottom Left.
+        {max_x, min_y, min_z}, // #3 Front Bottom Right.
+        {min_x, max_y, max_z}, // #4 Back Top Left.
+        {max_x, max_y, max_z}, // #5 Back Top Right.
+        {min_x, min_y, max_z}, // #6 Back Bottom Left.
+        {max_x, min_y, max_z}, // #7 Back Bottom Right.
+    };
+    memcpy(object->bounds, bounds, 8*sizeof(vec3));
+}
+
 GLuint
 object_from_obj(const GLchar * filename)
 {
@@ -679,6 +745,7 @@ object_from_obj(const GLchar * filename)
                 "Something went wrong with the obj-parsing, aborting.\n");
         return EXIT_FAILURE;
     }
+    free(str_obj);
 
     /* Set variables and bind data pointers for drawable. */
     object_drawable_setup_values(drawable,
@@ -692,9 +759,14 @@ object_from_obj(const GLchar * filename)
     /* Set up correct buffer structures and vao for binding. */
     object_drawable_setup_buffers(drawable);
 
+    /* Set up bounds. */
+    object_create_bounds(object);
+
     /* Return id. */
     return id_object;
 }
+
+GLuint vbo_bound_vertices = 0;
 
 void
 draw_object(GLuint id_object)
@@ -703,6 +775,8 @@ draw_object(GLuint id_object)
     glBindVertexArray(object->drawable->vao);
     glUseProgram(object->program);
     glDrawElements(GL_TRIANGLES, object->drawable->num_indices, GL_UNSIGNED_INT, NULL);
+    glBindVertexArray(vao_bound);
+    glDrawElements(GL_LINES, SIZE(indices_bound), GL_UNSIGNED_INT, NULL);
     glBindVertexArray(0);
 }
 
@@ -765,6 +839,9 @@ object_create_plane(GLfloat width, GLfloat height)
             data_indices,
             NULL);
     object_drawable_setup_buffers(drawable);
+
+    /* Set up bounds. */
+    object_create_bounds(object);
 
     return id_object;
 }
@@ -915,6 +992,32 @@ main(void)
 
     double time_prev = glfwGetTime();
     double time_now = 0;
+
+    /* Setup bounding box display vao. */
+    glGenVertexArrays(1, &vao_bound);
+    glBindVertexArray(vao_bound);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    /* Bind and fill GL_ELEMENT_ARRAY_BUFFER. */
+    GLuint vbo_indice_bound = 0;
+    glGenBuffers(1, &vbo_indice_bound);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_indice_bound);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices_bound), indices_bound,
+            GL_STATIC_DRAW);
+
+    /* Create buffer handle for dumping individual bound box data. */
+    glGenBuffers(1, &vbo_bound_vertices);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_bound_vertices);
+
+
+    /* Unbind vertex array. */
+    glBindVertexArray(0);
+
+    /* Unbind buffers. */
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     /* Enable depth testing. */
     glEnable(GL_DEPTH_TEST);

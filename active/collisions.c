@@ -389,6 +389,9 @@ obj_parse_data(const GLchar * data, size_t * num_vertices, GLfloat ** ret_vertic
     /* Bind the indices back to the supplied pointer. */
     *ret_indices= indices;
 
+    /* Free the read data. */
+    free(data);
+
     return 1;
 }
 

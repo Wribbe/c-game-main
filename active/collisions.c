@@ -773,12 +773,19 @@ object_set_program(GLuint id_object, GLuint id_program)
 }
 
 void
+object_translate_to(mat4x4 m, GLuint id_object, vec3 direction)
+{
+    GLfloat * model = r_objects[id_object].model[0];
+    for (size_t i=0; i<3; i++) {
+        m[3][i] = model[12+i] + direction[i];
+    }
+}
+
+void
 object_translate(GLuint id_object, vec3 direction)
 {
-    GLfloat * m = r_objects[id_object].model[0];
-    for (size_t i=0; i<3; i++) {
-        m[12+i] += direction[i];
-    }
+    mat4x4 * m = &r_objects[id_object].model;
+    object_translate_to(*m, id_object, direction);
 }
 
 void
@@ -802,6 +809,29 @@ object_rotate_z(GLuint id_object, GLfloat angle)
     mat4x4_rotate_Z(*m, *m, angle);
 }
 
+void
+object_velocity_set(GLuint id_object, vec3 velocity)
+{
+    for (size_t i=0; i<3; i++) {
+        r_objects[id_object].velocity[i] = velocity[i];
+    }
+}
+
+void
+object_velocity_add(GLuint id_object, vec3 velocity)
+{
+    for (size_t i=0; i<3; i++) {
+        r_objects[id_object].velocity[i] += velocity[i];
+    }
+}
+
+void
+object_velocity_tick(GLuint id_object)
+{
+    vec3 scaled_velocity = {0};
+    vec3_scale(scaled_velocity, r_objects[id_object].velocity, time_delta);
+    object_translate(id_object, scaled_velocity);
+}
 
 int
 main(void)
@@ -850,6 +880,7 @@ main(void)
         fprintf(stderr, "Error creating plane, aborting.\n");
         return EXIT_FAILURE;
     }
+    object_set_program(id_plane, program_red);
 
     GLuint id_floor = object_create_plane(10.0f, 10.0f);
     if (id_floor < 1) {
@@ -863,6 +894,13 @@ main(void)
     object_translate(id_cube, (vec3){2.4f, -1.3f, 0.0f});
     object_translate(id_suzanne, (vec3){0.0f, 0.0f, 3.0f});
     object_translate(id_sphere, (vec3){-2.0f, -1.0f, 0.0f});
+
+    /* Set object velocity. */
+    GLfloat force_gravity = 0.5f;
+    object_velocity_set(id_plane, (vec3){0.0f, -force_gravity, 0.0f});
+    object_velocity_set(id_cube, (vec3){0.0f, -force_gravity, 0.0f});
+    object_velocity_set(id_suzanne, (vec3){0.0f, -force_gravity, 0.0f});
+    object_velocity_set(id_sphere, (vec3){0.0f, -force_gravity, 0.0f});
 
     glfwSetKeyCallback(window, callback_key_method);
     glfwSetCursorPosCallback(window, callback_mouse_position_method);
@@ -893,13 +931,13 @@ main(void)
 
         /* Rotate objects. */
 
-        object_rotate_x(id_plane, M_PI/2*time_delta);
-        object_rotate_z(id_plane, M_PI/2*time_delta);
-
-        object_rotate_y(id_suzanne, M_PI/8*time_delta);
-
-        object_rotate_x(id_cube, M_PI/3*time_delta);
-        object_rotate_z(id_cube, M_PI/2*time_delta);
+//        object_rotate_x(id_plane, M_PI/2*time_delta);
+//        object_rotate_z(id_plane, M_PI/2*time_delta);
+//
+//        object_rotate_y(id_suzanne, M_PI/8*time_delta);
+//
+//        object_rotate_x(id_cube, M_PI/3*time_delta);
+//        object_rotate_z(id_cube, M_PI/2*time_delta);
 
         /* Re-calculate view matrix. */
         vec3 vec3_camera_center = {0};
@@ -911,6 +949,9 @@ main(void)
         for (size_t i=1; i<object_first_empty; i++) {
 
             struct object * object = &r_objects[i];
+
+            /* Tick velocity. */
+            object_velocity_tick(i);
 
             mat4x4_mul(m4_mvp, m4_view, object->model);
             mat4x4_mul(m4_mvp, m4_projection, m4_mvp);

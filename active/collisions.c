@@ -775,6 +775,15 @@ object_set_program(GLuint id_object, GLuint id_program)
     r_objects[id_object].program = id_program;
 }
 
+void
+object_translate(GLuint id_object, vec3 direction)
+{
+    GLfloat * m = r_objects[id_object].model[0];
+    for (size_t i=0; i<3; i++) {
+        m[12+i] += direction[i];
+    }
+}
+
 
 int
 main(void)
@@ -824,6 +833,11 @@ main(void)
         return EXIT_FAILURE;
     }
     object_set_program(id_plane, program_red);
+
+    object_translate(id_plane, (vec3){1.0f, 1.0f, 1.0f});
+    object_translate(id_cube, (vec3){2.0f, -1.3f, 0.0f});
+    object_translate(id_suzanne, (vec3){0.0f, 0.0f, 3.0f});
+    object_translate(id_sphere, (vec3){-2.0f, -1.0f, 0.0f});
 
     glfwSetKeyCallback(window, callback_key_method);
     glfwSetCursorPosCallback(window, callback_mouse_position_method);

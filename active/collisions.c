@@ -855,7 +855,7 @@ main(void)
 
         GLenum err;
         while((err = glGetError()) != GL_NO_ERROR) {
-            printf("GLerror: %u\n", err);
+            printf("GLerror: 0x%x.\n", err);
         }
     }
     glfwTerminate();

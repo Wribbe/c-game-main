@@ -679,6 +679,14 @@ main(void)
         return EXIT_FAILURE;
     }
 
+    filename_obj = "sphere.obj";
+    GLsizei id_sphere = object_from_obj(filename_obj);
+    if (id_sphere < 1) {
+        fprintf(stderr, "Error on loading %s from disk, aborting.\n",
+                filename_obj);
+        return EXIT_FAILURE;
+    }
+
     GLuint id_shader_program = setup_shaders();
     glUseProgram(id_shader_program);
 

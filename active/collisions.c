@@ -16,7 +16,10 @@
 #define WINDOW_HEIGHT 900
 
 double time_delta = 0.0f;
-GLuint program_default;
+
+GLuint program_default = 0;
+GLuint program_bounding_boxes = 0;
+
 GLuint indices_bound[] = {
     // Front face.
     0, 1, // Front top line.
@@ -88,6 +91,15 @@ const GLchar * source_shader_vertex =
 "  gl_Position = m4_mvp * vec4(vertex_data, 1.0f);\n"
 "}\n";
 
+const GLchar * source_shader_vertex_raw =
+"#version 330 core\n"
+"\n"
+"layout (location=0) in vec3 vertex_data;\n"
+"\n"
+"void main() {\n"
+"  gl_Position = vec4(vertex_data, 1.0f);\n"
+"}\n";
+
 const GLchar * source_shader_fragment =
 "#version 330 core\n"
 "\n"
@@ -121,6 +133,13 @@ const GLchar * source_shader_fragment_pink =
 "\n"
 "void main() {\n"
 "  gl_FragColor = vec4(1.0f, 0.8f, 0.9f, 1.0f);\n"
+"}\n";
+
+const GLchar * source_shader_fragment_orange =
+"#version 330 core\n"
+"\n"
+"void main() {\n"
+"  gl_FragColor = vec4(1.0f, 0.7f, 0.0f, 1.0f);\n"
 "}\n";
 
 GLuint
@@ -552,7 +571,9 @@ size_t object_drawable_first_empty = 1; // 0 used for errors.
 
 struct object {
     struct object_drawable * drawable;
-    mat4x4 model;
+    mat4x4 model_current;   // Matrix controlling actual changes on-screen.
+    mat4x4 model_next_step; // Matrix with next physics tick applied.
+    mat4x4 model_assign;    // Matrix result that will be assigned to current.
     vec3 velocity;
     GLuint program;
     vec3 bounds[8];
@@ -561,6 +582,12 @@ struct object {
 #define MAX_OBJECTS 900
 struct object r_objects[MAX_OBJECTS] = {0};
 size_t object_first_empty = 1; // 0 used for errors.
+
+struct object *
+object_get(GLuint id)
+{
+    return &r_objects[id];
+}
 
 GLuint
 get_id_drawable_object(void)
@@ -573,7 +600,9 @@ get_id_drawable_object(void)
     r_objects[id].program = program_default;
     /* Set model to unity matrix. */
     for (size_t i=0; i<4; i++) {
-        r_objects[id].model[i][i] = 1.0f;
+        r_objects[id].model_current[i][i] = 1.0f;
+        r_objects[id].model_next_step[i][i] = 1.0f;
+        r_objects[id].model_assign[i][i] = 1.0f;
     }
     return id;
 }
@@ -869,7 +898,7 @@ object_set_program(GLuint id_object, GLuint id_program)
 void
 object_translate_to(mat4x4 m, GLuint id_object, vec3 direction)
 {
-    GLfloat * model = r_objects[id_object].model[0];
+    GLfloat * model = r_objects[id_object].model_current[0];
     for (size_t i=0; i<3; i++) {
         m[3][i] = model[12+i] + direction[i];
     }
@@ -878,28 +907,28 @@ object_translate_to(mat4x4 m, GLuint id_object, vec3 direction)
 void
 object_translate(GLuint id_object, vec3 direction)
 {
-    mat4x4 * m = &r_objects[id_object].model;
+    mat4x4 * m = &r_objects[id_object].model_current;
     object_translate_to(*m, id_object, direction);
 }
 
 void
 object_rotate_x(GLuint id_object, GLfloat angle)
 {
-    mat4x4 * m = &r_objects[id_object].model;
+    mat4x4 * m = &r_objects[id_object].model_current;
     mat4x4_rotate_X(*m, *m, angle);
 }
 
 void
 object_rotate_y(GLuint id_object, GLfloat angle)
 {
-    mat4x4 * m = &r_objects[id_object].model;
+    mat4x4 * m = &r_objects[id_object].model_current;
     mat4x4_rotate_Y(*m, *m, angle);
 }
 
 void
 object_rotate_z(GLuint id_object, GLfloat angle)
 {
-    mat4x4 * m = &r_objects[id_object].model;
+    mat4x4 * m = &r_objects[id_object].model_current;
     mat4x4_rotate_Z(*m, *m, angle);
 }
 
@@ -920,11 +949,157 @@ object_velocity_add(GLuint id_object, vec3 velocity)
 }
 
 void
-object_velocity_tick(GLuint id_object)
+object_physics_tick(GLuint id_object)
 {
     vec3 scaled_velocity = {0};
-    vec3_scale(scaled_velocity, r_objects[id_object].velocity, time_delta);
-    object_translate(id_object, scaled_velocity);
+    struct object * object = &r_objects[id_object];
+    mat4x4_dup(object->model_assign, object->model_current);
+    vec3_scale(scaled_velocity, object->velocity, time_delta);
+    object_translate_to(object->model_next_step, id_object, scaled_velocity);
+}
+
+GLboolean
+bounds_point_intesects(vec3 point, GLfloat min_max_coords[6])
+{
+    GLfloat px = point[0];
+    GLfloat py = point[1];
+    GLfloat pz = point[2];
+
+    GLfloat min_cx = min_max_coords[0];
+    GLfloat max_cx = min_max_coords[1];
+    GLfloat min_cy = min_max_coords[2];
+    GLfloat max_cy = min_max_coords[3];
+    GLfloat min_cz = min_max_coords[4];
+    GLfloat max_cz = min_max_coords[5];
+
+    if (px < min_cx || px > max_cx) {
+        return GL_FALSE;
+    }
+
+    if (py < min_cy || py > max_cy) {
+        return GL_FALSE;
+    }
+
+    if (pz < min_cz || py > max_cz) {
+        return GL_FALSE;
+    }
+
+    return GL_TRUE;
+}
+
+GLboolean
+bounds_intersect(vec3 bounds_a[8], vec3 bounds_b[8])
+{
+    GLfloat cx = bounds_b[0][0];
+    GLfloat cy = bounds_b[0][1];
+    GLfloat cz = bounds_b[0][2];
+
+    GLfloat cx_max = cx;
+    GLfloat cx_min = cx;
+
+    GLfloat cy_max = cy;
+    GLfloat cy_min = cy;
+
+    GLfloat cz_max = cz;
+    GLfloat cz_min = cz;
+
+    for (size_t i=1; i<8; i++) {
+        cx = bounds_b[i][0];
+        cy = bounds_b[i][1];
+        cz = bounds_b[i][2];
+
+        if (cx > cx_max) {
+            cx_max = cx;
+        }
+        if (cx < cx_min) {
+            cx_min = cx;
+        }
+
+        if (cy > cy_max) {
+            cy_max = cy;
+        }
+        if (cy < cy_min) {
+            cy_min = cy;
+        }
+
+        if (cz > cz_max) {
+            cz_max = cz;
+        }
+        if (cz < cz_min) {
+            cz_min = cz;
+        }
+    }
+
+    GLfloat min_max_coords[] = {
+        cx_min, cx_max,
+        cy_min, cy_max,
+        cz_min, cz_max,
+    };
+
+    for (size_t i=0; i<8; i++) {
+        if (bounds_point_intesects(bounds_a[i], min_max_coords)) {
+            return GL_TRUE;
+        }
+    }
+    return GL_FALSE;
+}
+
+GLboolean
+object_bounds_intersect(GLuint id_a, GLuint id_b)
+{
+    struct object * a = object_get(id_a);
+    struct object * b = object_get(id_b);
+
+    vec3 bounds_world_a[8] = {0};
+    vec3 bounds_world_b[8] = {0};
+
+    vec3 * bounds_a = a->bounds;
+    vec3 * bounds_b = b->bounds;
+
+    mat4x4 * model_a = &a->model_next_step;
+    mat4x4 * model_b = &b->model_next_step;
+
+    /* Remember that current matrices are in column major order.
+     * Or rather, they have to be since all vectors are row-vectors. */
+    for (size_t i=0; i<8; i++) {
+        vec3 * bound_point_a_current = bounds_a+i;
+        vec3 * bound_point_b_current = bounds_b+i;
+
+        vec3 * bound_point_wa = &bounds_world_a[i];
+        vec3 * bound_point_wb = &bounds_world_b[i];
+        for (size_t j=0; j<3; j++) {
+            GLfloat * bound_wa_value = &(*bound_point_wa)[j];
+            GLfloat * bound_wb_value = &(*bound_point_wb)[j];
+            for (size_t k=0; k<3; k++) {
+                *bound_wa_value += (*bound_point_a_current)[k] * (*model_a)[j][k];
+                *bound_wb_value += (*bound_point_b_current)[k] * (*model_b)[j][k];
+            }
+            *bound_wa_value += (*model_a)[3][j];
+            *bound_wb_value += (*model_b)[3][j];
+        }
+    }
+
+    return bounds_intersect(bounds_world_a, bounds_world_b);
+}
+
+void
+object_physics_resolve_collisions(GLuint id_object, GLuint id_floor)
+{
+    if (id_object == id_floor) {
+        return;
+    }
+    /* Only check against floor. */
+    if (!object_bounds_intersect(id_object, id_floor)) {
+        struct object * object = object_get(id_object);
+        mat4x4_dup(object->model_assign, object->model_next_step);
+    }
+}
+
+void
+object_physics_finalize_state(GLuint id_object)
+{
+    struct object * object = object_get(id_object);
+    mat4x4_dup(object->model_current, object->model_assign);
 }
 
 int
@@ -942,6 +1117,9 @@ main(void)
     GLuint program_pink = get_program(source_shader_vertex,
             source_shader_fragment_pink);
 
+    program_bounding_boxes = get_program(source_shader_vertex_raw,
+            source_shader_fragment_orange);
+
     const GLchar * filename_obj = "cube.obj";
     GLuint id_cube = object_from_obj(filename_obj);
     if (id_cube < 1) {
@@ -951,30 +1129,30 @@ main(void)
     }
     object_set_program(id_cube, program_pink);
 
-    filename_obj = "suzanne.obj";
-    GLuint id_suzanne = object_from_obj(filename_obj);
-    if (id_suzanne < 1) {
-        fprintf(stderr, "Error on loading %s from disk, aborting.\n",
-                filename_obj);
-        return EXIT_FAILURE;
-    }
-    object_set_program(id_suzanne, program_green);
+ //   filename_obj = "suzanne.obj";
+ //   GLuint id_suzanne = object_from_obj(filename_obj);
+ //   if (id_suzanne < 1) {
+ //       fprintf(stderr, "Error on loading %s from disk, aborting.\n",
+ //               filename_obj);
+ //       return EXIT_FAILURE;
+ //   }
+ //   object_set_program(id_suzanne, program_green);
 
-    filename_obj = "sphere.obj";
-    GLuint id_sphere = object_from_obj(filename_obj);
-    if (id_sphere < 1) {
-        fprintf(stderr, "Error on loading %s from disk, aborting.\n",
-                filename_obj);
-        return EXIT_FAILURE;
-    }
-    object_set_program(id_sphere, program_blue);
+ //   filename_obj = "sphere.obj";
+ //   GLuint id_sphere = object_from_obj(filename_obj);
+ //   if (id_sphere < 1) {
+ //       fprintf(stderr, "Error on loading %s from disk, aborting.\n",
+ //               filename_obj);
+ //       return EXIT_FAILURE;
+ //   }
+ //   object_set_program(id_sphere, program_blue);
 
-    GLuint id_plane = object_create_plane(4.0f, 4.0f);
-    if (id_plane < 1) {
-        fprintf(stderr, "Error creating plane, aborting.\n");
-        return EXIT_FAILURE;
-    }
-    object_set_program(id_plane, program_red);
+ //   GLuint id_plane = object_create_plane(4.0f, 4.0f);
+ //   if (id_plane < 1) {
+ //       fprintf(stderr, "Error creating plane, aborting.\n");
+ //       return EXIT_FAILURE;
+ //   }
+ //   object_set_program(id_plane, program_red);
 
     GLuint id_floor = object_create_plane(10.0f, 10.0f);
     if (id_floor < 1) {
@@ -984,17 +1162,17 @@ main(void)
     object_set_program(id_floor, program_blue);
     object_translate(id_floor, (vec3){0.0f, -4.0f, 0.0f});
 
-    object_translate(id_plane, (vec3){1.0f, 1.0f, 1.0f});
+ //   object_translate(id_plane, (vec3){1.0f, 1.0f, 1.0f});
     object_translate(id_cube, (vec3){2.4f, -1.3f, 0.0f});
-    object_translate(id_suzanne, (vec3){0.0f, 0.0f, 3.0f});
-    object_translate(id_sphere, (vec3){-2.0f, -1.0f, 0.0f});
+ //   object_translate(id_suzanne, (vec3){0.0f, 0.0f, 3.0f});
+ //   object_translate(id_sphere, (vec3){-2.0f, -1.0f, 0.0f});
 
     /* Set object velocity. */
     GLfloat force_gravity = 0.5f;
-    object_velocity_set(id_plane, (vec3){0.0f, -force_gravity, 0.0f});
+//    object_velocity_set(id_plane, (vec3){0.0f, -force_gravity, 0.0f});
     object_velocity_set(id_cube, (vec3){0.0f, -force_gravity, 0.0f});
-    object_velocity_set(id_suzanne, (vec3){0.0f, -force_gravity, 0.0f});
-    object_velocity_set(id_sphere, (vec3){0.0f, -force_gravity, 0.0f});
+//    object_velocity_set(id_suzanne, (vec3){0.0f, -force_gravity, 0.0f});
+//    object_velocity_set(id_sphere, (vec3){0.0f, -force_gravity, 0.0f});
 
     glfwSetKeyCallback(window, callback_key_method);
     glfwSetCursorPosCallback(window, callback_mouse_position_method);
@@ -1062,15 +1240,25 @@ main(void)
         mat4x4_look_at(m4_view, vec3_camera_position, vec3_camera_center,
                 vec3_camera_up);
 
+        /* Resolve next physics-step for all objects. */
+        for (size_t i=1; i<object_first_empty; i++) {
+            /* Tick physics. */
+            object_physics_tick(i);
+        }
+
+        /* Resolve current collisions for all objects. */
+        for (size_t i=1; i<object_first_empty; i++) {
+            object_physics_resolve_collisions(i, id_floor);
+        }
+
         /* Re-calculate mvp matrix for all objects. */
         for (size_t i=1; i<object_first_empty; i++) {
 
             struct object * object = &r_objects[i];
 
-            /* Tick velocity. */
-//            object_velocity_tick(i);
+            object_physics_finalize_state(i);
 
-            mat4x4_mul(m4_mvp, m4_view, object->model);
+            mat4x4_mul(m4_mvp, m4_view, object->model_current);
             mat4x4_mul(m4_mvp, m4_projection, m4_mvp);
 
             glUseProgram(object->program);

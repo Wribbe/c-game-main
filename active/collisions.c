@@ -676,8 +676,8 @@ object_create_bounds(struct object * object)
 
     for(; vertices < stop; vertices += 3) {
         GLfloat x = *vertices;
-        GLfloat y = *vertices+1;
-        GLfloat z = *vertices+2;
+        GLfloat y = *(vertices+1);
+        GLfloat z = *(vertices+2);
 
         if (x > max_x) {
             max_x = x;

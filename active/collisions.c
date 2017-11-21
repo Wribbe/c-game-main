@@ -22,12 +22,18 @@ GLuint indices_bound[] = {
     0, 1, // Front top line.
     1, 3, // Front right line.
     3, 2, // Front bottom line.
-    2, 1, // Front left line.
+    2, 0, // Front left line.
     // Back face.
-    3, 4, // Back top line.
-    4, 7, // Back right line.
+    4, 5, // Back top line.
+    5, 7, // Back right line.
     7, 6, // Back bottom line.
-    6, 5, // Back left line.
+    6, 4, // Back left line.
+    // Complete Bottom face.
+    2, 6, // Bottom left line.
+    3, 7, // Bottom right line.
+    // Complete Top face.
+    0, 4, // Top left line.
+    1, 5, // Top right line.
 };
 GLuint vao_bound = 0;
 
@@ -696,14 +702,14 @@ object_create_bounds(struct object * object)
 
     }
     vec3 bounds[] = {
-        {min_x, max_y, min_z}, // #0 Front Top Left.
-        {max_x, max_y, min_z}, // #1 Front Top Right.
-        {min_x, min_y, min_z}, // #2 Front Bottom Left.
-        {max_x, min_y, min_z}, // #3 Front Bottom Right.
-        {min_x, max_y, max_z}, // #4 Back Top Left.
-        {max_x, max_y, max_z}, // #5 Back Top Right.
-        {min_x, min_y, max_z}, // #6 Back Bottom Left.
-        {max_x, min_y, max_z}, // #7 Back Bottom Right.
+        {min_x, max_y, max_z}, // #0 Front Top Left.
+        {max_x, max_y, max_z}, // #1 Front Top Right.
+        {min_x, min_y, max_z}, // #2 Front Bottom Left.
+        {max_x, min_y, max_z}, // #3 Front Bottom Right.
+        {min_x, max_y, min_z}, // #4 Back Top Left.
+        {max_x, max_y, min_z}, // #5 Back Top Right.
+        {min_x, min_y, min_z}, // #6 Back Bottom Left.
+        {max_x, min_y, min_z}, // #7 Back Bottom Right.
     };
     memcpy(object->bounds, bounds, 8*sizeof(vec3));
 }
@@ -767,16 +773,24 @@ object_from_obj(const GLchar * filename)
 }
 
 GLuint vbo_bound_vertices = 0;
+GLuint vbo_bound_indices = 0;
 
 void
 draw_object(GLuint id_object)
 {
     struct object * object = &r_objects[id_object];
+
+    /* Draw triangles. */
     glBindVertexArray(object->drawable->vao);
     glUseProgram(object->program);
     glDrawElements(GL_TRIANGLES, object->drawable->num_indices, GL_UNSIGNED_INT, NULL);
+
+    /* Draw bounding box. */
     glBindVertexArray(vao_bound);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_bound_vertices);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vec3)*8, object->bounds[0], GL_STATIC_DRAW);
     glDrawElements(GL_LINES, SIZE(indices_bound), GL_UNSIGNED_INT, NULL);
+
     glBindVertexArray(0);
 }
 
@@ -993,34 +1007,31 @@ main(void)
     double time_prev = glfwGetTime();
     double time_now = 0;
 
-    /* Setup bounding box display vao. */
-    glGenVertexArrays(1, &vao_bound);
-    glBindVertexArray(vao_bound);
+    /* Enable depth testing. */
+    glEnable(GL_DEPTH_TEST);
 
+    /* Create vertex array and buffer objects. */
+    glGenVertexArrays(1, &vao_bound);
+    glGenBuffers(1, &vbo_bound_indices);
+    glGenBuffers(1, &vbo_bound_vertices);
+
+    /* Bind the objects to the correct targets. */
+    glBindVertexArray(vao_bound);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_bound_vertices);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_bound_indices);
+
+    /* Set vertex attribute pointer. */
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(0);
 
-    /* Bind and fill GL_ELEMENT_ARRAY_BUFFER. */
-    GLuint vbo_indice_bound = 0;
-    glGenBuffers(1, &vbo_indice_bound);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_indice_bound);
+    /* Fill indices buffer with index data. */
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices_bound), indices_bound,
             GL_STATIC_DRAW);
 
-    /* Create buffer handle for dumping individual bound box data. */
-    glGenBuffers(1, &vbo_bound_vertices);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_bound_vertices);
-
-
-    /* Unbind vertex array. */
+    /* Unbind all object targets. */
     glBindVertexArray(0);
-
-    /* Unbind buffers. */
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    /* Enable depth testing. */
-    glEnable(GL_DEPTH_TEST);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -1057,7 +1068,7 @@ main(void)
             struct object * object = &r_objects[i];
 
             /* Tick velocity. */
-            object_velocity_tick(i);
+//            object_velocity_tick(i);
 
             mat4x4_mul(m4_mvp, m4_view, object->model);
             mat4x4_mul(m4_mvp, m4_projection, m4_mvp);

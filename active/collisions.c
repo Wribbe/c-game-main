@@ -18,7 +18,6 @@
 double time_delta = 0.0f;
 
 GLuint program_default = 0;
-GLuint program_bounding_boxes = 0;
 
 GLuint indices_bound[] = {
     // Front face.
@@ -89,15 +88,6 @@ const GLchar * source_shader_vertex =
 "\n"
 "void main() {\n"
 "  gl_Position = m4_mvp * vec4(vertex_data, 1.0f);\n"
-"}\n";
-
-const GLchar * source_shader_vertex_raw =
-"#version 330 core\n"
-"\n"
-"layout (location=0) in vec3 vertex_data;\n"
-"\n"
-"void main() {\n"
-"  gl_Position = vec4(vertex_data, 1.0f);\n"
 "}\n";
 
 const GLchar * source_shader_fragment =
@@ -573,10 +563,11 @@ struct object {
     struct object_drawable * drawable;
     mat4x4 model_current;   // Matrix controlling actual changes on-screen.
     mat4x4 model_next_step; // Matrix with next physics tick applied.
-    mat4x4 model_assign;    // Matrix result that will be assigned to current.
+    GLboolean physics_next_tick_valid;
     vec3 velocity;
     GLuint program;
     vec3 bounds[8];
+    vec3 bounds_next_step[8];
 };
 
 #define MAX_OBJECTS 900
@@ -602,7 +593,7 @@ get_id_drawable_object(void)
     for (size_t i=0; i<4; i++) {
         r_objects[id].model_current[i][i] = 1.0f;
         r_objects[id].model_next_step[i][i] = 1.0f;
-        r_objects[id].model_assign[i][i] = 1.0f;
+        r_objects[id].model_next_step[i][i] = 1.0f;
     }
     return id;
 }
@@ -949,137 +940,159 @@ object_velocity_add(GLuint id_object, vec3 velocity)
 }
 
 void
+object_physics_set_next_tick_valid(GLuint id_object)
+{
+    object_get(id_object)->physics_next_tick_valid = GL_TRUE;
+}
+
+void
+object_physics_set_next_tick_invalid(GLuint id_object)
+{
+    object_get(id_object)->physics_next_tick_valid = GL_FALSE;
+}
+
+void
 object_physics_tick(GLuint id_object)
 {
     vec3 scaled_velocity = {0};
     struct object * object = &r_objects[id_object];
-    mat4x4_dup(object->model_assign, object->model_current);
     vec3_scale(scaled_velocity, object->velocity, time_delta);
     object_translate_to(object->model_next_step, id_object, scaled_velocity);
-}
+    object_physics_set_next_tick_invalid(id_object);
 
-GLboolean
-bounds_point_intesects(vec3 point, GLfloat min_max_coords[6])
-{
-    GLfloat px = point[0];
-    GLfloat py = point[1];
-    GLfloat pz = point[2];
-
-    GLfloat min_cx = min_max_coords[0];
-    GLfloat max_cx = min_max_coords[1];
-    GLfloat min_cy = min_max_coords[2];
-    GLfloat max_cy = min_max_coords[3];
-    GLfloat min_cz = min_max_coords[4];
-    GLfloat max_cz = min_max_coords[5];
-
-    if (px < min_cx || px > max_cx) {
-        return GL_FALSE;
-    }
-
-    if (py < min_cy || py > max_cy) {
-        return GL_FALSE;
-    }
-
-    if (pz < min_cz || py > max_cz) {
-        return GL_FALSE;
-    }
-
-    return GL_TRUE;
-}
-
-GLboolean
-bounds_intersect(vec3 bounds_a[8], vec3 bounds_b[8])
-{
-    GLfloat cx = bounds_b[0][0];
-    GLfloat cy = bounds_b[0][1];
-    GLfloat cz = bounds_b[0][2];
-
-    GLfloat cx_max = cx;
-    GLfloat cx_min = cx;
-
-    GLfloat cy_max = cy;
-    GLfloat cy_min = cy;
-
-    GLfloat cz_max = cz;
-    GLfloat cz_min = cz;
-
-    for (size_t i=1; i<8; i++) {
-        cx = bounds_b[i][0];
-        cy = bounds_b[i][1];
-        cz = bounds_b[i][2];
-
-        if (cx > cx_max) {
-            cx_max = cx;
-        }
-        if (cx < cx_min) {
-            cx_min = cx;
-        }
-
-        if (cy > cy_max) {
-            cy_max = cy;
-        }
-        if (cy < cy_min) {
-            cy_min = cy;
-        }
-
-        if (cz > cz_max) {
-            cz_max = cz;
-        }
-        if (cz < cz_min) {
-            cz_min = cz;
+    /* Update bounds with new matrix. */
+    for (size_t i=0; i<8; i++) { // Iterate over bound vertices.
+        for (size_t j=0; j<3; j++) { // Iterate over matrix columns.
+            object->bounds_next_step[i][j] = 0.0f;
+            for (size_t k=0; k<3; k++) { // Iterate over matrix rows.
+                object->bounds_next_step[i][j] += object->bounds[i][k] *
+                    object->model_next_step[j][k];
+            }
+            object->bounds_next_step[i][j] += object->model_next_step[3][j];
         }
     }
-
-    GLfloat min_max_coords[] = {
-        cx_min, cx_max,
-        cy_min, cy_max,
-        cz_min, cz_max,
-    };
-
-    for (size_t i=0; i<8; i++) {
-        if (bounds_point_intesects(bounds_a[i], min_max_coords)) {
-            return GL_TRUE;
-        }
-    }
-    return GL_FALSE;
 }
 
 GLboolean
 object_bounds_intersect(GLuint id_a, GLuint id_b)
 {
-    struct object * a = object_get(id_a);
-    struct object * b = object_get(id_b);
+    struct object * obj_a = object_get(id_a);
+    struct object * obj_b = object_get(id_b);
 
-    vec3 bounds_world_a[8] = {0};
-    vec3 bounds_world_b[8] = {0};
+    GLfloat a_max_x = obj_a->bounds_next_step[0][0];
+    GLfloat a_max_y = obj_a->bounds_next_step[0][1];
+    GLfloat a_max_z = obj_a->bounds_next_step[0][2];
 
-    vec3 * bounds_a = a->bounds;
-    vec3 * bounds_b = b->bounds;
+    GLfloat b_max_x = obj_b->bounds_next_step[0][0];
+    GLfloat b_max_y = obj_b->bounds_next_step[0][1];
+    GLfloat b_max_z = obj_b->bounds_next_step[0][2];
 
-    mat4x4 * model_a = &a->model_next_step;
-    mat4x4 * model_b = &b->model_next_step;
+    GLfloat a_min_x = obj_a->bounds_next_step[0][0];
+    GLfloat a_min_y = obj_a->bounds_next_step[0][1];
+    GLfloat a_min_z = obj_a->bounds_next_step[0][2];
 
-    /* Remember that current matrices are in column major order.
-     * Or rather, they have to be since all vectors are row-vectors. */
-    for (size_t i=0; i<8; i++) {
-        vec3 * bound_point_a_current = bounds_a+i;
-        vec3 * bound_point_b_current = bounds_b+i;
+    GLfloat b_min_x = obj_b->bounds_next_step[0][0];
+    GLfloat b_min_y = obj_b->bounds_next_step[0][1];
+    GLfloat b_min_z = obj_b->bounds_next_step[0][2];
 
-        vec3 * bound_point_wa = &bounds_world_a[i];
-        vec3 * bound_point_wb = &bounds_world_b[i];
-        for (size_t j=0; j<3; j++) {
-            GLfloat * bound_wa_value = &(*bound_point_wa)[j];
-            GLfloat * bound_wb_value = &(*bound_point_wb)[j];
-            for (size_t k=0; k<3; k++) {
-                *bound_wa_value += (*bound_point_a_current)[k] * (*model_a)[j][k];
-                *bound_wb_value += (*bound_point_b_current)[k] * (*model_b)[j][k];
-            }
-            *bound_wa_value += (*model_a)[3][j];
-            *bound_wb_value += (*model_b)[3][j];
+    for (size_t i=1; i<8; i++) {
+        GLfloat a_x = obj_a->bounds_next_step[i][0];
+        GLfloat a_y = obj_a->bounds_next_step[i][1];
+        GLfloat a_z = obj_a->bounds_next_step[i][2];
+
+        GLfloat b_x = obj_b->bounds_next_step[i][0];
+        GLfloat b_y = obj_b->bounds_next_step[i][1];
+        GLfloat b_z = obj_b->bounds_next_step[i][2];
+
+        if (a_x > a_max_x) {
+            a_max_x = a_x;
+        }
+        if (a_x < a_min_x) {
+            a_min_x = a_x;
+        }
+
+        if (a_y > a_max_y) {
+            a_max_y = a_y;
+        }
+        if (a_y < a_min_y) {
+            a_min_y = a_y;
+        }
+
+        if (a_z > a_max_z) {
+            a_max_z = a_z;
+        }
+        if (a_z < a_min_z) {
+            a_min_z = a_z;
+        }
+
+        if (b_x > b_max_x) {
+            b_max_x = b_x;
+        }
+        if (b_x < b_min_x) {
+            b_min_x = b_x;
+        }
+
+        if (b_y > b_max_y) {
+            b_max_y = b_y;
+        }
+        if (b_y < b_min_y) {
+            b_min_y = b_y;
+        }
+
+        if (b_z > b_max_z) {
+            b_max_z = b_z;
+        }
+        if (b_z < b_min_z) {
+            b_min_z = b_z;
         }
     }
 
-    return bounds_intersect(bounds_world_a, bounds_world_b);
+    GLfloat min_diff = 1e-3;
+    GLfloat h_min_diff = min_diff;
+
+    if (a_max_x - a_min_x < min_diff) {
+        a_max_x += h_min_diff;
+        a_min_x -= h_min_diff;
+    }
+
+    if (a_max_y - a_min_y < min_diff) {
+        a_max_y += h_min_diff;
+        a_min_y -= h_min_diff;
+    }
+
+    if (a_max_z - a_min_z < min_diff) {
+        a_max_z += h_min_diff;
+        a_min_z -= h_min_diff;
+    }
+
+    if (b_max_x - b_min_x < min_diff) {
+        b_max_x += h_min_diff;
+        b_min_x -= h_min_diff;
+    }
+
+    if (b_max_y - b_min_y < min_diff) {
+        b_max_y += h_min_diff;
+        b_min_y -= h_min_diff;
+    }
+
+    if (b_max_z - b_min_z < min_diff) {
+        b_max_z += h_min_diff;
+        b_min_z -= h_min_diff;
+    }
+
+    if (b_min_x - a_max_x > min_diff || a_min_x - b_max_x > min_diff) {
+        return GL_FALSE;
+    }
+
+    if (b_min_y - a_max_y > min_diff || a_min_y - b_max_y > min_diff) {
+        return GL_FALSE;
+    }
+
+    if (b_min_z - a_max_z > min_diff || a_min_z - b_max_z > min_diff) {
+        return GL_FALSE;
+    }
+
+    return GL_TRUE;
 }
 
 void
@@ -1090,8 +1103,7 @@ object_physics_resolve_collisions(GLuint id_object, GLuint id_floor)
     }
     /* Only check against floor. */
     if (!object_bounds_intersect(id_object, id_floor)) {
-        struct object * object = object_get(id_object);
-        mat4x4_dup(object->model_assign, object->model_next_step);
+        object_physics_set_next_tick_valid(id_object);
     }
 }
 
@@ -1099,7 +1111,9 @@ void
 object_physics_finalize_state(GLuint id_object)
 {
     struct object * object = object_get(id_object);
-    mat4x4_dup(object->model_current, object->model_assign);
+    if (object->physics_next_tick_valid) {
+        mat4x4_dup(object->model_current, object->model_next_step);
+    }
 }
 
 int
@@ -1116,8 +1130,7 @@ main(void)
             source_shader_fragment_blue);
     GLuint program_pink = get_program(source_shader_vertex,
             source_shader_fragment_pink);
-
-    program_bounding_boxes = get_program(source_shader_vertex_raw,
+    GLuint program_orange = get_program(source_shader_vertex,
             source_shader_fragment_orange);
 
     const GLchar * filename_obj = "cube.obj";
@@ -1129,50 +1142,50 @@ main(void)
     }
     object_set_program(id_cube, program_pink);
 
- //   filename_obj = "suzanne.obj";
- //   GLuint id_suzanne = object_from_obj(filename_obj);
- //   if (id_suzanne < 1) {
- //       fprintf(stderr, "Error on loading %s from disk, aborting.\n",
- //               filename_obj);
- //       return EXIT_FAILURE;
- //   }
- //   object_set_program(id_suzanne, program_green);
+    filename_obj = "suzanne.obj";
+    GLuint id_suzanne = object_from_obj(filename_obj);
+    if (id_suzanne < 1) {
+        fprintf(stderr, "Error on loading %s from disk, aborting.\n",
+                filename_obj);
+        return EXIT_FAILURE;
+    }
+    object_set_program(id_suzanne, program_green);
 
- //   filename_obj = "sphere.obj";
- //   GLuint id_sphere = object_from_obj(filename_obj);
- //   if (id_sphere < 1) {
- //       fprintf(stderr, "Error on loading %s from disk, aborting.\n",
- //               filename_obj);
- //       return EXIT_FAILURE;
- //   }
- //   object_set_program(id_sphere, program_blue);
+    filename_obj = "sphere.obj";
+    GLuint id_sphere = object_from_obj(filename_obj);
+    if (id_sphere < 1) {
+        fprintf(stderr, "Error on loading %s from disk, aborting.\n",
+                filename_obj);
+        return EXIT_FAILURE;
+    }
+    object_set_program(id_sphere, program_blue);
 
- //   GLuint id_plane = object_create_plane(4.0f, 4.0f);
- //   if (id_plane < 1) {
- //       fprintf(stderr, "Error creating plane, aborting.\n");
- //       return EXIT_FAILURE;
- //   }
- //   object_set_program(id_plane, program_red);
+    GLuint id_plane = object_create_plane(4.0f, 4.0f);
+    if (id_plane < 1) {
+        fprintf(stderr, "Error creating plane, aborting.\n");
+        return EXIT_FAILURE;
+    }
+    object_set_program(id_plane, program_red);
 
     GLuint id_floor = object_create_plane(10.0f, 10.0f);
     if (id_floor < 1) {
         fprintf(stderr, "Error creating floor, aborting.\n");
         return EXIT_FAILURE;
     }
-    object_set_program(id_floor, program_blue);
+    object_set_program(id_floor, program_orange);
     object_translate(id_floor, (vec3){0.0f, -4.0f, 0.0f});
 
- //   object_translate(id_plane, (vec3){1.0f, 1.0f, 1.0f});
+    object_translate(id_plane, (vec3){1.0f, 1.0f, 1.0f});
     object_translate(id_cube, (vec3){2.4f, -1.3f, 0.0f});
- //   object_translate(id_suzanne, (vec3){0.0f, 0.0f, 3.0f});
- //   object_translate(id_sphere, (vec3){-2.0f, -1.0f, 0.0f});
+    object_translate(id_suzanne, (vec3){0.0f, 0.0f, 3.0f});
+    object_translate(id_sphere, (vec3){-2.0f, -1.0f, 0.0f});
 
     /* Set object velocity. */
     GLfloat force_gravity = 0.5f;
-//    object_velocity_set(id_plane, (vec3){0.0f, -force_gravity, 0.0f});
+    object_velocity_set(id_plane, (vec3){0.0f, -force_gravity, 0.0f});
     object_velocity_set(id_cube, (vec3){0.0f, -force_gravity, 0.0f});
-//    object_velocity_set(id_suzanne, (vec3){0.0f, -force_gravity, 0.0f});
-//    object_velocity_set(id_sphere, (vec3){0.0f, -force_gravity, 0.0f});
+    object_velocity_set(id_suzanne, (vec3){0.0f, -force_gravity, 0.0f});
+    object_velocity_set(id_sphere, (vec3){0.0f, -force_gravity, 0.0f});
 
     glfwSetKeyCallback(window, callback_key_method);
     glfwSetCursorPosCallback(window, callback_mouse_position_method);

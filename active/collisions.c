@@ -1130,8 +1130,8 @@ main(void)
             source_shader_fragment_blue);
     GLuint program_pink = get_program(source_shader_vertex,
             source_shader_fragment_pink);
-    GLuint program_orange = get_program(source_shader_vertex,
-            source_shader_fragment_orange);
+//    GLuint program_orange = get_program(source_shader_vertex,
+//            source_shader_fragment_orange);
 
     const GLchar * filename_obj = "cube.obj";
     GLuint id_cube = object_from_obj(filename_obj);
@@ -1165,7 +1165,7 @@ main(void)
         fprintf(stderr, "Error creating floor, aborting.\n");
         return EXIT_FAILURE;
     }
-    object_set_program(id_floor, program_orange);
+    object_set_program(id_floor, program_red);
     object_translate(id_floor, (vec3){0.0f, -4.0f, 0.0f});
 
     object_translate(id_cube, (vec3){2.4f, -1.3f, 0.0f});

@@ -1047,48 +1047,48 @@ object_bounds_intersect(GLuint id_a, GLuint id_b)
         }
     }
 
-    GLfloat min_diff = 1e-3;
-    GLfloat h_min_diff = min_diff;
+    GLfloat diff_min = 1e-3;
+//    GLfloat h_diff_min = diff_min*1.2f;
+//
+//    if (a_max_x - a_min_x < diff_min) {
+//        a_max_x += h_diff_min;
+//        a_min_x -= h_diff_min;
+//    }
+//
+//    if (a_max_y - a_min_y < diff_min) {
+//        a_max_y += h_diff_min;
+//        a_min_y -= h_diff_min;
+//    }
+//
+//    if (a_max_z - a_min_z < diff_min) {
+//        a_max_z += h_diff_min;
+//        a_min_z -= h_diff_min;
+//    }
+//
+//    if (b_max_x - b_min_x < diff_min) {
+//        b_max_x += h_diff_min;
+//        b_min_x -= h_diff_min;
+//    }
+//
+//    if (b_max_y - b_min_y < diff_min) {
+//        b_max_y += h_diff_min;
+//        b_min_y -= h_diff_min;
+//    }
+//
+//    if (b_max_z - b_min_z < diff_min) {
+//        b_max_z += h_diff_min;
+//        b_min_z -= h_diff_min;
+//    }
 
-    if (a_max_x - a_min_x < min_diff) {
-        a_max_x += h_min_diff;
-        a_min_x -= h_min_diff;
-    }
-
-    if (a_max_y - a_min_y < min_diff) {
-        a_max_y += h_min_diff;
-        a_min_y -= h_min_diff;
-    }
-
-    if (a_max_z - a_min_z < min_diff) {
-        a_max_z += h_min_diff;
-        a_min_z -= h_min_diff;
-    }
-
-    if (b_max_x - b_min_x < min_diff) {
-        b_max_x += h_min_diff;
-        b_min_x -= h_min_diff;
-    }
-
-    if (b_max_y - b_min_y < min_diff) {
-        b_max_y += h_min_diff;
-        b_min_y -= h_min_diff;
-    }
-
-    if (b_max_z - b_min_z < min_diff) {
-        b_max_z += h_min_diff;
-        b_min_z -= h_min_diff;
-    }
-
-    if (b_min_x - a_max_x > min_diff || a_min_x - b_max_x > min_diff) {
+    if (b_min_x - a_max_x > diff_min || a_min_x - b_max_x > diff_min) {
         return GL_FALSE;
     }
 
-    if (b_min_y - a_max_y > min_diff || a_min_y - b_max_y > min_diff) {
+    if (b_min_y - a_max_y > diff_min || a_min_y - b_max_y > diff_min) {
         return GL_FALSE;
     }
 
-    if (b_min_z - a_max_z > min_diff || a_min_z - b_max_z > min_diff) {
+    if (b_min_z - a_max_z > diff_min || a_min_z - b_max_z > diff_min) {
         return GL_FALSE;
     }
 
@@ -1160,13 +1160,6 @@ main(void)
     }
     object_set_program(id_sphere, program_blue);
 
-    GLuint id_plane = object_create_plane(4.0f, 4.0f);
-    if (id_plane < 1) {
-        fprintf(stderr, "Error creating plane, aborting.\n");
-        return EXIT_FAILURE;
-    }
-    object_set_program(id_plane, program_red);
-
     GLuint id_floor = object_create_plane(10.0f, 10.0f);
     if (id_floor < 1) {
         fprintf(stderr, "Error creating floor, aborting.\n");
@@ -1175,14 +1168,12 @@ main(void)
     object_set_program(id_floor, program_orange);
     object_translate(id_floor, (vec3){0.0f, -4.0f, 0.0f});
 
-    object_translate(id_plane, (vec3){1.0f, 1.0f, 1.0f});
     object_translate(id_cube, (vec3){2.4f, -1.3f, 0.0f});
     object_translate(id_suzanne, (vec3){0.0f, 0.0f, 3.0f});
     object_translate(id_sphere, (vec3){-2.0f, -1.0f, 0.0f});
 
     /* Set object velocity. */
-    GLfloat force_gravity = 0.5f;
-    object_velocity_set(id_plane, (vec3){0.0f, -force_gravity, 0.0f});
+    GLfloat force_gravity = 1.3f;
     object_velocity_set(id_cube, (vec3){0.0f, -force_gravity, 0.0f});
     object_velocity_set(id_suzanne, (vec3){0.0f, -force_gravity, 0.0f});
     object_velocity_set(id_sphere, (vec3){0.0f, -force_gravity, 0.0f});
@@ -1239,9 +1230,6 @@ main(void)
 
         /* Rotate objects. */
 
-//        object_rotate_x(id_plane, M_PI/2*time_delta);
-//        object_rotate_z(id_plane, M_PI/2*time_delta);
-//
 //        object_rotate_y(id_suzanne, M_PI/8*time_delta);
 //
 //        object_rotate_x(id_cube, M_PI/3*time_delta);

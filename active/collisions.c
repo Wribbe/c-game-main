@@ -18,6 +18,9 @@
 double time_delta = 0.0f;
 
 GLuint program_default = 0;
+GLuint program_ui = 0;
+
+GLuint texture_checkers = 0;
 
 GLuint indices_bound[] = {
     // Front face.
@@ -90,6 +93,31 @@ const GLchar * source_shader_vertex =
 "  gl_Position = m4_mvp * vec4(vertex_data, 1.0f);\n"
 "}\n";
 
+const GLchar * source_shader_vertex_ui =
+"#version 330 core\n"
+"\n"
+"layout (location=0) in vec3 vertex_data;\n"
+"layout (location=1) in vec2 vertex_coords_uv;\n"
+"\n"
+"out vec2 coords_uv;\n"
+"\n"
+"void main() {\n"
+"  gl_Position = vec4(vertex_data, 1.0f);\n"
+"  coords_uv = vertex_coords_uv;\n"
+"}\n";
+
+const GLchar * source_shader_fragment_ui =
+"#version 330 core\n"
+"\n"
+"uniform sampler2D sampler_texture;\n"
+"\n"
+"in vec2 coords_uv;\n"
+"\n"
+"void main() {\n"
+"  gl_FragColor = texture(sampler_texture, coords_uv);\n"
+"  //gl_FragColor = vec4(coords_uv, 0.0f, 1.0f);\n"
+"}\n";
+
 const GLchar * source_shader_fragment =
 "#version 330 core\n"
 "\n"
@@ -123,13 +151,6 @@ const GLchar * source_shader_fragment_pink =
 "\n"
 "void main() {\n"
 "  gl_FragColor = vec4(1.0f, 0.8f, 0.9f, 1.0f);\n"
-"}\n";
-
-const GLchar * source_shader_fragment_orange =
-"#version 330 core\n"
-"\n"
-"void main() {\n"
-"  gl_FragColor = vec4(1.0f, 0.7f, 0.0f, 1.0f);\n"
 "}\n";
 
 GLuint
@@ -1116,11 +1137,169 @@ object_physics_finalize_state(GLuint id_object)
     }
 }
 
+struct object_ui {
+    GLfloat x;
+    GLfloat y;
+};
+
+#define MAX_OBJECTS_UI 20
+struct object r_ui_objects[MAX_OBJECTS_UI];
+
+GLuint ui_vao = 0;
+
+void
+ui_draw(void)
+{
+    GLfloat ui_vertices[] = {
+        -0.5f, 0.5f, 0.0f, // Top left.
+         0.5f, 0.5f, 0.0f, // Top right.
+         0.5f,-0.5f, 0.0f, // Bottom right.
+        -0.5f,-0.5f, 0.0f, // Bottom left.
+    };
+
+    GLuint ui_indices[] = {
+        0, 3, 1,
+        1, 3, 2,
+    };
+
+    GLfloat ui_tex_coordiates[] = {
+        0.0f, 1.0f,
+        1.0f, 1.0f,
+        1.0f, 0.0f,
+        0.0f, 0.0f,
+    };
+
+    if (ui_vao == 0) { // Create all the buffers.
+
+        GLuint ui_vbo = 0;
+        GLuint ui_veo = 0;
+
+        /* Create and bind vertex array object. */
+        glGenVertexArrays(1, &ui_vao);
+        glBindVertexArray(ui_vao);
+
+        /* Create, bind and populate the array buffer object. */
+        glGenBuffers(1, &ui_vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, ui_vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(ui_vertices), ui_vertices,
+                GL_STATIC_DRAW);
+
+        /* Create, bind and populate the vertex element array object. */
+        glGenBuffers(1, &ui_veo);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ui_veo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(ui_indices), ui_indices,
+                GL_STATIC_DRAW);
+
+        /* Enable vertex attribute pointer. */
+        glVertexAttribPointer(0,
+                3,          // Number of elements.
+                GL_FLOAT,   // Element type.
+                GL_FALSE,   // Normalized data?
+                0,          // Stride.
+                0);         // Offset pointer.
+        glEnableVertexAttribArray(0);
+
+        /* Setup and bind buffer for texture coordinates. */
+        GLuint ui_vbo_texture_uv = 0;
+        glGenBuffers(1, &ui_vbo_texture_uv);
+
+        /* Bind and populate the texture uv buffer object. */
+        glBindBuffer(GL_ARRAY_BUFFER, ui_vbo_texture_uv);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(ui_tex_coordiates),
+                ui_tex_coordiates, GL_STATIC_DRAW);
+
+        /* Setup vertex attribute pointer and enable attribute array. */
+        glVertexAttribPointer(
+                1,          // Attribute location.
+                2,          // Number of elements.
+                GL_FLOAT,   // Data type.
+                GL_FALSE,   // Data normalized?
+                0,          // Stride?
+                NULL        // Data offset pointer.
+        );
+        glEnableVertexAttribArray(1);
+
+        /* Unbind the vertex array object. */
+        glBindVertexArray(0);
+        /* Unbind the buffers. */
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    }
+
+    glUseProgram(program_ui);
+
+    glBindVertexArray(ui_vao);
+
+    glDisable(GL_DEPTH_TEST);
+    glDrawElements(GL_TRIANGLES, SIZE(ui_indices), GL_UNSIGNED_INT, NULL);
+    glEnable(GL_DEPTH_TEST);
+
+    glBindVertexArray(0);
+}
+
+GLuint
+texture_generate_checkers(void)
+{
+    /* Checkers-pattern data. */
+    GLubyte data_texture_checkerboard[] = {
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
+    };
+
+    /* Get texture id. */
+    GLuint id_texture = 0;
+    glGenTextures(1, &id_texture);
+
+    /* Bind the texture. */
+    glBindTexture(GL_TEXTURE_2D, id_texture);
+
+    /* Allocate storage for texture data. */
+    glTexStorage2D(
+            GL_TEXTURE_2D, // Texture target.
+            4,             // Number of mipmap levels.
+            GL_R8,         // Internal texture data format.
+            8,             // Texel width.
+            8              // Texel height.
+    );
+
+    /* Specify the texture data. */
+    glTexSubImage2D(
+            GL_TEXTURE_2D,              // Texture target.
+            0,                          // First mipmap level.
+            0, 0,                       // X and Y offset.
+            8, 8,                       // Texel width and height.
+            GL_RED,                     // Internal data format.
+            GL_UNSIGNED_BYTE,           // Data type.
+            data_texture_checkerboard   // Data pointer.
+    );
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    return id_texture;
+}
+
 int
 main(void)
 {
     GLFWwindow * window = setup_glfw();
+
+    /* Setup programs. */
     program_default = setup_default_shader();
+    program_ui = get_program(source_shader_vertex_ui,
+            source_shader_fragment_ui);
 
     GLuint program_red = get_program(source_shader_vertex,
             source_shader_fragment_red);
@@ -1132,6 +1311,10 @@ main(void)
             source_shader_fragment_pink);
 //    GLuint program_orange = get_program(source_shader_vertex,
 //            source_shader_fragment_orange);
+
+    /* Setup texture. */
+    texture_checkers = texture_generate_checkers();
+
 
     const GLchar * filename_obj = "cube.obj";
     GLuint id_cube = object_from_obj(filename_obj);
@@ -1277,6 +1460,8 @@ main(void)
             draw_object(i);
         }
 
+        /* Draw user interface. */
+        ui_draw();
 
         /* Swap. */
         glfwSwapBuffers(window);
